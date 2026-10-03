@@ -4259,7 +4259,7 @@ function pauseMenu() {
         ['SONIDO: ' + (sound ? 'SÍ' : 'NO'), () => { sound = !sound; pauseMenu(); }],
         ['DÍA / NOCHE: ' + String(dayMode).toUpperCase(), () => { dayMode = dayMode === 'noche' ? 'día' : dayMode === 'día' ? 'ciclo' : 'noche'; pauseMenu(); }],
         ['DIFICULTAD: ' + diffCfg().name, () => difficultyMenu(pauseMenu)],
-        ['DIAL: ' + (dialDocked() ? 'LATERAL' : 'PANTALLA COMPLETA'), () => { dialDockSet(!dialDocked()); pauseMenu(); }],
+        ['DIAL: ' + (dialDocked() ? 'MINI' : 'PANTALLA COMPLETA'), () => { dialDockSet(!dialDocked()); pauseMenu(); }],
         ['MANDO', padHelp],
         ['NUEVA PARTIDA', newGameConfirm, 'danger'],
       ],
@@ -7940,8 +7940,15 @@ function selTick(dt) {
     }
   } else s.p = 1;
   const g = $('#watchsel').getContext('2d');
+  const mini = miniDial(s), cw = mini ? MINI * 2 : 960, chh = mini ? MINI * 2 : 540;
+  if (g.canvas.width !== cw || g.canvas.height !== chh) { g.canvas.width = cw; g.canvas.height = chh; }
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.clearRect(0, 0, g.canvas.width, g.canvas.height);
+  if (mini) { // 0.17: just the watch face with the dial on it (part-40)
+    g.setTransform(2, 0, 0, 2, 0, 0);
+    try { miniDraw(g, s, performance.now()); } catch (e) { console.warn('mini dial', e); }
+    return;
+  }
   g.setTransform(g.canvas.width / SW, 0, 0, g.canvas.height / SH, 0, 0); // 0.15.5: drawn at 2x for sharper art and text
   g.imageSmoothingEnabled = false;
   const dim = s.state === 'OS_FLASH' || /_FLASH$/.test(s.state) ? 0.8 : 0.66;
@@ -7959,12 +7966,14 @@ function selTick(dt) {
 // pointer input on the selector canvas
 function selPoint(e) {
   const c = $('#watchsel'),
-    r = c.getBoundingClientRect();
-  return [((e.clientX - r.left) / r.width) * SW, ((e.clientY - r.top) / r.height) * SH];
+    r = c.getBoundingClientRect(),
+    m = sel && miniDial(sel);
+  return [((e.clientX - r.left) / r.width) * (m ? MINI : SW), ((e.clientY - r.top) / r.height) * (m ? MINI : SH)];
 }
 function selDown(e) {
   if (!sel) return;
   e.preventDefault();
+  if (miniDial(sel)) return miniDown(e);
   const [x, y] = selPoint(e),
     k = SELECTORS[sel.w.selector.type];
   sel.press = { x, y, moved: false };
@@ -7972,6 +7981,7 @@ function selDown(e) {
 }
 function selMoveEv(e) {
   if (!sel || !sel.press) return;
+  if (miniDial(sel)) return miniMove(e);
   const [x, y] = selPoint(e);
   if (Math.hypot(x - sel.press.x, y - sel.press.y) > 6) sel.press.moved = true;
   const k = SELECTORS[sel.w.selector.type];
@@ -7979,6 +7989,7 @@ function selMoveEv(e) {
 }
 function selUp(e) {
   if (!sel) return;
+  if (miniDial(sel)) return miniUp(e);
   const [x, y] = selPoint(e),
     s = sel,
     k = SELECTORS[s.w.selector.type],
@@ -11892,6 +11903,86 @@ function primePose() {
   else primeHold = 0;
   return f < 0 ? null : { row: 30 + player.skin, f, lift: 0 };
 }
+// ---------------- mini dial: only the watch face with the alien dial on it ----------------
+const MINI = 240; // logical size (drawn at 2x)
+const MINI_TYPES = ['ring', 'strip', 'slider', 'wheel']; // Biomnitrix (dual) / Predator keep their full selector
+const MINI_ICON = { prototype: 'os-silhouette', recalibrated: 'af-hologram', ultimatrix: 'af-hologram', albedo: 'ua-red' };
+function miniDial(s) {
+  return !!s && dialDocked() && MINI_TYPES.includes(s.w.selector.type);
+}
+function miniDraw(g, s, now) {
+  const w = s.w, col = w.color || '#7dff9a', n = s.list.length, cx = MINI / 2, cy = 112, R = 92,
+    boot = Math.min(1, (now - s.opened) / 260), ease = 1 - Math.pow(1 - boot, 3),
+    closing = s.phase !== 'open' && !s.interactive && s.t > 0 && s.si > 0 && s.state && /FLASH|SLAM|CONFIRM|PRESS_IN|CLOSE/.test(s.state),
+    style = MINI_ICON[w.id] || 'ov-icon';
+  g.save();
+  g.translate(cx, cy); g.scale(0.55 + 0.45 * ease, 0.55 + 0.45 * ease); g.translate(-cx, -cy);
+  g.globalAlpha = ease;
+  // case
+  g.shadowColor = '#000'; g.shadowBlur = 14;
+  g.beginPath(); g.arc(cx, cy, R + 10, 0, 7); g.fillStyle = '#1b2220'; g.fill();
+  g.shadowBlur = 0;
+  g.lineWidth = 3; g.strokeStyle = '#4d5a55'; g.stroke();
+  // dial ring with ticks that turn as you scroll
+  g.beginPath(); g.arc(cx, cy, R, 0, 7); g.fillStyle = '#0b1310'; g.fill();
+  g.lineWidth = 2.5; g.strokeStyle = col; g.shadowColor = col; g.shadowBlur = 10; g.stroke(); g.shadowBlur = 0;
+  const rot = -s.pos * ((Math.PI * 2) / Math.max(8, n));
+  g.strokeStyle = col; g.globalAlpha = ease * 0.55; g.lineWidth = 2; g.beginPath();
+  for (let i = 0; i < 24; i++) { const a = rot + (i * Math.PI * 2) / 24, l = i % 3 ? 5 : 10; g.moveTo(cx + Math.cos(a) * (R - 3), cy + Math.sin(a) * (R - 3)); g.lineTo(cx + Math.cos(a) * (R - 3 - l), cy + Math.sin(a) * (R - 3 - l)); }
+  g.stroke(); g.globalAlpha = ease;
+  // display window
+  g.save(); g.beginPath(); g.arc(cx, cy, R - 14, 0, 7); g.clip();
+  const bg = g.createRadialGradient(cx, cy, 4, cx, cy, R);
+  bg.addColorStop(0, col + '55'); bg.addColorStop(0.7, '#08120d'); bg.addColorStop(1, '#040806');
+  g.fillStyle = bg; g.fillRect(cx - R, cy - R, R * 2, R * 2);
+  g.fillStyle = 'rgba(0,0,0,.25)'; for (let y = cy - R; y < cy + R; y += 3) g.fillRect(cx - R, y, R * 2, 1);
+  // aliens: current one big in the centre, neighbours sliding off left / right
+  for (let k = -2; k <= 2; k++) {
+    const i = Math.floor(s.pos) + k, d = i - s.pos;
+    if (Math.abs(d) > 1.7 || !n) continue;
+    const size = 96 - Math.min(1, Math.abs(d)) * 46;
+    drawWatchIcon(g, s.list[((i % n) + n) % n], style, cx + d * 62, cy + Math.abs(d) * 6, size, (1 - Math.abs(d) * 0.5) * ease);
+  }
+  g.restore();
+  // arrows
+  if (n > 1) {
+    g.fillStyle = col;
+    for (const sx of [-1, 1]) { const ax = cx + sx * (R + 1); g.beginPath(); g.moveTo(ax + sx * 7, cy); g.lineTo(ax - sx * 3, cy - 8); g.lineTo(ax - sx * 3, cy + 8); g.closePath(); g.fill(); }
+  }
+  // slam flash
+  if (closing) { g.globalAlpha = 0.6 * (1 - s.p); g.beginPath(); g.arc(cx, cy, R, 0, 7); g.fillStyle = col; g.fill(); g.globalAlpha = ease; }
+  g.restore();
+  // name pill
+  if (n) {
+    const id = s.list[((Math.round(s.pos) % n) + n) % n], name = ALIENS[id].name.toUpperCase();
+    g.font = 'bold 12px Arial';
+    const tw = g.measureText(name).width + 22;
+    g.globalAlpha = ease; g.fillStyle = 'rgba(2,8,5,.88)'; g.fillRect(cx - tw / 2, 214, tw, 20);
+    g.strokeStyle = col; g.lineWidth = 1; g.strokeRect(cx - tw / 2 + 0.5, 214.5, tw - 1, 19);
+    g.fillStyle = '#eaf6ea'; g.textAlign = 'center'; g.fillText(name, cx, 228);
+    g.font = 'bold 7px Arial'; g.fillStyle = '#9fb2b4';
+    g.fillText((s.mode === 'swap' ? 'CAMBIO RÁPIDO · ' : '') + '◀ ▶ gira · toca el centro', cx, 11);
+  }
+  g.globalAlpha = 1;
+}
+function miniDown(e) {
+  const [x, y] = selPoint(e);
+  sel.press = { x, y, ox: x, moved: false };
+  try { $('#watchsel').setPointerCapture(e.pointerId); } catch (er) {}
+}
+function miniMove(e) {
+  const [x] = selPoint(e), p = sel.press;
+  if (Math.abs(x - p.ox) > 28) { selMove(x < p.ox ? 1 : -1); p.ox = x; p.moved = true; } // drag to turn the dial
+}
+function miniUp(e) {
+  const s = sel, p = s.press;
+  s.press = null;
+  if (!p || p.moved || !s.interactive) return;
+  const [x, y] = selPoint(e), d = Math.hypot(x - MINI / 2, y - 112);
+  if (d > 108 && y < 210) return selCancel();
+  if (d < 42 || y > 210) return selConfirm(true);
+  selMove(x < MINI / 2 ? -1 : 1);
+}
 // ---------------- side dial ----------------
 function dialDocked() {
   try { return localStorage.getItem('omni-dialdock') !== '0'; } catch (e) { return true; }
@@ -11904,7 +11995,7 @@ let dockSide = 'right';
 function dialDockApply() {
   const g = $('#game');
   if (!g) return;
-  const on = dialDocked() && !!sel;
+  const on = !!sel && miniDial(sel);
   if (sel && !sel.dockSide) sel.dockSide = player.face < 0 ? 'right' : 'left'; // the side the hero is NOT facing
   g.classList.toggle('dock', on);
   g.classList.toggle('dockleft', on && sel && sel.dockSide === 'left');

@@ -112,8 +112,7 @@ button:focus-visible { outline: 2px solid var(--ox); outline-offset: 2px; }
   .attack { height: 78px; }
   .jump-button { transform: scale(1.12); transform-origin: bottom center; }
 }
-/* 0.17 side dial: the watch opens as a panel, the game stays visible */
-#game.dock #watchsel { left: calc(var(--gx) + 520px) !important; top: 120px; width: 430px !important; height: 242px; border: 1px solid #7dff9a66; box-shadow: 0 0 24px #000c, inset 0 0 0 1px #0008; clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px); }
-#game.dock.dockleft #watchsel { left: calc(var(--gx) + 10px) !important; }
-#game.selopen.dock #watchsel { background: rgba(2, 8, 5, .9); }
-#game.selopen.dock #hud { opacity: .45; }
+/* 0.17 mini dial: only the watch face, next to the hero; the game stays fully visible */
+#game.dock #watchsel { left: calc(var(--gx) + 960px - 270px) !important; top: 150px; width: 240px !important; height: 240px; background: none !important; }
+#game.dock.dockleft #watchsel { left: calc(var(--gx) + 30px) !important; }
+#game.selopen.dock #hud { opacity: .85; }
