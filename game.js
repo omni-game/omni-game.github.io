@@ -1,4 +1,4 @@
-window.OMNI_BUILD=41;
+window.OMNI_BUILD=42;
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -9411,6 +9411,14 @@ for (const [watch, art] of Object.entries(WATCH_ART)) {
   if (!prof) continue;
   SFX_FILES[prof] = SFX_FILES[prof] || {};
   for (const [ev, file] of Object.entries(SFX_ROUTES[art])) SFX_FILES[prof][ev] = 'assets/sfx-' + art + '-' + file + '.wav';
+}
+// watches that use a recorded sound set but keep their own face (watch implementation pack: Biomnitrix -> Omniverse sounds)
+const WATCH_SFX_ONLY = { biomnitrix: 'omniverse' };
+for (const [watch, art] of Object.entries(WATCH_SFX_ONLY)) {
+  const prof = WATCHES[watch] && WATCHES[watch].sfxProfile;
+  if (!prof) continue;
+  SFX_FILES[prof] = SFX_FILES[prof] || {};
+  for (const [ev, file] of Object.entries(SFX_ROUTES[art])) if (!SFX_FILES[prof][ev]) SFX_FILES[prof][ev] = 'assets/sfx-' + art + '-' + file + '.wav';
 }
 // one <audio> per file, cloned when the same sound overlaps (fast scroll ticks)
 const sfxPool = {};
