@@ -1,4 +1,4 @@
-window.OMNI_BUILD=47;
+window.OMNI_BUILD=48;
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -11861,36 +11861,204 @@ setInterval(() => {
   } catch (e) {}
 }, 250);
 // ============================================================================================
-// OMNI AUTO-UPDATE (0.17) · the game lives at REMOTE (GitHub Pages). Every copy checks REMOTE/version.json:
-//   · APK: when a newer build is online, the next start loads the game files from REMOTE (the page itself stays the
-//     app's local page, so saves are kept). Offline or if REMOTE fails, the built-in copy is used.
-//   · web (REMOTE in a browser): reload when a newer build has been published.
-//   · OMNI.html on PC: shows a link to the online version.
+// OMNI AUTO-UPDATE (0.19) · the game lives at REMOTE (GitHub Pages). Every copy checks REMOTE/version.json:
+//   · on the title screen a newer build starts the UPDATE SCREEN straight away: animated OMNI logo, "v0.18 → v0.19",
+//     a real download bar (each changed file is fetched into the cache) and the list of what's new. Then it restarts.
+//   · mid-game a banner offers ACTUALIZAR (the game is saved first) — nothing interrupts a fight.
+//   · after the restart a "¡ACTUALIZADO!" card shows the notes once.
+//   · APK / PC app: the next start loads the game files from REMOTE (saves stay local). Offline → the built-in copy.
+//   · OMNI.html (single file) can't replace itself: the banner points to the website instead.
+// version.json = { build, version, notes[], files[[name, bytes]] } (written by build.sh from NOTES.txt)
 // ============================================================================================
 const OMNI_REMOTE = window.OMNI_REMOTE || 'https://omni-game.github.io/';
 const OMNI_BUILD = +(window.OMNI_BUILD || 0);
 window.OMNI_BOOTED = true;
+const updMode = () => (window.__omniSingle ? 'single' : location.protocol === 'file:' ? 'app' : location.href.startsWith(OMNI_REMOTE) ? 'web' : 'other');
+let updBusy = false, updOffer = null;
+function curVersion() {
+  const e = document.querySelector('#menu .eyebrow');
+  const m = e && e.textContent.match(/\d+\.\d+(\.\d+)?/);
+  return m ? m[0] : '';
+}
 function updateCheck() {
-  let url = OMNI_REMOTE + 'version.json?t=' + Date.now();
-  fetch(url, { cache: 'no-store' })
+  if (updBusy) return;
+  fetch(OMNI_REMOTE + 'version.json?t=' + Date.now(), { cache: 'no-store' })
     .then((r) => (r.ok ? r.json() : null))
     .then((v) => {
       if (!v || !(+v.build > OMNI_BUILD)) return;
-      const apk = location.protocol === 'file:' && !window.__omniSingle, // APK or the PC app folder
-        web = location.href.startsWith(OMNI_REMOTE);
-      if (apk) {
-        try { localStorage.setItem('omni-remote', String(v.build)); } catch (e) {}
-        if (!started) location.reload();
-        else toast('Nueva versión ' + v.version + ' descargada · se usará al volver a abrir el juego');
-      } else if (web) {
-        if (!started) location.reload();
-        else toast('Nueva versión ' + v.version + ' · recarga la página para jugarla');
-      } else {
-        toast('Hay una versión nueva (' + v.version + ') online: ' + OMNI_REMOTE.replace('https://', ''));
-      }
+      const mode = updMode();
+      if (mode === 'single' || mode === 'other') return updBanner(v, true);
+      if (!started) return runUpdate(v);
+      updBanner(v, false);
     })
     .catch(() => {});
 }
+// ---------------- banner (mid-game) ----------------
+function updBanner(v, linkOnly) {
+  if (updOffer && updOffer.build === v.build) return;
+  updOffer = v;
+  let b = document.getElementById('updbanner');
+  if (!b) {
+    b = document.createElement('div');
+    b.id = 'updbanner';
+    $('#game').append(b);
+  }
+  b.innerHTML = linkOnly
+    ? '<b>⬇ OMNI ' + v.version + ' disponible</b><span>Juega la última versión en ' + OMNI_REMOTE.replace('https://', '').replace(/\/$/, '') + '</span><button data-x>✕</button>'
+    : '<b>⬇ OMNI ' + v.version + ' disponible</b><span>' + ((v.notes && v.notes[0]) || 'Nueva versión') + '</span><button data-go>ACTUALIZAR</button><button data-x>✕</button>';
+  b.classList.remove('hidden');
+  const go = b.querySelector('[data-go]');
+  if (go) go.onclick = () => { try { save(); } catch (e) {} b.classList.add('hidden'); runUpdate(v); };
+  b.querySelector('[data-x]').onclick = () => b.classList.add('hidden');
+  playWatchSFX('activate');
+}
+// ---------------- the update screen ----------------
+let updLogoRaf = 0;
+function updLogo(cv, state) {
+  const g = cv.getContext('2d'), W = cv.width, H = cv.height, cx = W / 2, cy = H / 2;
+  const w = (typeof getWatch === 'function' && getWatch()) || { color: '#8dff5a', id: 'prototype' };
+  const col = w.color || '#8dff5a';
+  const mark = new Image();
+  mark.src = 'assets/logo-' + ((typeof WATCH_ART !== 'undefined' && WATCH_ART[w.id]) || 'classic') + '.png';
+  const t0 = performance.now();
+  const frame = (now) => {
+    const t = (now - t0) / 1000, p = state.p;
+    g.clearRect(0, 0, W, H);
+    // halo
+    const halo = g.createRadialGradient(cx, cy, 10, cx, cy, W / 2);
+    halo.addColorStop(0, col + '55'); halo.addColorStop(1, col + '00');
+    g.fillStyle = halo; g.fillRect(0, 0, W, H);
+    // spinning segmented ring
+    g.save(); g.translate(cx, cy); g.rotate(t * 1.4);
+    g.lineWidth = 7; g.lineCap = 'round';
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2;
+      g.strokeStyle = k / 12 <= p ? col : col + '33';
+      g.beginPath(); g.arc(0, 0, W * 0.4, a + 0.06, a + (Math.PI * 2) / 12 - 0.06); g.stroke();
+    }
+    g.restore();
+    // counter-rotating ticks
+    g.save(); g.translate(cx, cy); g.rotate(-t * 0.8); g.strokeStyle = col + '88'; g.lineWidth = 2;
+    for (let k = 0; k < 36; k++) { const a = (k / 36) * Math.PI * 2; g.beginPath(); g.moveTo(Math.cos(a) * W * 0.33, Math.sin(a) * W * 0.33); g.lineTo(Math.cos(a) * W * (k % 3 ? 0.35 : 0.37), Math.sin(a) * W * (k % 3 ? 0.35 : 0.37)); g.stroke(); }
+    g.restore();
+    // the watch mark, pulsing
+    const s = W * 0.5 * (1 + 0.04 * Math.sin(t * 5)) * (state.done ? 1 + Math.min(0.25, ((now - state.doneAt) / 1000) * 0.8) : 1);
+    g.save(); g.shadowColor = col; g.shadowBlur = 20 + 14 * Math.sin(t * 5);
+    if (mark.complete && mark.naturalWidth) g.drawImage(mark, cx - s / 2, cy - s / 2, s, s);
+    else { g.fillStyle = col; g.beginPath(); g.moveTo(cx - s * 0.3, cy - s * 0.35); g.lineTo(cx + s * 0.3, cy - s * 0.35); g.lineTo(cx, cy); g.lineTo(cx + s * 0.3, cy + s * 0.35); g.lineTo(cx - s * 0.3, cy + s * 0.35); g.lineTo(cx, cy); g.closePath(); g.fill(); }
+    g.restore();
+    // sparks orbiting
+    for (let k = 0; k < 6; k++) {
+      const a = t * 2.2 + (k * Math.PI) / 3, r = W * 0.4;
+      g.fillStyle = '#ffffff'; g.globalAlpha = 0.5 + 0.5 * Math.sin(t * 6 + k);
+      g.fillRect(cx + Math.cos(a) * r - 2, cy + Math.sin(a) * r - 2, 4, 4);
+      g.globalAlpha = 1;
+    }
+    if (state.done && now - state.doneAt < 500) { g.fillStyle = 'rgba(255,255,255,' + (0.5 - (now - state.doneAt) / 1000) + ')'; g.fillRect(0, 0, W, H); }
+    updLogoRaf = requestAnimationFrame(frame);
+  };
+  updLogoRaf = requestAnimationFrame(frame);
+}
+// ---------------- the browser tab: OMNI logo, and a progress ring + percentage while updating ----------------
+const TAB_TITLE = document.title || 'OMNI';
+const tabMark = new Image();
+tabMark.src = 'assets/logo-classic.png';
+function tabIcon(p, label) {
+  try {
+    let link = document.querySelector('link[rel="icon"]');
+    if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.append(link); }
+    if (p == null) { link.href = 'assets/logo-classic.png'; document.title = label || TAB_TITLE; return; }
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const g = c.getContext('2d');
+    g.fillStyle = '#06120a'; g.beginPath(); g.arc(32, 32, 31, 0, 7); g.fill();
+    if (tabMark.complete && tabMark.naturalWidth) g.drawImage(tabMark, 12, 12, 40, 40);
+    g.strokeStyle = '#8dff5a'; g.lineWidth = 6; g.lineCap = 'round';
+    g.beginPath(); g.arc(32, 32, 27, -Math.PI / 2, -Math.PI / 2 + Math.max(0.05, p) * Math.PI * 2); g.stroke();
+    link.href = c.toDataURL('image/png');
+    document.title = label || '⬇ ' + Math.round(p * 100) + '% · Actualizando OMNI';
+  } catch (e) {}
+}
+function fmtKB(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+async function runUpdate(v) {
+  if (updBusy) return;
+  updBusy = true;
+  const mode = updMode(), from = curVersion() || '?';
+  let el = document.getElementById('updscreen');
+  if (!el) { el = document.createElement('div'); el.id = 'updscreen'; $('#game').append(el); }
+  el.innerHTML =
+    '<div class="updwrap"><canvas width="220" height="220"></canvas><h2>OMNI</h2><p class="updver">ACTUALIZANDO · v' + from + ' <b>→</b> v' + v.version + '</p>' +
+    '<div class="updbar"><i></i></div><p class="updfile">Conectando…</p>' +
+    (v.notes && v.notes.length ? '<ul>' + v.notes.slice(0, 5).map((n) => '<li>' + n + '</li>').join('') + '</ul>' : '') + '</div>';
+  el.classList.remove('hidden');
+  const state = { p: 0, done: false, doneT: 0 };
+  updLogo(el.querySelector('canvas'), state);
+  tabIcon(0);
+  playWatchSFX('activate');
+  const bar = el.querySelector('.updbar i'), lab = el.querySelector('.updfile');
+  const files = (v.files && v.files.length ? v.files : [['game.js', 600000]]).slice();
+  const total = files.reduce((a, f) => a + (f[1] || 1), 0);
+  let got = 0;
+  try {
+    for (const [name, size] of files) {
+      lab.textContent = 'Descargando ' + name + ' · ' + fmtKB(size);
+      // same URL the game will load after the restart, refreshed in the browser cache
+      const r = await fetch(OMNI_REMOTE + name, { cache: 'reload' });
+      if (!r.ok) throw new Error(name);
+      if (r.body && r.body.getReader) {
+        const rd = r.body.getReader();
+        let n = 0;
+        for (;;) {
+          const { done, value } = await rd.read();
+          if (done) break;
+          n += value.length;
+          state.p = Math.min(1, (got + Math.min(n, size || n)) / total);
+          bar.style.width = (state.p * 100).toFixed(1) + '%';
+          tabIcon(state.p);
+        }
+      } else await r.arrayBuffer();
+      got += size || 1;
+      state.p = got / total;
+      bar.style.width = (state.p * 100).toFixed(1) + '%';
+    }
+  } catch (e) {
+    lab.textContent = 'Sin conexión · se intentará más tarde';
+    tabIcon(null);
+    playWatchSFX('error');
+    setTimeout(() => { el.classList.add('hidden'); cancelAnimationFrame(updLogoRaf); updBusy = false; }, 2200);
+    return;
+  }
+  state.done = true;
+  state.doneAt = performance.now();
+  lab.textContent = '¡Listo! Reiniciando OMNI…';
+  tabIcon(1, '✔ OMNI ' + v.version + ' · reiniciando…');
+  bar.style.width = '100%';
+  playWatchSFX('recharged');
+  try {
+    if (mode === 'app') localStorage.setItem('omni-remote', String(v.build));
+    localStorage.setItem('omni-updated', JSON.stringify({ from, to: v.version, build: v.build, notes: v.notes || [] }));
+  } catch (e) {}
+  setTimeout(() => location.reload(), 1300);
+}
+// ---------------- after the restart: what's new ----------------
+function updWelcome() {
+  let u = null;
+  try { u = JSON.parse(localStorage.getItem('omni-updated') || 'null'); } catch (e) {}
+  if (!u || !(OMNI_BUILD >= u.build)) return;
+  try { localStorage.removeItem('omni-updated'); } catch (e) {}
+  const c = document.createElement('div');
+  c.id = 'updwelcome';
+  c.innerHTML = '<canvas width="120" height="120"></canvas><div><b>¡ACTUALIZADO A v' + u.to + '!</b><small>desde v' + u.from + '</small>' +
+    (u.notes && u.notes.length ? '<ul>' + u.notes.slice(0, 5).map((n) => '<li>' + n + '</li>').join('') + '</ul>' : '') + '<button>¡A JUGAR!</button></div>';
+  $('#game').append(c);
+  tabIcon(1, '✔ OMNI ' + u.to);
+  setTimeout(() => tabIcon(null), 6000);
+  const st = { p: 1, done: false };
+  updLogo(c.querySelector('canvas'), st);
+  c.querySelector('button').onclick = () => { c.remove(); cancelAnimationFrame(updLogoRaf); };
+  setTimeout(() => { if (c.isConnected) { c.remove(); cancelAnimationFrame(updLogoRaf); } }, 15000);
+}
+setTimeout(updWelcome, 900);
 setTimeout(updateCheck, 1500);
 // show the version that is actually running (the menu text lives in the installed page)
 if (window.OMNI_REMOTE_ON)

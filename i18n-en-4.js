@@ -374,5 +374,11 @@ window.OMNI_EN = Object.assign(window.OMNI_EN || {}, {
 "EL ESPECTRO":"THE SPECTRE",
 "HISTORIA 02 · ECOS DEL VACÍO":"STORY 02 · ECHOES OF THE VOID",
 "Nada nuevo que escanear cerca":"Nothing new to scan nearby",
-"Escaneo interrumpido":"Scan interrupted"
+"Escaneo interrumpido":"Scan interrupted",
+"¡Listo! Reiniciando OMNI…":"Done! Restarting OMNI…",
+"Conectando…":"Connecting…",
+"Sin conexión · se intentará más tarde":"No connection · will try again later",
+"ACTUALIZAR":"UPDATE",
+"¡A JUGAR!":"LET'S PLAY!",
+"Pantalla de actualización con logo: ves cómo se descarga cada versión nueva":"Update screen with logo: watch each new version download"
 });
