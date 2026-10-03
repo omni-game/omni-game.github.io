@@ -1,4 +1,4 @@
-window.OMNI_BUILD=42;
+window.OMNI_BUILD=43;
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -4259,6 +4259,7 @@ function pauseMenu() {
         ['SONIDO: ' + (sound ? 'SÍ' : 'NO'), () => { sound = !sound; pauseMenu(); }],
         ['DÍA / NOCHE: ' + String(dayMode).toUpperCase(), () => { dayMode = dayMode === 'noche' ? 'día' : dayMode === 'día' ? 'ciclo' : 'noche'; pauseMenu(); }],
         ['DIFICULTAD: ' + diffCfg().name, () => difficultyMenu(pauseMenu)],
+        ['DIAL: ' + (dialDocked() ? 'LATERAL' : 'PANTALLA COMPLETA'), () => { dialDockSet(!dialDocked()); pauseMenu(); }],
         ['MANDO', padHelp],
         ['NUEVA PARTIDA', newGameConfirm, 'danger'],
       ],
@@ -5174,6 +5175,7 @@ function spriteInfo(row) {
       anchors: OMNI_V7_FRAMES.anchors.combat,
       base: 270,
     };
+  if (row >= 30 && row <= 32 && window.OMNI_PRIME) return primeInfo(row - 30);
   if (row === 16) return { table: window.OMNI_V6_FRAMES.bestia, sheet: art.bestia6 };
   if (row === 17 || row === 18)
     return { table: window.OMNI_V6_FRAMES.knights[row - 17], sheet: art.knights6 };
@@ -5482,7 +5484,9 @@ function draw() {
         const t = player.motion.max - player.motion.t;
         f = t < 0.12 ? 0 : player.motion.t < 0.12 ? 3 : 1 + (Math.floor(t * 12) % 2);
       }
-      const pose = combatPose(player, row, f);
+      let pose = combatPose(player, row, f);
+      const pr = primePose(); // 0.17: reaching for the watch while the dial is open (part-40)
+      if (pr) pose = pr;
       if (ultOn()) {
         ctx.save();
         ctx.globalAlpha = 0.28 + 0.14 * Math.sin(clock * 8);
@@ -6026,6 +6030,7 @@ async function boot() {
         ['boss', 'assets/boss-v5.webp'],
         ['osmo', 'assets/osmo-v5.webp'],
         ['skins6', 'assets/skins-v6.webp'],
+        ['prime', 'assets/prime.webp'],
         ['bestia6', 'assets/bestia-v6.webp'],
         ['knights6', 'assets/knights-v6.webp'],
         ['full6', 'assets/full-fire-v6.webp'],
@@ -7842,6 +7847,7 @@ function selClose() {
   if (!sel) return;
   sel = null;
   $('#watchsel').classList.add('hidden');
+  dialDockApply();
   last = performance.now();
   hud();
 }
@@ -7863,6 +7869,7 @@ function openSelector() {
   selEnter(sel);
   $('#watchsel').classList.remove('hidden');
   $('#watchsel').dataset.watch = w.id;
+  dialDockApply();
 }
 function selMove(d) {
   const s = sel;
@@ -11860,6 +11867,49 @@ if (window.OMNI_REMOTE_ON)
     if (e && v.version) e.textContent = e.textContent.replace(/\d+\.\d+(\.\d+)?/, v.version);
   }).catch(() => {});
 setInterval(updateCheck, 10 * 60 * 1000);
+// ============================================================================================
+// OMNI PRIMING + SIDE DIAL (0.17)
+//  · while the dial is open the hero reaches for the watch in the world: 3 hand-made frames per skin
+//    (tools/import_prime.py → assets/prime.webp). Frame 3 (glowing watch) holds until the transformation lands.
+//  · the dial opens as a side panel (the game stays visible behind it), on the side the hero is NOT facing so the
+//    priming arm is never covered. Pause → AJUSTES → DIAL switches back to full screen.
+// ============================================================================================
+function primeInfo(k) {
+  const P = window.OMNI_PRIME;
+  return { table: P.table[k], sheet: art.prime, anchors: P.anchors[k], base: P.table[k][0][3] };
+}
+let primeHold = 0; // after the confirm, keep the glowing frame while the transform sequence plays
+function primePose() {
+  if (race !== 'omni' || player.alien || !window.OMNI_PRIME || !art.prime || !(player.skin >= 0 && player.skin <= 2)) return null;
+  if (player.jump > 0 || player.motion || player.leap) return null;
+  let f = -1;
+  if (sel && sel.mode === 'transform') {
+    if (sel.dockSide && dialDocked()) player.face = sel.dockSide === 'left' ? 1 : -1; // face the open side
+    const t = (performance.now() - sel.opened) / 1000;
+    f = t < 0.12 ? 0 : t < 0.26 ? 1 : 2;
+    primeHold = performance.now() + 2500;
+  } else if (seqBusy() && performance.now() < primeHold) f = 2;
+  else primeHold = 0;
+  return f < 0 ? null : { row: 30 + player.skin, f, lift: 0 };
+}
+// ---------------- side dial ----------------
+function dialDocked() {
+  try { return localStorage.getItem('omni-dialdock') !== '0'; } catch (e) { return true; }
+}
+function dialDockSet(on) {
+  try { localStorage.setItem('omni-dialdock', on ? '1' : '0'); } catch (e) {}
+  dialDockApply();
+}
+let dockSide = 'right';
+function dialDockApply() {
+  const g = $('#game');
+  if (!g) return;
+  const on = dialDocked() && !!sel;
+  if (sel && !sel.dockSide) sel.dockSide = player.face < 0 ? 'right' : 'left'; // the side the hero is NOT facing
+  g.classList.toggle('dock', on);
+  g.classList.toggle('dockleft', on && sel && sel.dockSide === 'left');
+}
+setInterval(() => { try { dialDockApply(); } catch (e) {} }, 100);
 applyWatchTheme();
 resize();
 boot();

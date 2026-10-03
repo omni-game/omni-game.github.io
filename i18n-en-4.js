@@ -339,5 +339,7 @@ window.OMNI_EN = Object.assign(window.OMNI_EN || {}, {
 "Se borrarán el nivel, las maestrías y el progreso de esta raza.":"Your level, masteries and progress for this race will be erased.",
 "NUEVA PARTIDA":"NEW GAME",
 "Osmosiano":"Osmosian",
-"Cada reloj cambia cómo eliges, cómo te transformas y cómo se gasta la energía. Cada reloj lleva los aliens de su era (Clásicos, Alien Force, Ultimate, Omniverse); el CONTROL MAESTRO (nivel 15) los desbloquea todos en los relojes que lo tienen.":"Each watch changes how you choose, how you transform and how energy is spent. Each watch carries the aliens of its era (Classic, Alien Force, Ultimate, Omniverse); MASTER CONTROL (level 15) unlocks them all on the watches that have it."
+"Cada reloj cambia cómo eliges, cómo te transformas y cómo se gasta la energía. Cada reloj lleva los aliens de su era (Clásicos, Alien Force, Ultimate, Omniverse); el CONTROL MAESTRO (nivel 15) los desbloquea todos en los relojes que lo tienen.":"Each watch changes how you choose, how you transform and how energy is spent. Each watch carries the aliens of its era (Classic, Alien Force, Ultimate, Omniverse); MASTER CONTROL (level 15) unlocks them all on the watches that have it.",
+"DIAL: LATERAL":"DIAL: SIDE PANEL",
+"DIAL: PANTALLA COMPLETA":"DIAL: FULL SCREEN"
 });
