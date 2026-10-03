@@ -1,4 +1,4 @@
-window.OMNI_BUILD=40;
+window.OMNI_BUILD=41;
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -7371,16 +7371,50 @@ const WATCH_BODY = {
 // 0.16.2: hand-made watch art (tools/import_watch_layers.py) replaces the drawn watch when it exists
 const WL = window.OMNI_WATCH_LAYERS || {};
 const wlImg = {};
+// profile.json "sfx": switch a watch's sound set without touching its art or animations
+for (const id in WL) if (WL[id].profile && WL[id].profile.sfx && WATCHES[id]) WATCHES[id].sfxProfile = WL[id].profile.sfx;
+// profile.json in the art folder can point a watch at another watch's art ("art") or animations ("anim")
+const wlSrc = (id, kind) => (WL[id] && WL[id].profile && WL[id].profile[kind] && WL[WL[id].profile[kind]] ? WL[id].profile[kind] : id);
 function wlGet(id, layer) {
+  id = wlSrc(id, layer.startsWith('strip_') ? 'anim' : 'art');
   const L = WL[id] && WL[id][layer];
   if (!L) return null;
   const k = id + layer;
   if (!wlImg[k]) { wlImg[k] = new Image(); wlImg[k].src = L.src; }
   return imgReady(wlImg[k]) ? wlImg[k] : null;
 }
+// animation strip: { img, frames, fw, fh, fps } or null
+function wlStrip(id, kind) {
+  const img = wlGet(id, 'strip_' + kind);
+  if (!img) return null;
+  const L = WL[wlSrc(id, 'anim')]['strip_' + kind];
+  return { img, frames: L.frames, fw: L.fw, fh: L.fh, fps: L.fps };
+}
+// draw frame p (0..1) of a strip at the same scale/centre as the body art (strap vertical in the art -> along the arm)
+function drawStripFrame(g, st, p, cx, cy, r) {
+  const i = Math.min(st.frames - 1, Math.max(0, Math.floor(p * st.frames))), S = r * 5.0;
+  g.save(); g.imageSmoothingEnabled = true; g.translate(cx, cy); g.rotate(Math.PI / 2);
+  g.drawImage(st.img, i * st.fw, 0, st.fw, st.fh, -S / 2, -S / 2, S, S);
+  g.restore();
+}
+// Biomnitrix: two linked devices (body_left / body_right) drawn side by side along the forearm
+function wristPair(g, w, cx, cy, r) {
+  const L = wlGet(w.id, 'body_left'), R = wlGet(w.id, 'body_right');
+  if (!L || !R) return false;
+  const S = r * 3.4;
+  forearm(g, w, cy, r);
+  g.save(); g.imageSmoothingEnabled = true;
+  [[L, -1], [R, 1]].forEach(([img, side]) => {
+    g.save(); g.translate(cx + side * r * 1.25, cy); g.rotate(Math.PI / 2);
+    g.drawImage(img, -S / 2, -(S * img.height) / img.width / 2, S, (S * img.height) / img.width);
+    g.restore();
+  });
+  g.restore();
+  return true;
+}
 function wristLayers(g, w, cx, cy, r, glow) {
   const body = wlGet(w.id, 'body');
-  if (!body) return false;
+  if (!body) return wristPair(g, w, cx, cy, r);
   const S = r * 5.0; // body art: the watch face is about 35% of the image width
   g.save();
   forearm(g, w, cy, r);
@@ -7467,7 +7501,13 @@ function wristBody(g, w, cx, cy, r, glow) {
 }
 function face(g, cx, cy, r, w, press = 0, glow = 0) {
   wristBody(g, w, cx, cy, r, glow);
-  const core = wlGet(w.id, 'core');
+  const act = wlStrip(w.id, 'activate'), since = sel && sel.opened ? (performance.now() - sel.opened) / 1000 : 9;
+  if (act) { // hand-made activation strip plays when the dial opens, then rests on its last frame
+    const dur = act.frames / (act.fps || 10);
+    drawStripFrame(g, act, Math.min(0.999, since / dur), cx, cy, r);
+    return;
+  }
+  const core = wlGet(w.id, 'core') || wlGet(w.id, 'core_left');
   if (core) { // hand-made core: boots up when the dial opens, glows and presses down on the slam
     const boot = sel && sel.opened ? Math.min(1, (performance.now() - sel.opened) / 550) : 1;
     drawCoreAnim(g, core, cx, cy, r * 2 * (1 - press * 0.15), w.color, { boot, glow, ring: boot < 1 ? boot : 0 });
@@ -11713,9 +11753,11 @@ function wanimLoop(now) {
     // wrist + watch art
     const body = typeof wlGet === 'function' ? wlGet(w.id, 'body') : null,
       core = typeof wlGet === 'function' ? wlGet(w.id, 'core') : null;
+    const hasStrip = typeof wlStrip === 'function' && wlStrip(w.id, wanim.kind === 'timeout' ? 'timeout' : 'recharge');
     g.fillStyle = '#d9a57c';
     g.fillRect(0, cy - 34, W, 68);
-    if (body) {
+    if (hasStrip) {
+    } else if (body) {
       const S = r * 5.0;
       g.save(); g.translate(cx, cy); g.rotate(Math.PI / 2);
       g.drawImage(body, -S / 2, -(S * body.height) / body.width / 2, S, (S * body.height) / body.width);
@@ -11724,9 +11766,16 @@ function wanimLoop(now) {
       g.fillStyle = '#1c1f22'; g.fillRect(cx - 90, cy - 34, 180, 68);
       g.beginPath(); g.arc(cx, cy, r * 1.25, 0, 7); g.fillStyle = '#c9cfcb'; g.fill();
     }
+    const strip = typeof wlStrip === 'function' ? wlStrip(w.id, wanim.kind === 'timeout' ? 'timeout' : 'recharge') : null;
+    if (strip) { // hand-made animation strip replaces the built-in core animation
+      g.fillStyle = '#d9a57c';
+      g.fillRect(0, cy - 34, W, 68);
+      drawStripFrame(g, strip, Math.min(0.999, p / 0.85), cx, cy, r);
+    }
     const tint = wanim.kind === 'timeout' ? (p < 0.7 ? (Math.floor(wanim.t * 6) % 2 ? '#ff2a2a' : null) : '#ff2a2a') : null;
     const coreImg = core || null;
-    if (coreImg) {
+    if (strip) {
+    } else if (coreImg) {
       if (wanim.kind === 'timeout') drawCoreAnim(g, coreImg, cx, cy, r * 2, w.color, { boot: p < 0.7 ? 1 : Math.max(0, 1 - (p - 0.7) / 0.2), tint, glow: 0.6 });
       else drawCoreAnim(g, coreImg, cx, cy, r * 2, w.color, { fillY: Math.min(1, p / 0.6), tint: p < 0.6 ? '#ff2a2a' : null, tintA: 1 - p / 0.6, glow: p > 0.6 ? 1 : 0.3, ring: p > 0.6 ? (p - 0.6) / 0.4 : 0 });
     } else {
