@@ -43,3 +43,9 @@ OMNI_REGIONS.push(
 );OMNI_REGIONS[3].links.up=10;OMNI_REGIONS[7].links.down=11;OMNI_REGIONS[7].links.left=3;
 
 OMNI_REGIONS.push({id:'bellwood',name:'Restaurante Bellwood',subtitle:'Maid Neko · cocina y trabajo',minX:180,maxX:1410,top:490,bottom:865,exitY:735,color:'#cfdfa7',city:false,portalX:800,links:{down:3},colliders:[{x:0,y:0,w:1600,h:460},{x:0,y:420,w:177,h:240},{x:1425,y:425,w:175,h:265}],spawns:[]});
+
+// 0.18 · Historia 02 "Ecos del Vacío": the Coastal Nuclear Plant (east of the Docks) and the Null Void (portal ↑ in the plant)
+OMNI_REGIONS.push(
+{id:'plant',name:'Central nuclear costera',subtitle:'Reactores en alerta · Historia 02',minX:40,maxX:1560,top:600,bottom:862,exitY:720,color:'#c6f27a',city:false,portalX:800,links:{left:5},colliders:[{x:0,y:0,w:1600,h:575}],spawns:[[520,700],[760,790],[1000,690],[1200,780],[1390,705]],painted:'plant'},
+{id:'nullvoid',name:'Vacío Nulo',subtitle:'Dimensión prisión · carceleros y el Espectro',minX:60,maxX:1540,top:610,bottom:862,exitY:730,color:'#b58cff',city:false,portalX:800,links:{down:13},colliders:[{x:0,y:0,w:1600,h:590}],spawns:[[480,700],[760,800],[1000,700],[1330,790]],painted:'void'}
+);OMNI_REGIONS[5].links.right=13;

@@ -117,3 +117,16 @@ button:focus-visible { outline: 2px solid var(--ox); outline-offset: 2px; }
 #game.selopen.dock #hud { opacity: 1; }
 #game.selopen.dock #transform, #game.selopen.dock .talk { visibility: hidden; }
 #dial { display: none !important; } /* 0.17: the alien slot panel is replaced by the dial on the transform button */
+/* 0.18 codex scan button */
+#scanbtn { left: 196px !important; bottom: 200px !important; background: #8de5f3 !important; color: #06121a !important; z-index: 6; }
+/* 0.18 story cinematics */
+#sagacine { position: absolute; inset: 0; z-index: 400; cursor: pointer; }
+#sagacine .bar { position: absolute; left: 0; right: 0; height: 64px; background: #000; transition: height .3s; }
+#sagacine .bar.top { top: 0; } #sagacine .bar.bot { bottom: 0; }
+#sagacine .cap { position: absolute; left: 50%; bottom: 78px; transform: translateX(-50%); width: min(720px, 86%); padding: 14px 20px 10px; background: rgba(4, 10, 14, .9); border: 1px solid #8de5f355; border-left: 3px solid #c9ff89; }
+#sagacine .cap b { font-size: 11px; letter-spacing: 2px; display: block; margin-bottom: 6px; }
+#sagacine .cap p { margin: 0; font-size: 15px; line-height: 1.5; color: #eef6ea; min-height: 45px; }
+#sagacine .cap small { display: block; text-align: right; font-size: 8px; letter-spacing: 1.5px; color: #8fa3a6; margin-top: 4px; }
+#sagacine.flash::after { content: ''; position: absolute; inset: 0; background: #fff; animation: sagaFlash .6s ease-out forwards; pointer-events: none; }
+#sagacine.riftfx::after { background: #c9a7ff; }
+@keyframes sagaFlash { from { opacity: .85; } to { opacity: 0; } }

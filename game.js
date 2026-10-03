@@ -1,4 +1,4 @@
-window.OMNI_BUILD=46;
+window.OMNI_BUILD=47;
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -586,13 +586,17 @@ function absorb(form) {
     toast('Necesitas algo de energía');
     return false;
   }
+  if (form === 'acid' && !player.acid) {
+    toast('Necesitas ácido osmosiano · Historia 02');
+    return false;
+  }
   if (form === 'electric' || form === 'fire') {
     if (!player.absorbUnlocks[form]) {
       toast('Desbloquea esta absorción en tu árbol');
       return false;
     }
   }
-  if (form !== 'human' && form !== 'fire') {
+  if (form !== 'human' && form !== 'fire' && form !== 'acid') {
     const m = nearbyMaterial();
     if (!m || m.type !== form) {
       toast('Acércate a un material marcado: madera, concreto o generador');
@@ -631,6 +635,7 @@ function absorptionMenu() {
         },
       ],
       ['FORMA DE FUEGO', () => absorb('fire')],
+      ...(player.acid ? [['FORMA ÁCIDA', () => absorb('acid')]] : []),
       ['VOLVER A BASE', () => absorb('human')],
       ['ÁRBOL', skillTree],
       ['CERRAR', closeDialog],
@@ -779,6 +784,7 @@ function osmoAttack(i) {
     );
     return;
   }
+  if (form === 'acid') return acidAttack(i, a, d, target); // Historia 02 (part-42)
   if (form === 'fire') {
     if (i === 0) shoot('fire', a, d);
     if (i === 1) {
@@ -1195,10 +1201,10 @@ function drawOsmo(frame, x, y, face, avatar = player) {
       lh,
     );
   }
-  if (['wood', 'stone', 'electric'].includes(avatar.form)) {
+  if (['wood', 'stone', 'electric', 'acid'].includes(avatar.form)) {
     tintCtx.globalCompositeOperation = 'source-atop';
     tintCtx.fillStyle =
-      avatar.form === 'wood' ? '#a56d37b0' : avatar.form === 'stone' ? '#959eaed0' : '#53d4ff55';
+      avatar.form === 'wood' ? '#a56d37b0' : avatar.form === 'stone' ? '#959eaed0' : avatar.form === 'acid' ? '#8cff2a66' : '#53d4ff55';
     tintCtx.fillRect(0, 0, w, dh);
     tintCtx.fillStyle = avatar.form === 'wood' ? '#70472899' : '#e3eaf14a';
     for (let i = 0; i < 8; i++) tintCtx.fillRect(w * 0.2 + (i % 2) * 5, dh * 0.45 + i * 7, w * 0.6, 2);
@@ -3614,6 +3620,7 @@ function checkGate(vx, vy = 0) {
 
 function damageEnemy(e, dmg) {
   if (!e.alive) return;
+  if (e.intangible > 0) { popup(e.x, e.y - 150, 'INTANGIBLE'); return; } // the Spectre phasing (part-42)
   dmg = coopDamage(dmg); // tougher enemies while both players are here
   dmg = dmg / diffCfg().hp; // difficulty (part-32)
   if (e.robotBoss) {
@@ -3632,6 +3639,7 @@ function damageEnemy(e, dmg) {
   }
   e.hp -= Math.round(dmg);
   e.hit = 0.16;
+  sagaAcid(e);
   popup(e.x, e.y - 95, '' + Math.round(dmg));
   burst(e.x, e.y - 40, 7, player.alien ? alien().color : '#ffc073');
   if (e.hp <= 0) {
@@ -3646,6 +3654,8 @@ function damageEnemy(e, dmg) {
     coopShareXP(e.knight ? 28 : e.boss ? 24 : 10);
     dnaDrop();
     missionKill(e); // mission board (part-27)
+    sagaKill(e); // Historia 02 (part-42)
+    bestiaryKill(e); // codex scanning (part-43)
     if (zone === 1 && net.peer) lanSend({ type: 'reward', kill: true });
     if (quest.state === 'active' && zone === 1) {
       quest.kills++;
@@ -4249,7 +4259,7 @@ function pauseMenu() {
     eras = w && w.eras ? w.eras.map((e) => ERA_NAMES[e]).join(' + ') : '',
     mc = w && player.masterControl && w.masterControl;
   const groups = [
-    ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['MISIONES', missionBoard], ['EXTRAS · ARENA · RETOS · LOGROS', extrasMenu], ['MAPA', () => showWorldMap()], ['MINIJUEGOS / TRABAJOS', jobsMenu], ['MULTIJUGADOR · CROSSPLAY', lanMenu]]],
+    ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['MISIONES', missionBoard], ['HISTORIA · ECOS DEL VACÍO', sagaMenu], ['EXTRAS · ARENA · RETOS · LOGROS', extrasMenu], ['MAPA', () => showWorldMap()], ['MINIJUEGOS / TRABAJOS', jobsMenu], ['MULTIJUGADOR · CROSSPLAY', lanMenu]]],
     ['RELOJ Y ALIENS', [['RELOJ / OMNITRIX', () => watchMenu()], ['SKINS DE ALIENS', alienSkinMenu], ['ÁRBOL', skillTree], ['GUÍA / ATAQUES', guide]]],
     ['PERSONAJE', [['PERSONAJE / SKIN', skinMenu], ['RAZAS', raceMenu]]],
     [
@@ -4259,6 +4269,7 @@ function pauseMenu() {
         ['SONIDO: ' + (sound ? 'SÍ' : 'NO'), () => { sound = !sound; pauseMenu(); }],
         ['DÍA / NOCHE: ' + String(dayMode).toUpperCase(), () => { dayMode = dayMode === 'noche' ? 'día' : dayMode === 'día' ? 'ciclo' : 'noche'; pauseMenu(); }],
         ['DIFICULTAD: ' + diffCfg().name, () => difficultyMenu(pauseMenu)],
+        ['GRÁFICOS: ' + gfxLabel(), () => { gfxCycle(); pauseMenu(); }],
         ['DIAL: ' + (dialDocked() ? 'MINI' : 'PANTALLA COMPLETA'), () => { dialDockSet(!dialDocked()); pauseMenu(); }],
         ['MANDO', padHelp],
         ['NUEVA PARTIDA', newGameConfirm, 'danger'],
@@ -4372,6 +4383,7 @@ function hitPlayer(amount) {
 }
 
 function interact() {
+  if (sagaInteract()) return; // Historia 02 (part-42)
   if (talkExtra()) return;
   if (puzzleInteract()) return;
   if (missionInteract()) return;
@@ -4391,6 +4403,7 @@ function interact() {
   }
 }
 function drawScene(c, z, day) {
+  if (REGIONS[z] && REGIONS[z].painted) return c.drawImage(paintedScene(REGIONS[z].painted, day), 0, 0, WW, WH + 140); // part-41
   let im = art.night,
     sx = 0,
     sy = 0,
@@ -4893,6 +4906,8 @@ function update(dt) {
   missionTick(dt);
   coopTickMissions(dt); // co-op only missions (part-30)
   arenaTick(dt); // wave arena (part-33)
+  sagaTick(dt); // Historia 02 (part-42)
+  scanTick(dt); // codex scanning (part-43)
   eliteTick();
   sigTick(dt);
   anoditeTick(dt);
@@ -5149,6 +5164,7 @@ function hud() {
   hudV8();
   hudV9();
   hudMissions();
+  sagaHud(); // part-42
   anoditeHud();
 }
 function spriteInfo(row) {
@@ -5287,9 +5303,9 @@ function draw() {
     -Math.round(cx) + (shake ? Math.random() * 6 - 3 : 0),
     -Math.round(cy) + (shake ? Math.random() * 4 - 2 : 0),
   );
-  drawScene(ctx, zone, false);
   let daylight = dayMode === 'día' ? 1 : dayMode === 'ciclo' ? (1 - Math.cos((clock / 90) * Math.PI)) / 2 : 0;
-  if (daylight > 0) {
+  drawScene(ctx, zone, lowGfx() && daylight >= 0.5); // low graphics: one background pass (part-43)
+  if (daylight > 0 && !lowGfx()) {
     ctx.globalAlpha = daylight;
     drawScene(ctx, zone, true);
     ctx.globalAlpha = 1;
@@ -5318,6 +5334,8 @@ function draw() {
         'CONCIERTO',
         'DEVASTACIÓN',
         'BELLWOOD',
+        'CENTRAL',
+        'VACÍO',
       ],
       l = region().links;
     if (l.left !== undefined) drawGate(region().minX + 35, labels[l.left], true);
@@ -5373,6 +5391,7 @@ function draw() {
   drawV7Effects();
   drawV8Effects();
   drawNetworkEffects();
+  sagaDraw(); // part-42
   const actors = (
     started
       ? [
@@ -5558,6 +5577,8 @@ function draw() {
     } else {
       const e = a.e;
       let f = e.wind > 0 || e.cast > 0 ? 3 : e.moving ? (Math.floor(e.anim) % 2) + 1 : 0;
+      if (e.sagaKind) { sagaDrawEnemy(e, f); scanDrawMark(e); continue; }
+      scanDrawMark(e);
       sprite(
         e.knight === 'melee' ? 17 : e.knight === 'ranged' ? 18 : 2,
         f,
@@ -5585,9 +5606,9 @@ function draw() {
     }
   }
   for (const p of hostileShots) {
-    ctx.fillStyle = p.type === 'green' ? '#46a744' : p.type === 'bossfire' ? '#ff742a' : '#427dd6';
+    ctx.fillStyle = p.type === 'green' ? '#46a744' : p.type === 'bossfire' ? '#ff742a' : p.type === 'void' ? '#7a3fd0' : '#427dd6';
     ctx.fillRect(p.x - 11, p.y - 8, 22, 16);
-    ctx.fillStyle = p.type === 'green' ? '#b5ff74' : p.type === 'bossfire' ? '#ffe396' : '#c4eeff';
+    ctx.fillStyle = p.type === 'green' ? '#b5ff74' : p.type === 'bossfire' ? '#ffe396' : p.type === 'void' ? '#e7d4ff' : '#c4eeff';
     ctx.fillRect(p.x - 6, p.y - 4, 12, 8);
   }
   for (const p of projectiles) {
@@ -5804,7 +5825,7 @@ function loop(now) {
     if (started && !paused) coopTick(dt);
     if (started && !paused && !net.remoteAway && !net.waiting) update(dt * timeScale());
     else if (!started) clock += dt;
-    draw();
+    if (drawThisFrame()) draw(); // low graphics: 30 fps drawing (part-43)
   }
   requestAnimationFrame(loop);
 }
@@ -8193,7 +8214,7 @@ function seqDraw(g, r) {
 // Gameplay slows while a selector / sequence is on screen (not in co-op: the host's world must keep running for both).
 function timeScale() {
   if (net.role || net.peer) return 1;
-  return sel ? 0.12 : storyRun || (fx && fx.cine) ? 0 : seqRun ? 0.3 : 1; // the cutscene freezes the action
+  return sel ? 0.12 : sagaCineOn || storyRun || (fx && fx.cine) ? 0 : seqRun ? 0.3 : 1; // the cutscene freezes the action
 }
 function watchTick(dt) {
   if (sel) selTick(dt);
@@ -8549,7 +8570,7 @@ function kitAttack(i) {
 // ---------------- DNA drops: defeated enemies can leave unknown DNA for an alien you have not unlocked yet ----------------
 function dnaDrop() {
   if (!omniActive() || Math.random() > 0.04) return;
-  const locked = CORE_ALIENS.filter((id) => ALIENS[id] && alienInfo(id).implemented && !alienUnlocked(id) && alienInfo(id).unlockLevel <= player.level + 4);
+  const locked = CORE_ALIENS.filter((id) => ALIENS[id] && alienInfo(id).implemented && !alienInfo(id).story && !alienUnlocked(id) && alienInfo(id).unlockLevel <= player.level + 4);
   if (locked.length) scanDNA(locked[Math.floor(Math.random() * locked.length)]);
 }
 // ============================================================================================
@@ -10296,7 +10317,7 @@ function missionComplete(m) {
   if (r.xp) xp(r.xp);
   let extra = '';
   if (r.dna) {
-    const locked = CORE_ALIENS.filter((id) => ALIENS[id] && alienInfo(id).implemented && !alienUnlocked(id));
+    const locked = CORE_ALIENS.filter((id) => ALIENS[id] && alienInfo(id).implemented && !alienInfo(id).story && !alienUnlocked(id));
     if (locked.length) {
       locked.sort((a, b) => (alienInfo(a).unlockLevel || 0) - (alienInfo(b).unlockLevel || 0));
       setTimeout(() => scanDNA(locked[0]), 900);
@@ -11543,7 +11564,7 @@ function codexMenu(back) {
         })
         .join('') +
       '</div>',
-    [['VOLVER', back || closeDialog]],
+    [['BESTIARIO', () => bestiaryMenu(back)], ['VOLVER', back || closeDialog]],
   );
   for (const b of document.querySelectorAll('[data-codex]')) b.onclick = () => codexCard(b.dataset.codex, back);
 }
@@ -12088,6 +12109,755 @@ function dialDockApply() {
   else if (c) { c.style.removeProperty('left'); c.style.removeProperty('top'); }
 }
 setInterval(() => { try { dialDockApply(); } catch (e) {} }, 100);
+// ============================================================================================
+// OMNI NEW ZONES ART (0.18) · the Coastal Nuclear Plant and the Null Void are painted in code (no external art), once,
+// into 1600 × 1040 canvases (the extra 140 px is the strip under the floor that every scene has). Night and day
+// versions are cached separately. A hand-painted file can replace either: assets/bg-plant.webp / assets/bg-void.webp.
+// ============================================================================================
+const PAINTED = {};
+function seeded(seed) {
+  let s = seed >>> 0;
+  return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+}
+function paintedScene(kind, day) {
+  const key = kind + (day ? 'd' : 'n');
+  if (PAINTED[key]) return PAINTED[key];
+  const c = document.createElement('canvas');
+  c.width = 1600;
+  c.height = 1040;
+  const g = c.getContext('2d');
+  if (kind === 'plant') paintPlant(g, day);
+  else paintVoid(g, day);
+  return (PAINTED[key] = c);
+}
+function paintPlant(g, day) {
+  const R = seeded(1337);
+  // sky
+  const sky = g.createLinearGradient(0, 0, 0, 560);
+  if (day) { sky.addColorStop(0, '#7fa9c9'); sky.addColorStop(0.7, '#d9c9a4'); sky.addColorStop(1, '#e8b98a'); }
+  else { sky.addColorStop(0, '#0b1424'); sky.addColorStop(0.65, '#23304a'); sky.addColorStop(1, '#4a3b4a'); }
+  g.fillStyle = sky;
+  g.fillRect(0, 0, 1600, 600);
+  if (!day) for (let i = 0; i < 90; i++) { g.fillStyle = 'rgba(255,255,255,' + (0.3 + R() * 0.6) + ')'; g.fillRect(R() * 1600, R() * 300, 2, 2); }
+  // distant city
+  g.fillStyle = day ? '#8b98a6' : '#1a2234';
+  for (let x = 0; x < 1600; x += 40 + R() * 50) { const h = 40 + R() * 110; g.fillRect(x, 470 - h, 34 + R() * 30, h + 90); }
+  // cooling towers (hyperbolic) with steam
+  const tower = (cx, w, h, base) => {
+    const top = base - h;
+    const tg = g.createLinearGradient(cx - w, 0, cx + w, 0);
+    tg.addColorStop(0, day ? '#9aa1a4' : '#3b4250'); tg.addColorStop(0.45, day ? '#e2e4df' : '#6b7383'); tg.addColorStop(1, day ? '#8e9599' : '#2c3240');
+    g.fillStyle = tg;
+    g.beginPath();
+    g.moveTo(cx - w, base);
+    g.quadraticCurveTo(cx - w * 0.52, base - h * 0.55, cx - w * 0.62, top);
+    g.lineTo(cx + w * 0.62, top);
+    g.quadraticCurveTo(cx + w * 0.52, base - h * 0.55, cx + w, base);
+    g.closePath();
+    g.fill();
+    g.strokeStyle = day ? '#7a8084' : '#22283a'; g.lineWidth = 3; g.stroke();
+    g.fillStyle = day ? 'rgba(120,30,30,.75)' : 'rgba(170,60,60,.6)';
+    g.fillRect(cx - w * 0.6, top + 18, w * 1.2, 10);
+    for (let k = 0; k < 9; k++) {
+      g.fillStyle = day ? 'rgba(250,250,250,' + (0.55 - k * 0.05) + ')' : 'rgba(160,175,190,' + (0.45 - k * 0.04) + ')';
+      g.beginPath(); g.arc(cx + (k - 2) * 26 + R() * 20, top - 20 - k * 30, 34 + k * 9, 0, 7); g.fill();
+    }
+  };
+  tower(260, 150, 330, 560);
+  tower(1340, 140, 300, 560);
+  // reactor building + dome
+  g.fillStyle = day ? '#b9b6aa' : '#3c3f4a';
+  g.fillRect(560, 330, 480, 230);
+  g.fillStyle = day ? '#d3d0c3' : '#4c5060';
+  g.beginPath(); g.ellipse(800, 335, 170, 120, 0, Math.PI, 0); g.fill();
+  g.strokeStyle = day ? '#8f8c80' : '#262935'; g.lineWidth = 4; g.stroke();
+  for (let i = 0; i < 6; i++) { g.fillStyle = day ? '#5d7d8e' : (R() < 0.6 ? '#e6d47a' : '#1c2230'); g.fillRect(590 + i * 76, 380, 46, 30); g.fillRect(590 + i * 76, 450, 46, 30); }
+  // radiation sign on the dome
+  g.save(); g.translate(800, 290); g.fillStyle = '#f2c230'; g.beginPath(); g.arc(0, 0, 46, 0, 7); g.fill();
+  g.fillStyle = '#1b1b1b';
+  for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 40, (k * 2 * Math.PI) / 3 - 0.5, (k * 2 * Math.PI) / 3 + 0.5); g.closePath(); g.fill(); }
+  g.fillStyle = '#f2c230'; g.beginPath(); g.arc(0, 0, 11, 0, 7); g.fill(); g.fillStyle = '#1b1b1b'; g.beginPath(); g.arc(0, 0, 7, 0, 7); g.fill();
+  g.restore();
+  // back wall with pipes
+  g.fillStyle = day ? '#8c8a80' : '#2a2c35';
+  g.fillRect(0, 470, 1600, 100);
+  for (let p = 0; p < 3; p++) {
+    g.fillStyle = ['#7d6a4a', '#5b7a6a', '#8a5048'][p];
+    g.fillRect(0, 490 + p * 22, 1600, 12);
+    g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(0, 491 + p * 22, 1600, 3);
+    for (let x = 60; x < 1600; x += 180) { g.fillStyle = '#2b2b2b'; g.fillRect(x + p * 30, 487 + p * 22, 10, 18); }
+  }
+  // hazard stripe along the wall foot
+  for (let x = 0; x < 1600; x += 40) { g.fillStyle = (x / 40) % 2 ? '#1d1d1d' : '#e2b22a'; g.beginPath(); g.moveTo(x, 570); g.lineTo(x + 40, 570); g.lineTo(x + 20, 586); g.lineTo(x - 20, 586); g.closePath(); g.fill(); }
+  // concrete floor
+  const fl = g.createLinearGradient(0, 586, 0, 1040);
+  fl.addColorStop(0, day ? '#a8a69c' : '#3e4049'); fl.addColorStop(1, day ? '#87857c' : '#25262d');
+  g.fillStyle = fl; g.fillRect(0, 586, 1600, 454);
+  g.strokeStyle = day ? 'rgba(0,0,0,.12)' : 'rgba(0,0,0,.35)'; g.lineWidth = 2;
+  for (let y = 640; y < 1040; y += 70) { g.beginPath(); g.moveTo(0, y); g.lineTo(1600, y); g.stroke(); }
+  for (let x = 0; x < 1600; x += 160) { g.beginPath(); g.moveTo(x, 586); g.lineTo(x - 60, 1040); g.stroke(); }
+  // yellow floor lane
+  g.fillStyle = day ? 'rgba(226,178,42,.75)' : 'rgba(226,178,42,.45)';
+  g.fillRect(0, 846, 1600, 8);
+  // glowing waste puddles + barrels
+  for (const [x, y] of [[180, 820], [1480, 760], [640, 900], [1120, 930]]) {
+    const pg = g.createRadialGradient(x, y, 4, x, y, 70);
+    pg.addColorStop(0, 'rgba(160,255,80,.75)'); pg.addColorStop(1, 'rgba(160,255,80,0)');
+    g.fillStyle = pg; g.beginPath(); g.ellipse(x, y, 80, 24, 0, 0, 7); g.fill();
+  }
+  for (const [x, y] of [[110, 640], [150, 660], [1500, 650], [1460, 672], [1540, 690]]) {
+    g.fillStyle = '#c7a12b'; g.fillRect(x - 18, y - 46, 36, 46);
+    g.fillStyle = '#1d1d1d'; g.fillRect(x - 18, y - 34, 36, 5); g.fillRect(x - 18, y - 16, 36, 5);
+    g.fillStyle = '#aaff55'; g.beginPath(); g.ellipse(x, y - 46, 18, 5, 0, 0, 7); g.fill();
+  }
+  if (!day) { g.fillStyle = 'rgba(10,20,40,.18)'; g.fillRect(0, 0, 1600, 1040); }
+}
+function paintVoid(g, day) {
+  const R = seeded(4242);
+  const sky = g.createLinearGradient(0, 0, 0, 640);
+  sky.addColorStop(0, '#05010d'); sky.addColorStop(0.5, day ? '#2a1150' : '#1a0a35'); sky.addColorStop(1, day ? '#4b2378' : '#2f1555');
+  g.fillStyle = sky; g.fillRect(0, 0, 1600, 640);
+  for (let i = 0; i < 220; i++) { g.fillStyle = 'rgba(' + (200 + R() * 55) + ',' + (180 + R() * 75) + ',255,' + (0.3 + R() * 0.7) + ')'; const s = R() < 0.1 ? 3 : 1.5; g.fillRect(R() * 1600, R() * 600, s, s); }
+  // swirling vortex
+  g.save(); g.translate(800, 230);
+  for (let k = 0; k < 14; k++) {
+    g.strokeStyle = 'rgba(' + (150 + k * 6) + ',' + (90 + k * 8) + ',255,' + (0.35 - k * 0.02) + ')';
+    g.lineWidth = 10 - k * 0.5;
+    g.beginPath(); g.ellipse(0, 0, 40 + k * 32, 14 + k * 11, -0.25, k * 0.6, k * 0.6 + 4.2); g.stroke();
+  }
+  const core = g.createRadialGradient(0, 0, 2, 0, 0, 70);
+  core.addColorStop(0, '#ffffff'); core.addColorStop(0.3, '#c9a7ff'); core.addColorStop(1, 'rgba(120,60,220,0)');
+  g.fillStyle = core; g.beginPath(); g.arc(0, 0, 70, 0, 7); g.fill();
+  g.restore();
+  // floating rock islands in the distance
+  const rock = (x, y, w, h, col) => {
+    g.fillStyle = col;
+    g.beginPath(); g.moveTo(x - w, y);
+    for (let i = 0; i <= 8; i++) g.lineTo(x - w + (i * w) / 4, y - (i % 2 ? 8 : 0) - R() * 6);
+    g.lineTo(x + w * 0.4, y + h * 0.6); g.lineTo(x, y + h); g.lineTo(x - w * 0.5, y + h * 0.5); g.closePath(); g.fill();
+    g.fillStyle = 'rgba(190,140,255,.35)'; g.fillRect(x - w, y - 4, w * 2, 4);
+  };
+  rock(220, 260, 110, 120, '#24163a'); rock(1380, 200, 90, 100, '#2a1a44'); rock(520, 420, 70, 70, '#1d1230'); rock(1140, 400, 80, 90, '#21143a');
+  // chains hanging from nowhere
+  g.strokeStyle = '#5a4e70'; g.lineWidth = 4;
+  for (const x of [360, 1240]) for (let y = 0; y < 470; y += 22) { g.beginPath(); g.ellipse(x + Math.sin(y / 60) * 6, y, 6, 10, 0, 0, 7); g.stroke(); }
+  // the floating platform (floor)
+  const fl = g.createLinearGradient(0, 560, 0, 1040);
+  fl.addColorStop(0, '#3a2a55'); fl.addColorStop(0.3, '#2a1d40'); fl.addColorStop(1, '#140c22');
+  g.fillStyle = fl;
+  g.beginPath(); g.moveTo(0, 590);
+  for (let x = 0; x <= 1600; x += 80) g.lineTo(x, 580 + R() * 18);
+  g.lineTo(1600, 1040); g.lineTo(0, 1040); g.closePath(); g.fill();
+  // glowing cracks
+  g.strokeStyle = 'rgba(200,140,255,.8)'; g.lineWidth = 2; g.shadowColor = '#b27bff'; g.shadowBlur = 10;
+  for (let i = 0; i < 16; i++) {
+    let x = R() * 1600, y = 620 + R() * 380;
+    g.beginPath(); g.moveTo(x, y);
+    for (let k = 0; k < 5; k++) { x += (R() - 0.5) * 80; y += R() * 30; g.lineTo(x, y); }
+    g.stroke();
+  }
+  g.shadowBlur = 0;
+  // crystals
+  for (const [x, y, s] of [[120, 640, 1], [260, 700, 0.7], [1470, 630, 1.1], [1360, 690, 0.6], [80, 900, 0.8], [1530, 920, 0.9]]) {
+    g.fillStyle = 'rgba(170,110,255,.85)';
+    g.beginPath(); g.moveTo(x, y - 70 * s); g.lineTo(x + 16 * s, y - 10 * s); g.lineTo(x, y); g.lineTo(x - 16 * s, y - 10 * s); g.closePath(); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.45)'; g.beginPath(); g.moveTo(x, y - 70 * s); g.lineTo(x + 5 * s, y - 20 * s); g.lineTo(x, y - 8 * s); g.closePath(); g.fill();
+  }
+  // edge glow where the platform meets the void
+  const eg = g.createLinearGradient(0, 570, 0, 610);
+  eg.addColorStop(0, 'rgba(200,150,255,0)'); eg.addColorStop(0.5, 'rgba(200,150,255,.5)'); eg.addColorStop(1, 'rgba(200,150,255,0)');
+  g.fillStyle = eg; g.fillRect(0, 570, 1600, 40);
+}
+// ============================================================================================
+// OMNI SAGA 01 · "ECOS DEL VACÍO" (0.18) — the long story mission: how you got Ghostfreak and the Osmosian acid.
+//  1  Agent Vera (Plumber) at the Lighthouse Docks: ghost-energy readings at the Coastal Nuclear Plant (→ east)
+//  2  The plant is overrun: defeat 5 irradiated drones
+//  3  Seal the 3 reactor valves (E) — every valve wakes more drones
+//  4  The reactor tears a rift to the NULL VOID; a spectral prisoner escapes through it (cinematic) → portal opens (↑)
+//  5  Null Void: defeat 4 void wardens, then free Draven, an Osmosian prisoner → he gives you OSMOSIAN ACID
+//  6  The Spectre attacks (boss: phases through attacks, teleports, rings of void bolts). Beat it and the watch scans
+//     its DNA → GHOSTFREAK (Omnitrix races). Back to Vera for the reward.
+// Osmosian acid: Osmosians get the ACID absorption form (anywhere, poison attacks); every race gets corrosive hits
+// (15% of hits poison the enemy). State: player.saga = { step, kills, valves, wardens, done }.
+// ============================================================================================
+const SAGA_ZONE_DOCKS = 5, SAGA_ZONE_PLANT = 13, SAGA_ZONE_VOID = 14;
+const VERA = { x: 1260, y: 735, name: 'AGENTE VEGA' };
+const DRAVEN = { x: 1250, y: 700, name: 'DRAVEN' };
+const VALVES = [{ x: 330, y: 610 }, { x: 800, y: 600 }, { x: 1270, y: 610 }];
+const SAGA_STEPS = [
+  ['', ''],
+  ['Lecturas fantasma', 'Ve a la Central nuclear costera (Muelles → este)'],
+  ['Central en alerta', 'Derrota drones irradiados'],
+  ['Sella el reactor', 'Cierra las 3 válvulas (E)'],
+  ['La grieta', 'Entra en el Vacío Nulo (↑ en la Central)'],
+  ['Prisioneros del Vacío', 'Derrota a los carceleros y libera a Draven'],
+  ['El Espectro', 'Derrota al Espectro'],
+  ['Regreso', 'Vuelve con el Agente Vega en los Muelles'],
+];
+function SG() {
+  const s = (player.saga = player.saga && typeof player.saga === 'object' ? player.saga : {});
+  s.step = s.step | 0; s.kills = s.kills | 0; s.wardens = s.wardens | 0;
+  if (!Array.isArray(s.valves)) s.valves = [false, false, false];
+  return s;
+}
+const sagaActive = () => SG().step > 0 && SG().step < 8;
+// Ghostfreak becomes a story reward. Saves that already reached its old unlock level keep it.
+const GF_LEVEL = (alienInfo('ghostfreak') && alienInfo('ghostfreak').unlockLevel) || 0;
+if (ALIEN_DB.ghostfreak) { ALIEN_DB.ghostfreak.unlockLevel = 0; ALIEN_DB.ghostfreak.story = true; }
+let sagaProfile = null;
+function sagaInit() {
+  if (sagaProfile === player) return;
+  sagaProfile = player;
+  const s = SG();
+  player.alienUnlocks = player.alienUnlocks || {};
+  if (s.step < 8 && player.alienUnlocks.ghostfreak !== true) player.alienUnlocks.ghostfreak = GF_LEVEL && player.level >= GF_LEVEL ? true : false;
+  sagaLinks();
+  if (player.acid) refreshAcid();
+}
+function sagaLinks() {
+  const P = REGIONS[SAGA_ZONE_PLANT];
+  if (!P) return;
+  if (SG().step >= 4) P.links.up = SAGA_ZONE_VOID;
+  else delete P.links.up;
+}
+function sagaGo(step, msg) {
+  const s = SG();
+  s.step = step;
+  sagaLinks();
+  if (msg) toast(msg);
+  playWatchSFX('confirm');
+  hud();
+  save();
+}
+// ---------------- cinematics: letterbox, speaker + typed line, screen effects. Tap / Enter to continue ----------------
+let sagaCineOn = false;
+function sagaCine(lines, done) {
+  let el = document.getElementById('sagacine');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'sagacine';
+    el.innerHTML = '<i class="bar top"></i><i class="bar bot"></i><div class="cap"><b></b><p></p><small>Toca o pulsa ENTER</small></div>';
+    $('#game').append(el);
+  }
+  sagaCineOn = true;
+  closeDialog();
+  el.classList.remove('hidden');
+  let i = -1, typing = null;
+  const who = el.querySelector('b'), txt = el.querySelector('p');
+  const next = () => {
+    if (typing) { clearInterval(typing); typing = null; txt.textContent = lines[i].t; return; }
+    i++;
+    if (i >= lines.length) {
+      el.classList.add('hidden');
+      el.onclick = null;
+      sagaCineOn = false;
+      document.removeEventListener('keydown', key, true);
+      last = performance.now();
+      if (done) done();
+      return;
+    }
+    const L = lines[i];
+    who.textContent = L.w || '';
+    who.style.color = L.c || '#c9ff89';
+    txt.textContent = '';
+    let k = 0;
+    typing = setInterval(() => { k += 2; txt.textContent = L.t.slice(0, k); if (k >= L.t.length) { clearInterval(typing); typing = null; } }, 22);
+    if (L.fx === 'shake') { shake = 0.6; tone(90, 0.4, 'sawtooth'); }
+    if (L.fx === 'flash') { el.classList.remove('flash', 'riftfx'); void el.offsetWidth; el.classList.add('flash'); playWatchSFX('transform'); }
+    if (L.fx === 'alarm') { for (let n = 0; n < 3; n++) setTimeout(() => tone(880, 0.18, 'square', 0.04), n * 300); }
+    if (L.fx === 'rift') { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash', 'riftfx'); burst(800, 560, 60, '#b98cff'); shake = 0.5; }
+    if (L.fx === 'scan') playWatchSFX('scan_start');
+  };
+  const key = (e) => {
+    if (!sagaCineOn) return;
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    if (e.type === 'keydown' && !e.repeat && ['Enter', ' ', 'e', 'E', 'Escape'].includes(e.key)) next();
+  };
+  document.addEventListener('keydown', key, true);
+  el.onclick = next;
+  next();
+}
+// ---------------- story beats ----------------
+function sagaTalkVera() {
+  const s = SG();
+  if (s.step === 0) {
+    if (player.level < 4) return showDialog('AGENTE VEGA · FONTANEROS', 'Todavía no', '<p>«Estoy siguiendo una señal muy rara. Vuelve cuando tengas más experiencia.»</p><p class="reward">Nivel recomendado: 4</p>', [['VALE', closeDialog]]);
+    return sagaCine([
+      { w: 'AGENTE VEGA', c: '#8de5f3', t: 'Eh, tú. El del reloj. Soy el agente Vega, de los Fontaneros.' },
+      { w: 'AGENTE VEGA', c: '#8de5f3', t: 'Hace una hora la Central nuclear costera empezó a emitir energía fantasma. No es radiación normal.' },
+      { w: 'AGENTE VEGA', c: '#8de5f3', t: 'Los drones de seguridad se han vuelto locos y algo intenta abrir una puerta… hacia el Vacío Nulo.' },
+      { w: 'TÚ', t: 'El Vacío Nulo… ¿la prisión dimensional?' },
+      { w: 'AGENTE VEGA', c: '#8de5f3', t: 'Exacto. Si esa puerta se abre, todo lo que hay dentro saldrá. La Central está al este de estos muelles. Date prisa.' },
+    ], () => { SG().kills = 0; sagaGo(1, 'HISTORIA · Ecos del Vacío · Ve a la Central nuclear (este de los Muelles)'); });
+  }
+  if (s.step === 7) {
+    return sagaCine([
+      { w: 'AGENTE VEGA', c: '#8de5f3', t: '¡Has vuelto! La Central está estable y la grieta se ha cerrado sola.' },
+      { w: 'AGENTE VEGA', c: '#8de5f3', t: 'Y ese ADN fantasma en tu reloj… cuídalo. Lo que hay en el Vacío no siempre se queda allí.' },
+      { w: 'AGENTE VEGA', c: '#8de5f3', t: 'Los Fontaneros te deben una. Toma esto, te lo has ganado.' },
+    ], () => {
+      const s2 = SG();
+      s2.step = 8;
+      s2.done = true;
+      xp(1200);
+      player.coins = (player.coins || 0) + 300;
+      statEvent('mission', { id: 'saga1' });
+      toast('¡HISTORIA COMPLETADA! Ecos del Vacío · +1200 EXP · +300 monedas · El Vacío Nulo sigue abierto para explorar');
+      playWatchSFX('recharged');
+      hud();
+      save();
+    });
+  }
+  const st = SAGA_STEPS[Math.min(7, s.step)] || ['', ''];
+  showDialog('AGENTE VEGA · FONTANEROS', s.step >= 8 ? 'Gracias otra vez' : st[0], s.step >= 8 ? '<p>«El Vacío Nulo sigue abierto desde la Central. Los carceleros vuelven a aparecer: buen sitio para entrenar.»</p>' : '<p>«' + st[1] + '. Te espero aquí.»</p>', [['VALE', closeDialog]]);
+}
+function sagaEnterZone() {
+  const s = SG();
+  if (zone === SAGA_ZONE_PLANT && s.step === 1) {
+    sagaCine([
+      { w: 'SISTEMA DE LA CENTRAL', c: '#ffcf76', t: '¡ALERTA! Contención del reactor al 34 %. Drones de seguridad: comportamiento hostil.', fx: 'alarm' },
+      { w: 'TÚ', t: 'Esos drones brillan en verde… están irradiados. Primero ellos, luego el reactor.' },
+    ], () => sagaGo(2, 'Derrota 5 drones irradiados'));
+  }
+  if (zone === SAGA_ZONE_VOID && s.step === 4) {
+    sagaCine([
+      { w: 'VACÍO NULO', c: '#b98cff', t: 'No hay suelo, ni cielo, ni tiempo. Solo rocas flotando sobre la nada.', fx: 'flash' },
+      { w: '???', c: '#d7b762', t: '¡Eh! ¡Aquí! Los carceleros me tienen encadenado…' },
+      { w: 'DRAVEN', c: '#d7b762', t: 'Soy osmosiano. Quítame de encima a esos guardias y te daré algo que he guardado todo este tiempo.' },
+    ], () => sagaGo(5, 'Derrota 4 carceleros del Vacío'));
+  }
+}
+function sagaValve(i) {
+  const s = SG();
+  if (s.valves[i]) return;
+  s.valves[i] = true;
+  burst(VALVES[i].x, VALVES[i].y - 30, 30, '#c9ff89');
+  tone(520, 0.2, 'square');
+  const n = s.valves.filter(Boolean).length;
+  toast('Válvula ' + n + ' / 3 sellada');
+  if (net.role !== 'guest')
+    for (let k = 0; k < 2; k++) { // the reactor wakes more drones
+      const x = clamp(VALVES[i].x + (k ? 260 : -260), 120, 1480), y = 740 + k * 50;
+      enemies.push({ id: 200 + i * 2 + k, x, y, homeX: x, homeY: y, face: -1, hp: 180, max: 180, sagaKind: 'rad', kind: 'enemy', rcd: 1.5, cast: 0, stun: 0, alive: true, respawn: 1e9, cd: 1, wind: 0, anim: 0, hit: 0, moving: false, temp: true });
+    }
+  if (n >= 3) setTimeout(() => sagaCine([
+    { w: 'SISTEMA DE LA CENTRAL', c: '#ffcf76', t: 'Contención restaurada… ERROR. Pico de energía no identificada en el núcleo.', fx: 'alarm' },
+    { w: '', t: 'El aire se rasga como una tela. Una grieta violeta se abre sobre el reactor.', fx: 'rift' },
+    { w: '???', c: '#c9a7ff', t: 'Por fin… un portal. Y un portador del Omnitrix… qué ADN tan… interesante.', fx: 'shake' },
+    { w: '', t: 'Una figura espectral cruza la grieta y desaparece en el Vacío.' },
+    { w: 'TÚ', t: 'Si algo ha salido de ahí… voy a tener que entrar a buscarlo.' },
+  ], () => sagaGo(4, '¡Se ha abierto un portal al Vacío Nulo! (↑ en el centro de la Central)')), 600);
+  save();
+}
+function sagaFreeDraven() {
+  sagaCine([
+    { w: 'DRAVEN', c: '#d7b762', t: 'Libre… gracias. Llevo aquí desde antes de que nacieras, chaval.' },
+    { w: 'DRAVEN', c: '#d7b762', t: 'Toma: ácido osmosiano. Un frasco de lo que absorbí de las paredes de esta prisión. Corroe casi cualquier cosa.' },
+    { w: '', t: 'Has conseguido: ÁCIDO OSMOSIANO.', c: '#c9ff89', fx: 'flash' },
+    { w: 'DRAVEN', c: '#d7b762', t: 'Y ten cuidado. Lo que salió por la grieta ha vuelto… y viene a por tu reloj.', fx: 'shake' },
+  ], () => {
+    player.acid = true;
+    refreshAcid();
+    toast(race === 'osmo' ? 'ÁCIDO OSMOSIANO · nueva absorción: FORMA ÁCIDA' : 'ÁCIDO OSMOSIANO · tus golpes corroen (15 % de veneno)');
+    sagaGo(6);
+    sagaSpawnSpectre();
+  });
+}
+function sagaSpawnSpectre() {
+  if (net.role === 'guest' || zone !== SAGA_ZONE_VOID || enemies.some((e) => e.sagaKind === 'specter' && e.alive)) return;
+  const hp = 2600;
+  enemies.push({ id: 95, x: 1100, y: 720, homeX: 1100, homeY: 720, face: -1, hp, max: hp, boss: true, sagaKind: 'specter', kind: 'enemy', rcd: 1.2, cast: 0, stun: 0, alive: true, respawn: 1e9, cd: 1, wind: 0, anim: 0, hit: 0, moving: false, tp: 4, ring: 3, intangible: 0 });
+  toast('¡EL ESPECTRO ataca!');
+  playWatchSFX('warning');
+}
+function sagaSpectreDown() {
+  const omni = race === 'omni';
+  sagaCine([
+    { w: 'EL ESPECTRO', c: '#c9a7ff', t: 'Imposible… mi esencia… se… dispersa…', fx: 'shake' },
+    ...(omni
+      ? [{ w: 'OMNITRIX', c: '#c9ff89', t: 'ADN desconocido detectado. Escaneando… muestra adquirida.', fx: 'scan' }, { w: '', c: '#c9ff89', t: 'NUEVO ALIEN: GHOSTFREAK. Ya está en tu dial.', fx: 'flash' }]
+      : [{ w: '', c: '#c9ff89', t: 'La esencia del Espectro se desvanece en el Vacío. La grieta empieza a cerrarse tras de ti.', fx: 'flash' }]),
+    { w: 'TÚ', t: 'Hora de volver con Vega.' },
+  ], () => {
+    if (omni) { grantAlien('ghostfreak'); ensureSelection(); playWatchSFX('dna_added'); }
+    xp(500);
+    sagaGo(7, 'Vuelve con el Agente Vega en los Muelles');
+  });
+}
+// ---------------- hooks from the core game ----------------
+function sagaKill(e) { // damageEnemy (part-08), host side
+  const s = SG();
+  if (e.temp || e.sagaKind === 'specter') e.respawn = 1e9;
+  if (zone === SAGA_ZONE_PLANT && s.step === 2 && e.sagaKind === 'rad') {
+    s.kills++;
+    if (s.kills >= 5) sagaGo(3, '¡Drones neutralizados! Sella las 3 válvulas del reactor (E)');
+    else hud();
+  }
+  if (zone === SAGA_ZONE_VOID && s.step === 5 && e.sagaKind === 'void') {
+    s.wardens++;
+    if (s.wardens >= 4) toast('¡Carceleros derrotados! Libera a Draven (E)');
+    hud();
+  }
+  if (e.sagaKind === 'specter' && s.step === 6) sagaSpectreDown();
+}
+function sagaAcid(e) { // corrosive hits once you own the acid
+  if (player.acid && e.alive && Math.random() < 0.15) applyStatus(e, 'poison', 3, 3 * multiplier());
+}
+function sagaNear() {
+  const s = SG();
+  if (zone === SAGA_ZONE_DOCKS && dist(player, VERA) < 130) return ['◆ HABLAR CON VEGA', sagaTalkVera];
+  if (zone === SAGA_ZONE_PLANT && s.step === 3) {
+    const i = VALVES.findIndex((v, k) => !s.valves[k] && dist(player, v) < 115);
+    if (i >= 0) return ['◆ SELLAR VÁLVULA', () => sagaValve(i)];
+  }
+  if (zone === SAGA_ZONE_VOID && s.step === 5 && dist(player, DRAVEN) < 130)
+    return s.wardens >= 4 ? ['◆ LIBERAR A DRAVEN', sagaFreeDraven] : ['◆ DRAVEN', () => toast('Derrota a los carceleros primero · ' + s.wardens + ' / 4')];
+  return null;
+}
+function sagaInteract() {
+  if (!started) return false;
+  const n = sagaNear();
+  if (!n) return false;
+  n[1]();
+  return true;
+}
+let sagaLastNear = '', sagaZoneSeen = -1;
+function sagaTick(dt) {
+  sagaInit();
+  const s = SG();
+  if (zone !== sagaZoneSeen) { sagaZoneSeen = zone; setTimeout(sagaEnterZone, 500); }
+  // dress the zone's enemies
+  if (zone === SAGA_ZONE_PLANT || zone === SAGA_ZONE_VOID)
+    for (const e of enemies)
+      if (!e.sagaKind && !e.elite && !e.twin) {
+        e.sagaKind = zone === SAGA_ZONE_PLANT ? 'rad' : e.boss && e.max > 1000 ? 'specter' : 'void';
+        if (net.role !== 'guest' && e.sagaKind !== 'specter') e.hp = e.max = Math.round((zone === SAGA_ZONE_PLANT ? 180 : 280) * (1 + player.level * 0.04)); // the host owns enemy health
+      }
+  if (zone === SAGA_ZONE_VOID && s.step === 6 && net.role !== 'guest' && !enemies.some((e) => e.sagaKind === 'specter' && e.alive)) sagaSpawnSpectre();
+  // the Spectre: phases out, teleports next to you, fires rings of void bolts
+  if (net.role !== 'guest')
+    for (const e of enemies) {
+      if (e.sagaKind !== 'specter' || !e.alive) continue;
+      e.intangible = Math.max(0, (e.intangible || 0) - dt);
+      e.tp -= dt;
+      e.ring -= dt;
+      if (e.tp <= 0) {
+        e.tp = 5 + Math.random() * 2;
+        e.intangible = 1.1;
+        burst(e.x, e.y - 60, 20, '#b98cff');
+        const side = Math.random() < 0.5 ? -1 : 1;
+        e.x = clamp(player.x + side * 220, region().minX + 60, region().maxX - 60);
+        e.y = clamp(player.y + (Math.random() - 0.5) * 80, region().top + 20, region().bottom - 20);
+        burst(e.x, e.y - 60, 20, '#b98cff');
+      }
+      if (e.ring <= 0) {
+        e.ring = e.hp < e.max / 2 ? 2.6 : 3.6;
+        const n = e.hp < e.max / 2 ? 12 : 8;
+        for (let k = 0; k < n; k++) {
+          const a = (k / n) * Math.PI * 2;
+          hostileShots.push({ type: 'void', x: e.x, y: e.y - 60, dx: Math.cos(a) * 210, dy: Math.sin(a) * 210, t: 2.4, damage: 11, r: 9 });
+        }
+      }
+    }
+  // interaction button
+  const near = sagaNear(), lab = near ? near[0] : '';
+  if (lab !== sagaLastNear) { sagaLastNear = lab; hud(); }
+}
+function sagaHud() { // called at the end of hud() (part-11)
+  const n = sagaNear();
+  if (n) { $('#talk').classList.remove('hidden'); $('#talk').textContent = n[0]; }
+  const s = SG();
+  if (!sagaActive() || activeMission() || [6, 8, 9, 10, 12].includes(zone)) return;
+  if (zone === 1 && quest.state !== 'done' && ![SAGA_ZONE_PLANT, SAGA_ZONE_VOID].includes(zone)) return;
+  const st = SAGA_STEPS[s.step];
+  $('#mission .tiny').textContent = 'HISTORIA · ECOS DEL VACÍO';
+  $('#questtext').textContent = st[0];
+  $('#questsub').textContent =
+    s.step === 2 ? st[1] + ' · ' + Math.min(5, s.kills) + ' / 5'
+      : s.step === 3 ? st[1] + ' · ' + s.valves.filter(Boolean).length + ' / 3'
+        : s.step === 5 ? (s.wardens >= 4 ? 'Libera a Draven (E)' : 'Carceleros · ' + Math.min(4, s.wardens) + ' / 4')
+          : st[1];
+}
+function sagaMenu() {
+  const s = SG(), st = SAGA_STEPS[Math.min(7, s.step)];
+  showDialog(
+    'HISTORIA 02 · ECOS DEL VACÍO',
+    s.step >= 8 ? 'Completada' : s.step === 0 ? 'Sin empezar' : 'Paso ' + s.step + ' / 7',
+    s.step === 0
+      ? '<p>Habla con el <b>Agente Vega</b> en los <b>Muelles del faro</b> (nivel 4+). Una misión larga: la Central nuclear, el Vacío Nulo, un prisionero osmosiano… y algo espectral.</p><p class="reward">Recompensas: Ghostfreak · Ácido osmosiano · 1700 EXP · 300 monedas</p>'
+      : s.step >= 8
+        ? '<p>Ghostfreak y el ácido osmosiano son tuyos. El Vacío Nulo sigue abierto (↑ en la Central nuclear) con carceleros para entrenar.</p>'
+        : '<p><b>' + st[0] + '</b><br>' + st[1] + '.</p><p>Muelles del faro → salida este → Central nuclear costera' + (s.step >= 4 ? ' → portal ↑ → Vacío Nulo' : '') + '.</p>',
+    [['VOLVER', pauseMenu]],
+  );
+}
+// ---------------- drawing ----------------
+function sagaDraw() { // ground objects + story NPCs (before the actors)
+  const s = SG();
+  if (zone === SAGA_ZONE_DOCKS) {
+    sprite(22, Math.floor(clock) % 6 === 0 ? 3 : 0, VERA.x, VERA.y, 104, player.x >= VERA.x ? 1 : -1);
+    txt(VERA.name, VERA.x, VERA.y - 120, 10, '#8de5f3');
+    if (s.step === 0 || s.step === 7) txt('!', VERA.x, VERA.y - 138, 18, '#ffcf76');
+  }
+  if (zone === SAGA_ZONE_PLANT) {
+    VALVES.forEach((v, i) => {
+      const on = s.valves[i];
+      ctx.fillStyle = '#2b2f36'; ctx.fillRect(v.x - 26, v.y - 60, 52, 60);
+      ctx.fillStyle = on ? '#6fd36f' : s.step === 3 ? (Math.floor(clock * 4) % 2 ? '#ff5a4a' : '#7a2a22') : '#555';
+      ctx.fillRect(v.x - 20, v.y - 54, 40, 8);
+      ctx.save(); ctx.translate(v.x, v.y - 28); ctx.rotate(on ? 0 : clock * 2);
+      ctx.strokeStyle = '#d9a43a'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(0, 0, 14, 0, 7); ctx.moveTo(-14, 0); ctx.lineTo(14, 0); ctx.moveTo(0, -14); ctx.lineTo(0, 14); ctx.stroke();
+      ctx.restore();
+      if (s.step === 3 && !on) txt('VÁLVULA', v.x, v.y - 70, 8, '#ffcf76');
+    });
+    if (s.step >= 4) { // the rift over the reactor
+      const y = floorBounds(800).top + 15;
+      ctx.save();
+      ctx.globalAlpha = 0.75 + 0.2 * Math.sin(clock * 3);
+      const gr = ctx.createRadialGradient(800, y - 60, 5, 800, y - 60, 90);
+      gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.35, '#c9a7ff'); gr.addColorStop(1, 'rgba(120,60,220,0)');
+      ctx.fillStyle = gr; ctx.beginPath(); ctx.ellipse(800, y - 60, 60, 95, 0, 0, 7); ctx.fill();
+      ctx.restore();
+    }
+  }
+  if (zone === SAGA_ZONE_VOID && s.step <= 5) { // Draven in chains
+    sprite(14, 0, DRAVEN.x, DRAVEN.y, 100, -1);
+    ctx.strokeStyle = '#8b7fa6'; ctx.lineWidth = 3;
+    for (const sx of [-1, 1]) { ctx.beginPath(); ctx.moveTo(DRAVEN.x + sx * 22, DRAVEN.y - 60); ctx.lineTo(DRAVEN.x + sx * 70, DRAVEN.y - 150); ctx.stroke(); }
+    txt(DRAVEN.name + ' · OSMOSIANO', DRAVEN.x, DRAVEN.y - 116, 9, '#d7b762');
+    if (s.step === 5 && s.wardens >= 4) txt('!', DRAVEN.x, DRAVEN.y - 134, 18, '#ffcf76');
+  }
+}
+function sagaDrawEnemy(e, f) {
+  const k = e.sagaKind;
+  if (k === 'specter') {
+    const row = ALIENS.ghostfreak ? ALIENS.ghostfreak.row : 2;
+    ctx.save();
+    ctx.globalAlpha = 0.35 + 0.15 * Math.sin(clock * 5);
+    const gr = ctx.createRadialGradient(e.x, e.y - 80, 5, e.x, e.y - 80, 110);
+    gr.addColorStop(0, '#b98cff'); gr.addColorStop(1, 'rgba(120,60,220,0)');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(e.x, e.y - 80, 110, 0, 7); ctx.fill();
+    ctx.restore();
+    sprite(row, f, e.x, e.y - 10 - Math.sin(clock * 2) * 8, 168, e.face, e.intangible > 0 ? 0.3 : e.hit > 0 ? 0.55 : 0.85);
+    const by = e.y - 200;
+    txt('EL ESPECTRO', e.x, by - 8, 10, '#d9c2ff');
+    ctx.fillStyle = '#101522'; ctx.fillRect(e.x - 60, by, 120, 7);
+    ctx.fillStyle = '#b98cff'; ctx.fillRect(e.x - 60, by, 120 * Math.max(0, e.hp / e.max), 7);
+    return;
+  }
+  const col = k === 'rad' ? '#9dff4d' : '#b98cff';
+  ctx.save();
+  ctx.globalAlpha = 0.28 + 0.12 * Math.sin(clock * 6 + e.id);
+  ctx.fillStyle = col;
+  ctx.beginPath(); ctx.ellipse(e.x, e.y - 50, 40, 58, 0, 0, 7); ctx.fill();
+  ctx.restore();
+  sprite(2, f, e.x, e.y, k === 'void' ? 104 : 98, e.face, e.hit > 0 ? 0.5 : k === 'void' ? 0.8 : 1);
+  const by = e.y - 112;
+  txt(k === 'rad' ? 'DRON IRRADIADO' : 'CARCELERO DEL VACÍO', e.x, by - 6, 8, col);
+  ctx.fillStyle = '#101522'; ctx.fillRect(e.x - 24, by, 48, 5);
+  ctx.fillStyle = col; ctx.fillRect(e.x - 24, by, 48 * Math.max(0, e.hp / e.max), 5);
+  if (e.wind > 0) txt('!', e.x, e.y - 127, 18, '#ffaaa0');
+}
+// ---------------- Osmosian acid form ----------------
+function refreshAcid() {
+  if (!OSMO_FORMS.acid) {
+    OSMO_FORMS.acid = { name: 'Ácido osmosiano', hp: 230, color: '#a8ff3c' };
+    OSMO_SKILLS.acid = [
+      makeSkill('Salpicadura ácida', 'ÁCIDO', 19, 0.7),
+      makeSkill('Abanico corrosivo', 'ABANICO', 14, 3.5, 15),
+      makeSkill('Charco tóxico', 'CHARCO', 30, 7, 40),
+      makeSkill('Lluvia ácida', 'LLUVIA', 14, 12, 75),
+      { ...makeSkill('Golpe absorbente', 'ABSORBENTE', 34, 5), points: 3 },
+      { ...makeSkill('Resonancia material', 'RESONANCIA', 58, 12), points: 3 },
+    ];
+  }
+}
+function acidAttack(i, a, d, target) { // osmoAttack (part-02) for the acid form, skills 0-3
+  const spitA = (ang) => { shoot('toxin', ang, d, 430); const p = projectiles.at(-1); p.r = 12; p.t = 1.5; p.poisonDamage = 4 * multiplier(); };
+  if (i === 0) spitA(a);
+  if (i === 1) for (let n = -2; n <= 2; n++) spitA(a + n * 0.16);
+  if (i === 2) {
+    castArea('resonance', player.x, player.y, 150, d, 0.6, '#a8ff3c');
+    for (const e of combatants()) if (e.alive && dist(player, e) < 150) applyStatus(e, 'poison', 5, 5 * multiplier());
+  }
+  if (i === 3) effects.push({ type: 'rain', x: target?.x || player.x, y: target?.y || player.y, r: 160, t: 2.5, max: 2.5, tick: 0, pulses: 0, damage: d, color: '#a8ff3c' });
+}
+refreshAcid(); // the acid form exists from boot (saves can be in it); it is only usable once player.acid
+// ============================================================================================
+// OMNI 0.18 · CODEX SCANNING + LOW GRAPHICS
+//  SCAN  stand near an enemy type you haven't scanned yet and press B (or the ESCANEAR button): hold still in range for
+//        1.5 s while the watch scans. The entry goes into the codex BESTIARY (Pause → Extras → Códice) with its notes,
+//        weak points and how many you've beaten. First scan of each type: +40 EXP · +15 coins.
+//  GFX   Pause → Ajustes → GRÁFICOS: AUTO (old phones get LOW automatically) / ALTOS / BAJOS. Low: no glow blur,
+//        fewer particles, one background pass, 30 fps drawing (the game itself still runs at full speed).
+// ============================================================================================
+const BEASTS = {
+  dron: ['Dron invasor', 'Patrulla de Vilgax. Dispara energía verde cada pocos segundos.', 'Esquiva sus disparos lentos y ataca de cerca.', 'Bosque, ciudad'],
+  cabecilla: ['Cabecilla', 'El dron que dirige al grupo. Más vida y golpes más fuertes.', 'Acaba primero con los demás.', 'Refugio de Max'],
+  caballero: ['Caballero de la Orden', 'Guerreros con armadura; unos atacan cuerpo a cuerpo y otros a distancia.', 'Aliens fuertes rompen su guardia.', 'Fortaleza, Salón'],
+  elite: ['Dron de élite', 'Dron blindado de las misiones del tablón.', 'Usa ataques de área y no te quedes quieto.', 'Varias zonas'],
+  jefe: ['Jefe ígneo', 'Criatura de fuego que aparece cada cierto tiempo.', 'Aliens de hielo y agua lo frenan.', 'Bosque'],
+  robot: ['Robot de Vilgax', 'Máquina de guerra de la Historia 01.', 'Golpea cuando recarga su cañón.', 'Zona devastada'],
+  irradiado: ['Dron irradiado', 'Drones de seguridad de la Central, alterados por la energía fantasma.', 'Brillan antes de atacar: aléjate.', 'Central nuclear'],
+  carcelero: ['Carcelero del Vacío', 'Guardianes de la prisión dimensional. Más duros que un dron.', 'El veneno y el ácido les hacen mucho daño.', 'Vacío Nulo'],
+  espectro: ['El Espectro', 'Ser fantasmal escapado del Vacío. Se vuelve intangible y se teletransporta.', 'Ataca justo después de que reaparezca; esquiva sus anillos.', 'Vacío Nulo'],
+};
+function beastType(e) {
+  if (!e) return null;
+  if (e.sagaKind === 'specter') return 'espectro';
+  if (e.sagaKind === 'rad') return 'irradiado';
+  if (e.sagaKind === 'void') return 'carcelero';
+  if (e.robotBoss) return 'robot';
+  if (e.majorBoss) return 'jefe';
+  if (e.knight) return 'caballero';
+  if (e.elite) return 'elite';
+  if (e.boss) return 'cabecilla';
+  if (e.kind === 'enemy' || !e.kind) return 'dron';
+  return null;
+}
+function BX() {
+  const b = (player.bestiary = player.bestiary && typeof player.bestiary === 'object' ? player.bestiary : {});
+  return b;
+}
+function bestiaryKill(e) {
+  const t = beastType(e);
+  if (!t) return;
+  const b = BX();
+  b[t] = b[t] || { scanned: false, kills: 0 };
+  b[t].kills++;
+}
+let scan = null; // { e, t, type }
+function scanCandidate() {
+  if (!started || sel || dialogOpen || player.downed) return null;
+  const b = BX();
+  let best = null, bd = 300;
+  for (const e of enemies) {
+    if (!e.alive) continue;
+    const t = beastType(e);
+    if (!t || (b[t] && b[t].scanned)) continue;
+    const d = dist(player, e);
+    if (d < bd) { bd = d; best = e; }
+  }
+  return best;
+}
+function scanStart() {
+  if (scan) return;
+  const e = scanCandidate();
+  if (!e) return toast('Nada nuevo que escanear cerca');
+  scan = { e, t: 0, type: beastType(e) };
+  playWatchSFX('scan_start');
+}
+let scanBtn = null, scanShown = false;
+function scanTick(dt) {
+  if (lowGfx() && particles.length > 50) particles.splice(0, particles.length - 50);
+  if (!scanBtn) {
+    scanBtn = document.createElement('button');
+    scanBtn.id = 'scanbtn';
+    scanBtn.className = 'talk hidden';
+    scanBtn.onclick = scanStart;
+    $('#game').append(scanBtn);
+  }
+  const c = scanCandidate(), show = !!c && !scan;
+  if (show !== scanShown) { scanShown = show; scanBtn.classList.toggle('hidden', !show); }
+  if (show) scanBtn.textContent = '◎ ESCANEAR · B';
+  if (!scan) return;
+  const e = scan.e;
+  if (!e.alive || dist(player, e) > 340 || zone !== scan.zone && scan.zone != null) { scan = null; toast('Escaneo interrumpido'); return; }
+  scan.zone = zone;
+  scan.t += dt;
+  if (scan.t >= 1.5) {
+    const b = BX(), t = scan.type, B = BEASTS[t];
+    b[t] = b[t] || { scanned: false, kills: 0 };
+    if (!b[t].scanned) {
+      b[t].scanned = true;
+      xp(40);
+      player.coins = (player.coins || 0) + 15;
+      toast('ESCANEO COMPLETO · ' + B[0] + ' añadido al códice · +40 EXP · +15 monedas');
+      playWatchSFX('dna_added');
+      burst(e.x, e.y - 60, 24, '#8de5f3');
+      save();
+    }
+    scan = null;
+  }
+}
+function scanDrawMark(e) { // over each enemy: progress ring while scanning, a small "?" if never scanned
+  if (scan && scan.e === e) {
+    const p = Math.min(1, scan.t / 1.5), y = e.y - 60;
+    ctx.save();
+    ctx.strokeStyle = '#8de5f3'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(e.x, y, 54, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 0.25; ctx.fillStyle = '#8de5f3';
+    ctx.fillRect(e.x - 50, y - 60 + ((clock * 140) % 120), 100, 3);
+    ctx.restore();
+    txt('ESCANEANDO ' + Math.floor(p * 100) + '%', e.x, e.y + 22, 8, '#8de5f3');
+  } else {
+    const t = beastType(e), b = BX();
+    if (t && !(b[t] && b[t].scanned) && dist(player, e) < 300) txt('?', e.x + 30, e.y - 100, 12, '#8de5f3');
+  }
+}
+document.addEventListener('keydown', (e) => {
+  if (e.repeat || !e.key || e.key.toLowerCase() !== 'b' || !started || sel || dialogOpen || sagaCineOn) return;
+  scanStart();
+});
+function bestiaryMenu(back) {
+  const b = BX(), ids = Object.keys(BEASTS), have = ids.filter((t) => b[t] && b[t].scanned).length;
+  showDialog(
+    'CÓDICE · BESTIARIO',
+    have + ' / ' + ids.length + ' escaneados',
+    '<p>Acércate a un enemigo nuevo (marcado con <b>?</b>) y pulsa <b>B</b> o <b>ESCANEAR</b>.</p><div class="codex">' +
+      ids.map((t) => {
+        const s = b[t] && b[t].scanned, B = BEASTS[t];
+        return '<button class="cx' + (s ? '' : ' locked') + '" data-beast="' + t + '" style="--c:#8de5f3"><b>' + (s ? B[0] : '???') + '</b><small>' + (s ? 'Derrotados: ' + ((b[t] && b[t].kills) || 0) : B[3]) + '</small></button>';
+      }).join('') +
+      '</div>',
+    [['ALIENS', () => codexMenu(back)], ['VOLVER', back || closeDialog]],
+  );
+  for (const btn of document.querySelectorAll('[data-beast]'))
+    btn.onclick = () => {
+      const t = btn.dataset.beast, s = b[t] && b[t].scanned, B = BEASTS[t];
+      if (!s) return toast('Sin escanear · búscalo en: ' + B[3]);
+      showDialog('BESTIARIO · ' + B[0].toUpperCase(), B[3], '<div class="cxcard" style="--c:#8de5f3"><p>' + B[1] + '</p><p><b>Consejo</b> ' + B[2] + '</p><p><b>Derrotados</b> ' + (b[t].kills || 0) + '</p></div>', [['BESTIARIO', () => bestiaryMenu(back)], ['VOLVER', back || closeDialog]]);
+    };
+}
+// ---------------- low graphics ----------------
+function gfxMode() {
+  try { return localStorage.getItem('omni-gfx') || 'auto'; } catch (e) { return 'auto'; }
+}
+const GFX_AUTO_LOW = (() => {
+  try {
+    const n = navigator, mob = /Android|iPhone|iPad|Mobile/i.test(n.userAgent || '');
+    return (n.deviceMemory && n.deviceMemory <= 3) || (mob && n.hardwareConcurrency && n.hardwareConcurrency <= 4);
+  } catch (e) { return false; }
+})();
+let LOW = false;
+function lowGfx() { return LOW; }
+function gfxApply() {
+  const m = gfxMode();
+  LOW = m === 'low' || (m === 'auto' && !!GFX_AUTO_LOW);
+  const g = $('#game');
+  if (g) g.classList.toggle('lowgfx', LOW);
+}
+function gfxCycle() {
+  const m = gfxMode(), next = m === 'auto' ? 'high' : m === 'high' ? 'low' : 'auto';
+  try { localStorage.setItem('omni-gfx', next); } catch (e) {}
+  gfxApply();
+  toast('Gráficos: ' + gfxLabel() + (LOW ? ' · menos efectos, 30 fps' : ''));
+}
+function gfxLabel() {
+  const m = gfxMode();
+  return m === 'auto' ? 'AUTO (' + (GFX_AUTO_LOW ? 'BAJOS' : 'ALTOS') + ')' : m === 'low' ? 'BAJOS' : 'ALTOS';
+}
+// glow blur is the most expensive canvas effect on weak phones: switched off everywhere in LOW mode
+(() => {
+  try {
+    const P = CanvasRenderingContext2D.prototype, d = Object.getOwnPropertyDescriptor(P, 'shadowBlur');
+    if (d && d.set) Object.defineProperty(P, 'shadowBlur', { get: d.get, set(v) { d.set.call(this, LOW ? 0 : v); }, configurable: true });
+  } catch (e) {}
+})();
+gfxApply();
+let lowFrame = 0;
+const drawThisFrame = () => !LOW || (lowFrame ^= 1) === 1;
 applyWatchTheme();
 resize();
 boot();
@@ -12098,6 +12868,10 @@ if (window.__game)
     missionBoard, missionAccept, activeMission, MS, MISSIONS, coopOn, coopState, coopShare, coopTickMissions, COOP_SITES,
     arenaStart, arenaEnd, arena, arenaBest, statEvent, stats, daily, dailyMenu, achMenu, achCheck, ACHS, codexMenu, codexCard, codexIds, extrasMenu, difficultyMenu, diffCfg, diffKey, DIFFS, PAD, padPoll, padHelp,
     watchAnim, WATCH_ERAS, eraPlaylist, eraOf, storyPlay, storyFor, storyDraw, storyFit, storyPreload, BOARDS, SHEET_ROWS, SKIN_ART, boardId,
+    damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
+    get enemies() { return enemies; },
+    get sagaCineOn() { return sagaCineOn; },
+    get scan() { return scan; },
     get storyRun() { return storyRun; },
     get net() { return net; },
     get zone() { return zone; },
