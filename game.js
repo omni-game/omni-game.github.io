@@ -1,4 +1,4 @@
-window.OMNI_BUILD=45;
+window.OMNI_BUILD=46;
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -11935,8 +11935,22 @@ function miniFace(g, w, cx, cy, r, glow) {
     g.beginPath(); g.arc(cx, cy, r, 0, 7); g.fillStyle = '#10171a'; g.fill();
     symbol(g, w.shape, cx, cy, r * 0.45, w.color);
   }
-  g.lineWidth = 2; g.strokeStyle = w.color; g.globalAlpha = 0.5 + glow * 0.5;
+  // switched ON: the art lights up (additive pass) and a pulsing halo breathes around it
+  const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260), art2 = body || core;
+  if (art2) {
+    g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = 0.28 + 0.18 * pulse;
+    g.beginPath(); g.arc(cx, cy, r * 1.06, 0, 7); g.clip();
+    if (body) { const S = (r * 2) / 0.5; g.drawImage(body, cx - S / 2, cy - (S * body.height) / body.width / 2, S, (S * body.height) / body.width); }
+    else g.drawImage(w.id === 'albedo' ? tintedCore(core, '#ff2a2a', 'albedo') : core, cx - r, cy - r, r * 2, r * 2);
+    const lg = g.createRadialGradient(cx, cy, 0, cx, cy, r);
+    lg.addColorStop(0, w.color + '88'); lg.addColorStop(1, w.color + '00');
+    g.fillStyle = lg; g.fillRect(cx - r, cy - r, r * 2, r * 2);
+    g.restore();
+  }
+  g.save(); g.shadowColor = w.color; g.shadowBlur = 18 + 14 * pulse;
+  g.lineWidth = 2.5; g.strokeStyle = w.color; g.globalAlpha = 0.75 + 0.25 * pulse;
   g.beginPath(); g.arc(cx, cy, r * 1.08, 0, 7); g.stroke();
+  g.restore();
   g.restore();
 }
 function miniDraw(g, s, now) {

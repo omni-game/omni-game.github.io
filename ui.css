@@ -116,3 +116,4 @@ button:focus-visible { outline: 2px solid var(--ox); outline-offset: 2px; }
 #game.dock #watchsel { width: 260px !important; height: 300px; background: none !important; z-index: 300 !important; }
 #game.selopen.dock #hud { opacity: 1; }
 #game.selopen.dock #transform, #game.selopen.dock .talk { visibility: hidden; }
+#dial { display: none !important; } /* 0.17: the alien slot panel is replaced by the dial on the transform button */
