@@ -1,0 +1,211 @@
+/* =====================================================================================
+   OMNI 0.20 · INTERFACE THEMES. #game[data-ui] picks one (Pausa → Ajustes → INTERFAZ, or the title screen):
+     tech     the 0.16 Omnitrix-tech skin (tech.css, default)
+     clean    A · minimal: slim translucent HUD, rounded, most of the screen is the game
+     comic    B · comic book: cream panels, thick ink outlines, halftone dots, tilted cards
+     console  C · Plumber HQ console: terminal screens, monospace, cyan scanlines, [ BRACKET ] buttons
+   Every theme uses the equipped watch's colour (--ox) for its accents.
+   ===================================================================================== */
+
+/* ---------- shared: menu animations + level-up banner (all themes) ---------- */
+#modal:not(.hidden) .dialog { animation: uiDialogIn .22s cubic-bezier(.2, .9, .3, 1.2); }
+@keyframes uiDialogIn { from { opacity: 0; transform: translateY(18px) scale(.97); } to { opacity: 1; transform: none; } }
+#menu .menu-content > * { animation: uiRise .45s ease-out both; }
+#menu .menu-content > *:nth-child(2) { animation-delay: .05s; } #menu .menu-content > *:nth-child(3) { animation-delay: .1s; }
+#menu .menu-content > *:nth-child(4) { animation-delay: .15s; } #menu .menu-content > *:nth-child(5) { animation-delay: .2s; }
+@keyframes uiRise { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+#levelup { position: absolute; left: 50%; top: 32%; z-index: 360; pointer-events: none; text-align: center; transform: translate(-50%, -50%); }
+#levelup b { display: block; font-size: 54px; font-weight: 900; letter-spacing: 6px; color: #fff; text-shadow: 0 0 18px var(--ox), 0 0 40px var(--ox), 3px 3px 0 #0008; animation: lvlPop 2.2s ease-out forwards; }
+#levelup small { display: block; font-size: 12px; letter-spacing: 3px; color: var(--ox); font-weight: 800; animation: lvlFade 2.2s ease-out forwards; }
+#levelup i { position: absolute; left: 50%; top: 40%; width: 10px; height: 10px; border: 3px solid var(--ox); border-radius: 50%; transform: translate(-50%, -50%); animation: lvlRing 1s ease-out forwards; }
+@keyframes lvlPop { 0% { opacity: 0; transform: scale(2.4); } 12% { opacity: 1; transform: scale(.92); } 20% { transform: scale(1.05); } 26%, 78% { transform: scale(1); opacity: 1; } 100% { opacity: 0; transform: translateY(-30px); } }
+@keyframes lvlFade { 0%, 15% { opacity: 0; } 25%, 78% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes lvlRing { from { width: 10px; height: 10px; opacity: 1; } to { width: 520px; height: 520px; opacity: 0; } }
+#menulogo { position: absolute; left: 330px; top: 26px; width: 150px; height: 150px; pointer-events: none; animation: uiRise .6s ease-out both; }
+/* tabbed pause menu */
+.ptabs { display: flex; gap: 4px; margin: 0 0 10px; border-bottom: 1px solid color-mix(in srgb, var(--ox) 40%, transparent); }
+.ptabs button { flex: 1; padding: 9px 6px; font-size: 10px; font-weight: 800; letter-spacing: 1px; background: transparent !important; color: #9fb2b4 !important; border: 0 !important; border-bottom: 3px solid transparent !important; clip-path: none !important; }
+.ptabs button.on { color: var(--ox) !important; border-bottom-color: var(--ox) !important; }
+.pausewide .pgroup.off { display: none; }
+.pausewide .pgroup { animation: uiRise .2s ease-out; }
+/* phones: no keyboard help, tidier corners */
+@media (pointer: coarse) { #kbhint { display: none !important; } }
+
+/* =====================================================================================
+   A · CLEAN
+   ===================================================================================== */
+#game[data-ui="clean"] { font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif; }
+#game[data-ui="clean"] .panel, #game[data-ui="clean"] .tree-button, #game[data-ui="clean"] #coins, #game[data-ui="clean"] #lawstatus,
+#game[data-ui="clean"] .more-button, #game[data-ui="clean"] .jump-button, #game[data-ui="clean"] .slide-button, #game[data-ui="clean"] #toast,
+#game[data-ui="clean"] #special, #game[data-ui="clean"] #arenahud {
+  background: rgba(8, 12, 16, .5) !important; border: 0 !important; border-radius: 12px !important; box-shadow: none !important;
+  clip-path: none !important; backdrop-filter: blur(8px);
+}
+#game[data-ui="clean"] .vitals::before, #game[data-ui="clean"] .omni::before, #game[data-ui="clean"] .mission::before { display: none; }
+#game[data-ui="clean"] .vitals { width: 200px !important; padding: 8px 12px 6px !important; top: 12px !important; left: 12px !important; }
+#game[data-ui="clean"] .omni { width: 170px !important; padding: 8px 12px 8px !important; top: 12px !important; left: 222px !important; }
+#game[data-ui="clean"] .vitals small, #game[data-ui="clean"] #batteryhint, #game[data-ui="clean"] .mastery, #game[data-ui="clean"] .masterybar,
+#game[data-ui="clean"] #lawstatus, #game[data-ui="clean"] #regen, #game[data-ui="clean"] #kbhint, #game[data-ui="clean"] #clock { display: none !important; }
+#game[data-ui="clean"] .identity span, #game[data-ui="clean"] #energyname { color: #fff !important; text-shadow: none !important; font-weight: 700; letter-spacing: .5px !important; }
+#game[data-ui="clean"] .identity b, #game[data-ui="clean"] #batterytext { color: var(--ox) !important; }
+#game[data-ui="clean"] .bar { border: 0 !important; border-radius: 99px !important; background: rgba(255, 255, 255, .12) !important; height: 8px; }
+#game[data-ui="clean"] .bar i { border-radius: 99px; box-shadow: none; }
+#game[data-ui="clean"] .bar i::after { display: none; }
+#game[data-ui="clean"] .hp span { font-size: 8px; line-height: 8px; }
+#game[data-ui="clean"] .hp { height: 10px; }
+#game[data-ui="clean"] .mission { top: 12px !important; right: 62px !important; width: 230px !important; padding: 8px 12px !important; border: 0 !important; }
+#game[data-ui="clean"] .mission .tiny { color: var(--ox) !important; font-size: 7px; }
+#game[data-ui="clean"] .mission strong { font-size: 11px; margin: 3px 0; }
+#game[data-ui="clean"] .mission > span:last-child { font-size: 9px; }
+#game[data-ui="clean"] #mapbtn { opacity: .8; }
+#game[data-ui="clean"] #pause { border-radius: 50% !important; clip-path: none !important; border: 0 !important; background: rgba(8, 12, 16, .5) !important; top: 12px !important; right: 12px !important; }
+#game[data-ui="clean"] .attack { clip-path: none !important; border-radius: 50% !important; background: rgba(8, 12, 16, .55) !important; box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ox) 55%, transparent) !important; }
+#game[data-ui="clean"] .attack b { color: #fff !important; text-shadow: none; }
+#game[data-ui="clean"] .attack small { color: var(--ox) !important; }
+#game[data-ui="clean"] .talk, #game[data-ui="clean"] #scanbtn { border-radius: 99px !important; clip-path: none !important; border: 0 !important; box-shadow: 0 4px 14px #0006 !important; }
+#game[data-ui="clean"] #joystick { background: rgba(255, 255, 255, .05) !important; border: 1px solid rgba(255, 255, 255, .18) !important; box-shadow: none !important; }
+#game[data-ui="clean"] #toast { border-radius: 99px !important; padding: 8px 18px; }
+#game[data-ui="clean"] #modal .dialog { border-radius: 16px !important; clip-path: none !important; border: 0 !important; background: rgba(12, 17, 22, .97) !important; box-shadow: 0 20px 60px #000a !important; }
+#game[data-ui="clean"] #modal .eyebrow::before, #game[data-ui="clean"] .pgroup h4::before { content: ''; }
+#game[data-ui="clean"] #dialogbuttons button, #game[data-ui="clean"] .pbtn, #game[data-ui="clean"] .mcard, #game[data-ui="clean"] .wcard, #game[data-ui="clean"] .oxcard,
+#game[data-ui="clean"] .codex .cx, #game[data-ui="clean"] .pstat > div, #game[data-ui="clean"] .pmast span, #game[data-ui="clean"] .xrow, #game[data-ui="clean"] .ach {
+  border-radius: 10px !important; clip-path: none !important; background: rgba(255, 255, 255, .06) !important; border: 0 !important;
+}
+#game[data-ui="clean"] #dialogbuttons button:first-child, #game[data-ui="clean"] .pbtn.main { background: var(--ox) !important; color: #05110a !important; }
+#game[data-ui="clean"] #menu { background: linear-gradient(90deg, rgba(6, 9, 12, .92), rgba(6, 9, 12, .6) 45%, transparent 80%) !important; }
+#game[data-ui="clean"] .primary, #game[data-ui="clean"] .menu-grid button { border-radius: 12px !important; clip-path: none !important; }
+#game[data-ui="clean"] .menu-grid button { background: rgba(255, 255, 255, .07) !important; border: 0 !important; }
+
+/* =====================================================================================
+   B · COMIC
+   ===================================================================================== */
+#game[data-ui="comic"] { --ink: #121212; --paper: #fff8e2; --pop: #ffd23f; --dots: radial-gradient(circle, rgba(0, 0, 0, .13) 1.2px, transparent 1.4px); font-family: 'Bangers', 'Impact', 'Arial Black', sans-serif; }
+#game[data-ui="comic"] .panel, #game[data-ui="comic"] .tree-button, #game[data-ui="comic"] #coins, #game[data-ui="comic"] #lawstatus,
+#game[data-ui="comic"] .more-button, #game[data-ui="comic"] .jump-button, #game[data-ui="comic"] .slide-button, #game[data-ui="comic"] #toast,
+#game[data-ui="comic"] #special, #game[data-ui="comic"] #arenahud, #game[data-ui="comic"] #kbhint {
+  background: var(--dots) 0 0 / 6px 6px, var(--paper) !important; border: 3px solid var(--ink) !important; border-radius: 4px !important;
+  box-shadow: 4px 4px 0 var(--ink) !important; clip-path: none !important; backdrop-filter: none;
+}
+#game[data-ui="comic"] .panel *, #game[data-ui="comic"] .tree-button, #game[data-ui="comic"] #coins, #game[data-ui="comic"] #lawstatus,
+#game[data-ui="comic"] .more-button, #game[data-ui="comic"] .jump-button, #game[data-ui="comic"] #toast, #game[data-ui="comic"] #kbhint * { color: var(--ink) !important; text-shadow: none !important; }
+#game[data-ui="comic"] .vitals { transform: rotate(-1.2deg); }
+#game[data-ui="comic"] .omni { transform: rotate(.8deg); }
+#game[data-ui="comic"] .mission { transform: rotate(-.6deg); }
+#game[data-ui="comic"] .vitals::before, #game[data-ui="comic"] .omni::before, #game[data-ui="comic"] .mission::before { background: var(--pop); width: 14px; height: 14px; border: 2px solid var(--ink); filter: none; left: -8px; top: -8px; border-radius: 50%; }
+#game[data-ui="comic"] .identity span, #game[data-ui="comic"] #energyname, #game[data-ui="comic"] .mission strong { font-family: 'Bangers', 'Impact', sans-serif; font-size: 15px; letter-spacing: 1.5px !important; font-weight: 400; }
+#game[data-ui="comic"] .tiny { background: var(--ink); color: var(--pop) !important; padding: 1px 5px; display: inline-block !important; }
+#game[data-ui="comic"] .bar { border: 2px solid var(--ink) !important; background: #fff !important; border-radius: 3px !important; }
+#game[data-ui="comic"] .bar i { box-shadow: none; }
+#game[data-ui="comic"] .bar i::after { background: repeating-linear-gradient(-45deg, transparent 0 4px, rgba(0, 0, 0, .15) 4px 6px); }
+#game[data-ui="comic"] .hp i { background: #e8423f !important; }
+#game[data-ui="comic"] .battery i, #game[data-ui="comic"] .masterybar i { background: var(--ox) !important; }
+#game[data-ui="comic"] .attack { clip-path: polygon(50% 0, 61% 18%, 82% 8%, 80% 30%, 100% 38%, 84% 54%, 96% 74%, 74% 74%, 68% 96%, 50% 82%, 32% 96%, 26% 74%, 4% 74%, 16% 54%, 0 38%, 20% 30%, 18% 8%, 39% 18%) !important;
+  background: var(--dots) 0 0 / 5px 5px, var(--pop) !important; box-shadow: none !important; }
+#game[data-ui="comic"] .attack b, #game[data-ui="comic"] .attack span, #game[data-ui="comic"] .attack small { color: var(--ink) !important; text-shadow: none !important; }
+#game[data-ui="comic"] .attack.locked { background: var(--dots) 0 0 / 5px 5px, #c9c3ad !important; }
+#game[data-ui="comic"] .transform { border: 4px solid var(--ink) !important; box-shadow: 4px 4px 0 var(--ink) !important; background: var(--dots) 0 0 / 6px 6px, radial-gradient(circle, #fff 0 45%, var(--ox) 46% 62%, var(--paper) 63%) !important; }
+#game[data-ui="comic"] .transform strong, #game[data-ui="comic"] .transform small { color: var(--ink) !important; }
+#game[data-ui="comic"] .talk, #game[data-ui="comic"] #scanbtn { background: var(--pop) !important; color: var(--ink) !important; border: 3px solid var(--ink) !important; box-shadow: 3px 3px 0 var(--ink) !important; clip-path: none !important; font-family: 'Bangers', 'Impact', sans-serif; font-size: 14px; letter-spacing: 1px; }
+#game[data-ui="comic"] #toast { border-radius: 18px !important; font-family: 'Bangers', 'Impact', sans-serif; font-size: 15px; letter-spacing: 1px; }
+#game[data-ui="comic"] #toast::after { content: ''; position: absolute; left: 30px; bottom: -12px; border: 8px solid transparent; border-top-color: var(--ink); }
+#game[data-ui="comic"] #joystick { background: var(--dots) 0 0 / 6px 6px, rgba(255, 248, 226, .35) !important; border: 3px solid var(--ink) !important; box-shadow: 3px 3px 0 var(--ink) !important; }
+#game[data-ui="comic"] #stick { background: var(--pop) !important; border: 3px solid var(--ink) !important; box-shadow: none !important; }
+#game[data-ui="comic"] #pause { background: var(--pop) !important; color: var(--ink) !important; border: 3px solid var(--ink) !important; clip-path: none !important; box-shadow: 3px 3px 0 var(--ink) !important; }
+#game[data-ui="comic"] #modal { background: rgba(10, 10, 10, .55) !important; }
+#game[data-ui="comic"] #modal .dialog { background: var(--dots) 0 0 / 7px 7px, var(--paper) !important; border: 4px solid var(--ink) !important; border-radius: 6px !important; clip-path: none !important; box-shadow: 8px 8px 0 var(--ink) !important; transform: rotate(-.4deg); }
+#game[data-ui="comic"] #modal .dialog, #game[data-ui="comic"] #modal .dialog * { color: var(--ink) !important; text-shadow: none !important; }
+#game[data-ui="comic"] #modal h2 { font-family: 'Bangers', 'Impact', sans-serif; font-size: 34px; letter-spacing: 2px !important; font-weight: 400; display: inline-block; background: var(--pop); padding: 0 10px; transform: rotate(-1.5deg); border: 3px solid var(--ink); }
+#game[data-ui="comic"] #modal .eyebrow::before { content: '★ '; }
+#game[data-ui="comic"] #dialogbuttons button, #game[data-ui="comic"] .pbtn, #game[data-ui="comic"] .mcard, #game[data-ui="comic"] .wcard, #game[data-ui="comic"] .oxcard,
+#game[data-ui="comic"] .codex .cx, #game[data-ui="comic"] .pstat > div, #game[data-ui="comic"] .pmast span, #game[data-ui="comic"] .xrow, #game[data-ui="comic"] .ach {
+  background: #fff !important; border: 3px solid var(--ink) !important; border-radius: 4px !important; clip-path: none !important; box-shadow: 3px 3px 0 var(--ink) !important;
+}
+#game[data-ui="comic"] #dialogbuttons button, #game[data-ui="comic"] .pbtn { font-family: 'Bangers', 'Impact', sans-serif; font-size: 14px; letter-spacing: 1px; }
+#game[data-ui="comic"] #dialogbuttons button:first-child, #game[data-ui="comic"] .pbtn.main { background: var(--pop) !important; }
+#game[data-ui="comic"] .pbtn.danger { background: #ff8c8c !important; }
+#game[data-ui="comic"] .ptabs button { font-family: 'Bangers', 'Impact', sans-serif; font-size: 15px; color: #555 !important; }
+#game[data-ui="comic"] .ptabs button.on { color: var(--ink) !important; border-bottom-color: var(--ink) !important; background: var(--pop) !important; }
+#game[data-ui="comic"] #menu { background: linear-gradient(90deg, rgba(255, 248, 226, .97), rgba(255, 248, 226, .9) 42%, rgba(255, 248, 226, 0) 78%), var(--dots) 0 0 / 7px 7px !important; }
+#game[data-ui="comic"] #menu, #game[data-ui="comic"] #menu * { color: var(--ink) !important; text-shadow: none !important; }
+#game[data-ui="comic"] #menu h1 { font-family: 'Bangers', 'Impact', sans-serif; font-weight: 400; font-size: 104px; letter-spacing: 8px; color: var(--pop) !important; -webkit-text-stroke: 4px var(--ink); text-shadow: 6px 6px 0 var(--ink) !important; transform: rotate(-3deg); }
+#game[data-ui="comic"] .primary, #game[data-ui="comic"] .menu-grid button { background: #fff !important; border: 3px solid var(--ink) !important; border-radius: 4px !important; clip-path: none !important; box-shadow: 3px 3px 0 var(--ink) !important; font-family: 'Bangers', 'Impact', sans-serif; font-size: 14px !important; letter-spacing: 1px; }
+#game[data-ui="comic"] .primary { background: var(--pop) !important; font-size: 18px !important; }
+#game[data-ui="comic"] #levelup b { font-family: 'Bangers', 'Impact', sans-serif; font-weight: 400; color: var(--pop); -webkit-text-stroke: 3px #121212; text-shadow: 5px 5px 0 #121212; }
+
+/* =====================================================================================
+   C · PLUMBER HQ CONSOLE
+   ===================================================================================== */
+#game[data-ui="console"] { --cy: #3ef0ff; --cy2: rgba(62, 240, 255, .35); --scan2: repeating-linear-gradient(0deg, rgba(62, 240, 255, .06) 0 1px, transparent 1px 3px); font-family: 'Share Tech Mono', 'Consolas', 'Courier New', monospace; }
+#game[data-ui="console"] .panel, #game[data-ui="console"] .tree-button, #game[data-ui="console"] #coins, #game[data-ui="console"] #lawstatus,
+#game[data-ui="console"] .more-button, #game[data-ui="console"] .jump-button, #game[data-ui="console"] .slide-button, #game[data-ui="console"] #toast,
+#game[data-ui="console"] #special, #game[data-ui="console"] #arenahud, #game[data-ui="console"] #kbhint {
+  background: var(--scan2), rgba(1, 9, 12, .9) !important; border: 1px solid var(--cy2) !important; border-radius: 2px !important; clip-path: none !important;
+  box-shadow: 0 0 0 1px #000, 0 0 16px rgba(62, 240, 255, .12), inset 0 0 22px rgba(62, 240, 255, .07) !important; animation: conFlick 4s infinite steps(1);
+}
+@keyframes conFlick { 0%, 96%, 100% { opacity: 1; } 97% { opacity: .82; } }
+#game[data-ui="console"] .panel *, #game[data-ui="console"] .tree-button, #game[data-ui="console"] #coins, #game[data-ui="console"] #lawstatus,
+#game[data-ui="console"] .more-button, #game[data-ui="console"] .jump-button, #game[data-ui="console"] #toast, #game[data-ui="console"] #kbhint * { color: #bff8ff !important; text-shadow: 0 0 6px rgba(62, 240, 255, .45) !important; font-family: inherit !important; }
+#game[data-ui="console"] .tiny, #game[data-ui="console"] .identity span, #game[data-ui="console"] #energyname { color: var(--cy) !important; }
+#game[data-ui="console"] .tiny::before, #game[data-ui="console"] .identity span::before, #game[data-ui="console"] #energyname::before { content: '> '; }
+#game[data-ui="console"] .vitals::before, #game[data-ui="console"] .omni::before, #game[data-ui="console"] .mission::before {
+  content: ''; width: 10px; height: 10px; background: none; filter: none; border-left: 2px solid var(--cy); border-top: 2px solid var(--cy); left: 3px; top: 3px; }
+#game[data-ui="console"] .vitals::after, #game[data-ui="console"] .omni::after, #game[data-ui="console"] .mission::after {
+  content: ''; position: absolute; right: 3px; bottom: 3px; width: 10px; height: 10px; border-right: 2px solid var(--cy); border-bottom: 2px solid var(--cy); pointer-events: none; }
+#game[data-ui="console"] .bar { background: #000 !important; border: 1px solid var(--cy2) !important; border-radius: 0 !important; }
+#game[data-ui="console"] .bar i::after { background: repeating-linear-gradient(90deg, transparent 0 5px, rgba(0, 0, 0, .7) 5px 7px); }
+#game[data-ui="console"] .hp i { background: var(--cy) !important; }
+#game[data-ui="console"] .attack { clip-path: none !important; border-radius: 2px !important; background: var(--scan2), rgba(1, 9, 12, .9) !important; box-shadow: inset 0 0 0 1px var(--cy2), 0 0 12px rgba(62, 240, 255, .15) !important; }
+#game[data-ui="console"] .attack b { color: var(--cy) !important; font-family: inherit !important; }
+#game[data-ui="console"] .attack span, #game[data-ui="console"] .attack small { color: #bff8ff !important; font-family: inherit; }
+#game[data-ui="console"] .attack span::before { content: '['; } #game[data-ui="console"] .attack span::after { content: ']'; }
+#game[data-ui="console"] .talk, #game[data-ui="console"] #scanbtn { background: rgba(1, 9, 12, .92) !important; color: var(--cy) !important; border: 1px solid var(--cy) !important; clip-path: none !important; box-shadow: 0 0 14px rgba(62, 240, 255, .3) !important; font-family: inherit; }
+#game[data-ui="console"] #joystick { border: 1px solid var(--cy2) !important; box-shadow: 0 0 14px rgba(62, 240, 255, .15) !important; background: rgba(1, 9, 12, .35) !important; }
+#game[data-ui="console"] #stick { background: radial-gradient(circle, var(--cy), #04363d) !important; }
+#game[data-ui="console"] #pause { color: var(--cy) !important; border-color: var(--cy2) !important; background: rgba(1, 9, 12, .9) !important; }
+#game[data-ui="console"] #modal { background: rgba(0, 4, 6, .82) !important; }
+#game[data-ui="console"] #modal .dialog { background: var(--scan2), #020b0e !important; border: 1px solid var(--cy) !important; border-top: 22px solid #0b2f36 !important; border-radius: 2px !important; clip-path: none !important; box-shadow: 0 0 30px rgba(62, 240, 255, .2) !important; position: relative; font-family: 'Share Tech Mono', 'Consolas', monospace; }
+#game[data-ui="console"] #modal .dialog::before { content: 'PLUMBER-OS // TERMINAL 07'; position: absolute; top: -18px; left: 10px; font-size: 10px; letter-spacing: 2px; color: var(--cy); }
+#game[data-ui="console"] #modal .dialog::after { content: '● ● ●'; position: absolute; top: -18px; right: 10px; font-size: 9px; color: var(--cy); opacity: .6; }
+#game[data-ui="console"] #modal .dialog * { font-family: inherit !important; }
+#game[data-ui="console"] #modal p, #game[data-ui="console"] #modal li { color: #bfeef5 !important; }
+#game[data-ui="console"] #modal h2 { color: var(--cy) !important; text-shadow: 0 0 10px rgba(62, 240, 255, .5); }
+#game[data-ui="console"] #modal h2::before { content: '> '; }
+#game[data-ui="console"] #modal h2::after { content: '_'; animation: conBlink 1s steps(1) infinite; }
+@keyframes conBlink { 50% { opacity: 0; } }
+#game[data-ui="console"] #modal .eyebrow { color: var(--cy) !important; }
+#game[data-ui="console"] #modal .eyebrow::before { content: '// '; }
+#game[data-ui="console"] #dialogbuttons button, #game[data-ui="console"] .pbtn, #game[data-ui="console"] .mcard, #game[data-ui="console"] .wcard, #game[data-ui="console"] .oxcard,
+#game[data-ui="console"] .codex .cx, #game[data-ui="console"] .pstat > div, #game[data-ui="console"] .pmast span, #game[data-ui="console"] .xrow, #game[data-ui="console"] .ach {
+  background: rgba(62, 240, 255, .04) !important; border: 1px solid var(--cy2) !important; border-radius: 0 !important; clip-path: none !important; color: #bff8ff !important;
+}
+#game[data-ui="console"] #dialogbuttons button::before, #game[data-ui="console"] .pbtn::before { content: '[ '; } #game[data-ui="console"] #dialogbuttons button::after, #game[data-ui="console"] .pbtn::after { content: ' ]'; }
+#game[data-ui="console"] #dialogbuttons button:first-child, #game[data-ui="console"] .pbtn.main { background: var(--cy) !important; color: #021013 !important; }
+#game[data-ui="console"] .ptabs button.on { color: var(--cy) !important; border-bottom-color: var(--cy) !important; }
+#game[data-ui="console"] .pgroup h4 { color: var(--cy) !important; }
+#game[data-ui="console"] .pgroup h4::before { content: '// '; }
+#game[data-ui="console"] #menu { background: var(--scan2), linear-gradient(90deg, rgba(1, 8, 11, .97), rgba(1, 8, 11, .85) 42%, rgba(1, 8, 11, .1) 80%) !important; }
+#game[data-ui="console"] #menu, #game[data-ui="console"] #menu * { font-family: 'Share Tech Mono', 'Consolas', monospace !important; }
+#game[data-ui="console"] #menu h1 { color: var(--cy) !important; text-shadow: 0 0 22px rgba(62, 240, 255, .6), 3px 3px 0 #04363d !important; letter-spacing: 14px; }
+#game[data-ui="console"] #menu .eyebrow { color: var(--cy) !important; }
+#game[data-ui="console"] #menu .eyebrow::before { content: '> '; }
+#game[data-ui="console"] .primary { background: var(--cy) !important; color: #021013 !important; clip-path: none !important; border-radius: 0 !important; box-shadow: 0 0 22px rgba(62, 240, 255, .4) !important; }
+#game[data-ui="console"] .menu-grid button { background: rgba(62, 240, 255, .05) !important; border: 1px solid var(--cy2) !important; color: #bff8ff !important; clip-path: none !important; border-radius: 0 !important; }
+#game[data-ui="console"] #levelup b { font-family: 'Share Tech Mono', monospace; color: var(--cy); text-shadow: 0 0 18px var(--cy), 0 0 40px var(--cy); }
+#game[data-ui="console"] #levelup i { border-color: var(--cy); }
+
+/* theme picker cards */
+.uicards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.uicards button { text-align: left; padding: 12px; min-height: 78px; }
+.uicards button b { display: block; font-size: 13px; margin-bottom: 4px; }
+.uicards button small { display: block; font-size: 10px; opacity: .8; line-height: 1.4; }
+.uicards button.on { outline: 2px solid var(--ox); }
+/* comic fixes: keep the title menu inside the screen, readable key chips */
+#game[data-ui="comic"] #kbhint b { background: var(--pop) !important; color: var(--ink) !important; border: 2px solid var(--ink) !important; }
+#game[data-ui="comic"] #menu h1 { font-size: 86px; margin: 10px 0 14px; }
+#game[data-ui="comic"] .menu-grid { gap: 6px; }
+#game[data-ui="comic"] .menu-grid button { font-size: 12px !important; padding: 6px 6px !important; min-height: 30px !important; letter-spacing: .5px; }
+#game[data-ui="comic"] .primary { padding: 12px 20px !important; font-size: 17px !important; }
+#game[data-ui="comic"] .menu-content p { margin-bottom: 14px; }
+#game[data-ui="comic"] #menulogo { left: 360px; top: 20px; }
+#game[data-ui="comic"] .menu-bottom { display: none; }
+#game[data-ui="comic"] #kbhint { color: var(--ink) !important; font-family: Arial, sans-serif; }

@@ -380,5 +380,19 @@ window.OMNI_EN = Object.assign(window.OMNI_EN || {}, {
 "Sin conexión · se intentará más tarde":"No connection · will try again later",
 "ACTUALIZAR":"UPDATE",
 "¡A JUGAR!":"LET'S PLAY!",
-"Pantalla de actualización con logo: ves cómo se descarga cada versión nueva":"Update screen with logo: watch each new version download"
+"Pantalla de actualización con logo: ves cómo se descarga cada versión nueva":"Update screen with logo: watch each new version download",
+"INTERFAZ · ESTILO":"INTERFACE · STYLE",
+"INTERFAZ":"INTERFACE",
+"Elige el estilo de la pantalla":"Choose the screen style",
+"Cambia cómo se ven el HUD, los menús y la pantalla de título. Todos usan el color de tu reloj.":"Changes how the HUD, menus and title screen look. All of them use your watch's colour.",
+"OMNITRIX TECH":"OMNITRIX TECH",
+"LIMPIA":"CLEAN",
+"CÓMIC":"COMIC",
+"CONSOLA FONTANERO":"PLUMBER CONSOLE",
+"Cristal negro, bordes de neón y hexágonos. El estilo clásico de OMNI.":"Black glass, neon edges and hexagons. The classic OMNI look.",
+"Mínima: barras finas y translúcidas, casi toda la pantalla es juego. Ideal en móvil.":"Minimal: thin see-through bars, almost the whole screen is game. Best on phones.",
+"Viñetas color crema, tinta negra, puntos de trama y botones como explosiones.":"Cream comic panels, black ink, halftone dots and burst-shaped buttons.",
+"Terminales del cuartel: texto mono, líneas de escaneo y botones [ ASÍ ].":"HQ terminals: monospace text, scanlines and [ BRACKET ] buttons.",
+"ATAQUES MÁS FUERTES · +1 PUNTO DE ÁRBOL":"STRONGER ATTACKS · +1 SKILL POINT",
+"15 ZONAS":"15 ZONES"
 });

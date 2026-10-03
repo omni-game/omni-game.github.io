@@ -1,4 +1,4 @@
-window.OMNI_BUILD=48;
+window.OMNI_BUILD=49;
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -3429,6 +3429,7 @@ function xp(amount) {
   if (player.level === 20) player.xp = 0;
   if (up) {
     toast('¡Nivel ' + player.level + '! Tus ataques son más fuertes.');
+    levelBanner(player.level); // part-44
     burst(player.x, player.y - 40, 35, '#c3ff8a');
     tone(880, 0.35);
     checkWatchUnlocks(true);
@@ -4269,6 +4270,7 @@ function pauseMenu() {
         ['SONIDO: ' + (sound ? 'SÍ' : 'NO'), () => { sound = !sound; pauseMenu(); }],
         ['DÍA / NOCHE: ' + String(dayMode).toUpperCase(), () => { dayMode = dayMode === 'noche' ? 'día' : dayMode === 'día' ? 'ciclo' : 'noche'; pauseMenu(); }],
         ['DIFICULTAD: ' + diffCfg().name, () => difficultyMenu(pauseMenu)],
+        ['INTERFAZ: ' + (UI_THEMES.find((x) => x[0] === uiTheme()) || UI_THEMES[0])[1], () => uiMenu(pauseMenu)],
         ['GRÁFICOS: ' + gfxLabel(), () => { gfxCycle(); pauseMenu(); }],
         ['DIAL: ' + (dialDocked() ? 'MINI' : 'PANTALLA COMPLETA'), () => { dialDockSet(!dialDocked()); pauseMenu(); }],
         ['MANDO', padHelp],
@@ -4288,6 +4290,7 @@ function pauseMenu() {
   showDialog('PAUSA · VERSIÓN ' + gameVersion(), 'Partida guardada', html, []);
   $('#modal .dialog').classList.add('pausewide');
   for (const b of document.querySelectorAll('[data-pact]')) b.onclick = () => acts[+b.dataset.pact]();
+  pauseTabs(); // part-44
   const first = document.querySelector('[data-pact="0"]');
   if (first) try { first.focus({ preventScroll: true }); } catch (e) {}
 }
@@ -11913,7 +11916,6 @@ function updBanner(v, linkOnly) {
   playWatchSFX('activate');
 }
 // ---------------- the update screen ----------------
-let updLogoRaf = 0;
 function updLogo(cv, state) {
   const g = cv.getContext('2d'), W = cv.width, H = cv.height, cx = W / 2, cy = H / 2;
   const w = (typeof getWatch === 'function' && getWatch()) || { color: '#8dff5a', id: 'prototype' };
@@ -11921,7 +11923,11 @@ function updLogo(cv, state) {
   const mark = new Image();
   mark.src = 'assets/logo-' + ((typeof WATCH_ART !== 'undefined' && WATCH_ART[w.id]) || 'classic') + '.png';
   const t0 = performance.now();
+  let raf = 0, stopped = false;
   const frame = (now) => {
+    if (stopped || !cv.isConnected) return;
+    raf = requestAnimationFrame(frame);
+    if (!cv.offsetParent) return; // hidden (e.g. the title logo while playing): skip the drawing
     const t = (now - t0) / 1000, p = state.p;
     g.clearRect(0, 0, W, H);
     // halo
@@ -11955,9 +11961,9 @@ function updLogo(cv, state) {
       g.globalAlpha = 1;
     }
     if (state.done && now - state.doneAt < 500) { g.fillStyle = 'rgba(255,255,255,' + (0.5 - (now - state.doneAt) / 1000) + ')'; g.fillRect(0, 0, W, H); }
-    updLogoRaf = requestAnimationFrame(frame);
   };
-  updLogoRaf = requestAnimationFrame(frame);
+  raf = requestAnimationFrame(frame);
+  return () => { stopped = true; cancelAnimationFrame(raf); };
 }
 // ---------------- the browser tab: OMNI logo, and a progress ring + percentage while updating ----------------
 const TAB_TITLE = document.title || 'OMNI';
@@ -11992,7 +11998,7 @@ async function runUpdate(v) {
     (v.notes && v.notes.length ? '<ul>' + v.notes.slice(0, 5).map((n) => '<li>' + n + '</li>').join('') + '</ul>' : '') + '</div>';
   el.classList.remove('hidden');
   const state = { p: 0, done: false, doneT: 0 };
-  updLogo(el.querySelector('canvas'), state);
+  const stopLogo = updLogo(el.querySelector('canvas'), state);
   tabIcon(0);
   playWatchSFX('activate');
   const bar = el.querySelector('.updbar i'), lab = el.querySelector('.updfile');
@@ -12025,7 +12031,7 @@ async function runUpdate(v) {
     lab.textContent = 'Sin conexión · se intentará más tarde';
     tabIcon(null);
     playWatchSFX('error');
-    setTimeout(() => { el.classList.add('hidden'); cancelAnimationFrame(updLogoRaf); updBusy = false; }, 2200);
+    setTimeout(() => { el.classList.add('hidden'); stopLogo(); updBusy = false; }, 2200);
     return;
   }
   state.done = true;
@@ -12054,9 +12060,9 @@ function updWelcome() {
   tabIcon(1, '✔ OMNI ' + u.to);
   setTimeout(() => tabIcon(null), 6000);
   const st = { p: 1, done: false };
-  updLogo(c.querySelector('canvas'), st);
-  c.querySelector('button').onclick = () => { c.remove(); cancelAnimationFrame(updLogoRaf); };
-  setTimeout(() => { if (c.isConnected) { c.remove(); cancelAnimationFrame(updLogoRaf); } }, 15000);
+  updLogo(c.querySelector('canvas'), st); // stops by itself once the card is removed
+  c.querySelector('button').onclick = () => c.remove();
+  setTimeout(() => c.remove(), 15000);
 }
 setTimeout(updWelcome, 900);
 setTimeout(updateCheck, 1500);
@@ -13026,6 +13032,96 @@ function gfxLabel() {
 gfxApply();
 let lowFrame = 0;
 const drawThisFrame = () => !LOW || (lowFrame ^= 1) === 1;
+// ============================================================================================
+// OMNI 0.20 · INTERFACE THEMES + polish (www/themes.css)
+//  · 4 looks: TECH (the Omnitrix-tech skin), CLEAN (minimal), COMIC (comic book), CONSOLE (Plumber HQ terminal).
+//    Picked in Pause → Ajustes → INTERFAZ or on the title screen; saved per device. All follow the watch colour.
+//  · pause menu in tabs · big LEVEL UP banner · animated logo on the title screen.
+// ============================================================================================
+const UI_THEMES = [
+  ['tech', 'OMNITRIX TECH', 'Cristal negro, bordes de neón y hexágonos. El estilo clásico de OMNI.'],
+  ['clean', 'LIMPIA', 'Mínima: barras finas y translúcidas, casi toda la pantalla es juego. Ideal en móvil.'],
+  ['comic', 'CÓMIC', 'Viñetas color crema, tinta negra, puntos de trama y botones como explosiones.'],
+  ['console', 'CONSOLA FONTANERO', 'Terminales del cuartel: texto mono, líneas de escaneo y botones [ ASÍ ].'],
+];
+function uiTheme() {
+  try { const t = localStorage.getItem('omni-ui'); return UI_THEMES.some((x) => x[0] === t) ? t : 'tech'; } catch (e) { return 'tech'; }
+}
+function uiApply(t) {
+  t = t || uiTheme();
+  try { localStorage.setItem('omni-ui', t); } catch (e) {}
+  const g = $('#game');
+  if (g) g.dataset.ui = t;
+}
+function uiMenu(back) {
+  const cur = uiTheme();
+  showDialog(
+    'INTERFAZ',
+    'Elige el estilo de la pantalla',
+    '<p>Cambia cómo se ven el HUD, los menús y la pantalla de título. Todos usan el color de tu reloj.</p><div class="uicards">' +
+      UI_THEMES.map(([id, n, d]) => '<button data-ui="' + id + '" class="' + (id === cur ? 'on' : '') + '"><b>' + n + '</b><small>' + d + '</small></button>').join('') +
+      '</div>',
+    [['LISTO', back || closeDialog]],
+  );
+  for (const b of document.querySelectorAll('.uicards [data-ui]'))
+    b.onclick = () => { uiApply(b.dataset.ui); playWatchSFX('select'); uiMenu(back); };
+}
+// ---------------- pause menu in tabs ----------------
+let pauseTab = 0;
+function pauseTabs() {
+  const groups = [...document.querySelectorAll('#modal .pausewide .pgroup, #modal .pgroup')];
+  if (groups.length < 2 || document.querySelector('#modal .ptabs')) return;
+  const bar = document.createElement('div');
+  bar.className = 'ptabs';
+  groups.forEach((gr, i) => {
+    const h = gr.querySelector('h4'), b = document.createElement('button');
+    b.textContent = h ? h.textContent : 'MENÚ ' + (i + 1);
+    if (h) h.style.display = 'none';
+    b.onclick = () => { pauseTab = i; show(); playWatchSFX('scroll'); };
+    bar.append(b);
+  });
+  groups[0].parentNode.insertBefore(bar, groups[0]);
+  const show = () => {
+    if (pauseTab >= groups.length) pauseTab = 0;
+    groups.forEach((gr, i) => gr.classList.toggle('off', i !== pauseTab));
+    [...bar.children].forEach((b, i) => b.classList.toggle('on', i === pauseTab));
+  };
+  show();
+}
+// Q / E or shoulder buttons switch tabs while the pause menu is open
+document.addEventListener('keydown', (e) => {
+  const bar = document.querySelector('#modal:not(.hidden) .ptabs');
+  if (!bar || !['[', ']', 'PageUp', 'PageDown'].includes(e.key)) return;
+  const n = bar.children.length;
+  pauseTab = (pauseTab + (e.key === '[' || e.key === 'PageUp' ? n - 1 : 1)) % n;
+  bar.children[pauseTab].click();
+});
+// ---------------- level up banner ----------------
+function levelBanner(lv) {
+  let el = document.getElementById('levelup');
+  if (el) el.remove();
+  el = document.createElement('div');
+  el.id = 'levelup';
+  el.innerHTML = '<i></i><b>¡NIVEL ' + lv + '!</b><small>ATAQUES MÁS FUERTES · +1 PUNTO DE ÁRBOL</small>';
+  $('#game').append(el);
+  setTimeout(() => el.remove(), 2300);
+}
+// ---------------- title screen logo ----------------
+function menuLogo() {
+  const menu = $('#menu');
+  if (!menu || document.getElementById('menulogo') || typeof updLogo !== 'function') return;
+  const c = document.createElement('canvas');
+  c.id = 'menulogo';
+  c.width = c.height = 220;
+  menu.append(c);
+  updLogo(c, { p: 1, done: false });
+}
+uiApply();
+setTimeout(menuLogo, 300);
+{
+  const ub = document.getElementById('uibtn');
+  if (ub) ub.onclick = () => uiMenu();
+}
 applyWatchTheme();
 resize();
 boot();
