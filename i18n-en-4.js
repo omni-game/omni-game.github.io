@@ -422,5 +422,20 @@ window.OMNI_EN = Object.assign(window.OMNI_EN || {}, {
 "Regreso":"Return",
 "MASCOTA: SÍ":"PET: ON",
 "MASCOTA: NO":"PET: OFF",
-"Se recoge sola al empezar a jugar cada jornada.":"It is collected automatically the first time you play each day."
+"Se recoge sola al empezar a jugar cada jornada.":"It is collected automatically the first time you play each day.",
+" / 30 · Daño ×":" / 30 · Damage ×",
+"TORRE DEL VACÍO":"VOID TOWER",
+"RETOS SEMANALES":"WEEKLY CHALLENGES",
+"ENTRENAMIENTO":"TRAINING",
+"TIENDA":"SHOP",
+"COLECCIÓN":"COLLECTION",
+"TÍTULOS":"TITLES",
+"PRESTIGIO":"PRESTIGE",
+"¡SUBIR!":"CLIMB!",
+"¡PRESTIGIO!":"PRESTIGE!",
+"AHORA NO":"NOT NOW",
+"¡DÉBIL!":"WEAK!",
+"¡CONTRAATAQUE!":"COUNTER!",
+"ESCUDO ROTO":"SHIELD BROKEN",
+"NIVEL MÁX. 30":"MAX LEVEL 30"
 });

@@ -1,4 +1,4 @@
-window.OMNI_BUILD=50;
+window.OMNI_BUILD=51;
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -3302,6 +3302,7 @@ function multiplier() {
     (race === 'osmo' && player.form === 'fire' && player.fireCharge >= 60 ? 1.12 : 1) *
     (ultOn() ? ultForm().damageMult : 1) *
     upgDmg() * // alien upgrades (part-45)
+    prestigeMult() * // prestige stars (part-46)
     ((player.critT || 0) > 0 ? 1.8 : 1) // Grey Matter / Brainstorm analysis (part-28)
   );
 }
@@ -3422,16 +3423,16 @@ function xp(amount) {
     return;
   }
   amount = Math.round(amount * diffCfg().xp); // difficulty bonus (part-32)
-  if (player.level === 20) return;
+  if (player.level === LEVEL_CAP) return;
   player.xp += amount;
   let up = false;
-  while (player.level < 20 && player.xp >= xpNeed()) {
+  while (player.level < LEVEL_CAP && player.xp >= xpNeed()) {
     player.xp -= xpNeed();
     player.level++;
     player.points++;
     up = true;
   }
-  if (player.level === 20) player.xp = 0;
+  if (player.level === LEVEL_CAP) player.xp = 0;
   if (up) {
     toast('¡Nivel ' + player.level + '! Tus ataques son más fuertes.');
     levelBanner(player.level); // part-44
@@ -3629,6 +3630,7 @@ function damageEnemy(e, dmg) {
   if (e.intangible > 0) { popup(e.x, e.y - 150, 'INTANGIBLE'); return; } // the Spectre phasing (part-42)
   dmg = coopDamage(dmg); // tougher enemies while both players are here
   dmg = dmg / diffCfg().hp; // difficulty (part-32)
+  dmg = dmgMod(e, dmg); // weak points, counters, elite shields (part-46)
   if (e.robotBoss) {
     e.hp -= Math.round(dmg);
     e.hit = 0.17;
@@ -3664,6 +3666,7 @@ function damageEnemy(e, dmg) {
     sagaKill(e); // Historia 02 (part-42)
     bestiaryKill(e); // codex scanning (part-43)
     featKill(e); // batch 1 (part-45)
+    eliteKill(e); // batch 2 (part-46)
     if (zone === 1 && net.peer) lanSend({ type: 'reward', kill: true });
     if (quest.state === 'active' && zone === 1) {
       quest.kills++;
@@ -4269,7 +4272,7 @@ function pauseMenu() {
   const groups = [
     ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['MISIONES', missionBoard], ['HISTORIA · ECOS DEL VACÍO', sagaMenu], ['HISTORIA 03 · CAZADOR', s3Menu], ['BOSS RUSH', bossRushMenu], ['EXTRAS · ARENA · RETOS · LOGROS', extrasMenu], ['MAPA', () => showWorldMap()], ['MINIJUEGOS / TRABAJOS', jobsMenu], ['MULTIJUGADOR · CROSSPLAY', lanMenu]]],
     ['RELOJ Y ALIENS', [['RELOJ / OMNITRIX', () => watchMenu()], ['MEJORAS DE ALIENS', () => upgradeMenu()], ['SKINS DE ALIENS', alienSkinMenu], ['ÁRBOL', skillTree], ['GUÍA / ATAQUES', guide]]],
-    ['PERSONAJE', [['PERSONAJE / SKIN', skinMenu], ['RAZAS', raceMenu], ['MODO FOTO', photoMode], ['MASCOTA: ' + (F1().pet ? 'SÍ' : 'NO'), () => { F1().pet = !F1().pet; save(); pauseMenu(); }], ['RECOMPENSA DIARIA', dailyCalendar]]],
+    ['PERSONAJE', [['PERSONAJE / SKIN', skinMenu], ['RAZAS', raceMenu], ['MODO FOTO', photoMode], ['TÍTULOS', () => titlesMenu(pauseMenu)], ['PRESTIGIO', prestigeMenu], ['MASCOTA: ' + (F1().pet ? 'SÍ' : 'NO'), () => { F1().pet = !F1().pet; save(); pauseMenu(); }], ['RECOMPENSA DIARIA', dailyCalendar]]],
     [
       'AJUSTES',
       [
@@ -4288,7 +4291,7 @@ function pauseMenu() {
   ];
   const acts = [];
   const html =
-    '<div class="pstat"><div><b>Nivel ' + player.level + '</b> / 20 · Daño ×' + multiplier().toFixed(2) + '<br><small>' + region().name + ' · ' + (race === 'omni' ? 'Omnitrix' : race === 'osmo' ? 'Osmosiano' : 'Anodita') + '</small></div>' +
+    '<div class="pstat"><div><b>Nivel ' + player.level + '</b> / ' + LEVEL_CAP + ' · Daño ×' + multiplier().toFixed(2) + '<br><small>' + region().name + ' · ' + (race === 'omni' ? 'Omnitrix' : race === 'osmo' ? 'Osmosiano' : 'Anodita') + '</small></div>' +
     (w ? '<div><b>' + w.name + '</b><br><small>' + eras + (mc ? ' · ★ CONTROL MAESTRO' : '') + ' · ' + watchPlaylist(w).length + ' aliens</small></div>' : '') +
     '</div>' +
     (top.length ? '<div class="pmast">' + top.map(([id, v]) => '<span><i style="width:' + Math.floor(v) + '%"></i>' + ALIENS[id].name + ' ' + Math.floor(v) + '%</span>').join('') + '</div>' : '') +
@@ -4319,6 +4322,7 @@ function newGameConfirm() {
 function defeat() {
   if (arenaOn()) arenaEnd('defeat'); // part-33
   bossRushEnd('defeat'); // part-45
+  towerEnd('defeat'); // part-46
   if (race === 'osmo') {
     player.form = 'human';
     player.fireCharge = 0;
@@ -4856,7 +4860,7 @@ function updateEnemies(dt) {
     if (d < 350) {
       if (d > 52) {
         let slow = effects.some((f) => f.type === 'field' && f.t > 0 && dist(e, f) < f.r) ? 0.55 : 1,
-          speed = (e.boss ? 58 : 69) * slow;
+          speed = (e.boss ? 58 : 69) * slow * (e.mod === 'fast' ? 1.7 : 1);
         moveActor(e, ((t.x - e.x) / d) * speed * dt, ((t.y - e.y) / d) * speed * dt);
         e.anim += dt * 7;
         e.moving = true;
@@ -4922,6 +4926,7 @@ function update(dt) {
   sagaTick(dt); // Historia 02 (part-42)
   scanTick(dt); // codex scanning (part-43)
   featTick(dt); // batch 1 (part-45)
+  f2Tick(dt); // batch 2 (part-46)
   eliteTick();
   sigTick(dt);
   anoditeTick(dt);
@@ -5102,8 +5107,8 @@ function hud() {
   $('#level').textContent = 'NV. ' + p.level;
   $('#hpfill').style.width = clamp((p.hp / maxHP()) * 100, 0, 100) + '%';
   $('#hptext').textContent = Math.ceil(p.hp) + ' / ' + maxHP();
-  $('#xpfill').style.width = (p.level === 20 ? 100 : (p.xp / xpNeed()) * 100) + '%';
-  $('#xptext').textContent = p.level === 20 ? 'NIVEL MÁXIMO' : p.xp + ' / ' + xpNeed() + ' EXP';
+  $('#xpfill').style.width = (p.level === LEVEL_CAP ? 100 : (p.xp / xpNeed()) * 100) + '%';
+  $('#xptext').textContent = p.level === LEVEL_CAP ? 'NIVEL MÁXIMO' : p.xp + ' / ' + xpNeed() + ' EXP';
   $('#batteryfill').style.width = p.battery + '%';
   $('#batterytext').textContent = Math.floor(p.battery) + '%';
   $('#batteryhint').textContent = p.alien
@@ -5181,6 +5186,7 @@ function hud() {
   hudMissions();
   sagaHud(); // part-42
   f1Hud(); // part-45
+  f2Hud(); // part-46
   anoditeHud();
 }
 function spriteInfo(row) {
@@ -5594,7 +5600,7 @@ function draw() {
     } else {
       const e = a.e;
       let f = e.wind > 0 || e.cast > 0 ? 3 : e.moving ? (Math.floor(e.anim) % 2) + 1 : 0;
-      if (featDrawEnemy(e, f)) { scanDrawMark(e); continue; }
+      if (featDrawEnemy(e, f) || f2DrawEnemy(e)) { scanDrawMark(e); continue; }
       if (e.sagaKind) { sagaDrawEnemy(e, f); scanDrawMark(e); continue; }
       scanDrawMark(e);
       sprite(
@@ -5841,7 +5847,7 @@ function loop(now) {
     netUpdate(dt);
     watchTick(dt);
     if (started && !paused) coopTick(dt);
-    if (started && !paused && !net.remoteAway && !net.waiting) update(dt * timeScale());
+    if (started && !paused && !net.remoteAway && !net.waiting) update(dt * timeScale() * featSlow());
     else if (!started) clock += dt;
     if (drawThisFrame()) draw(); // low graphics: 30 fps drawing (part-43)
   }
@@ -9331,6 +9337,7 @@ function dodge() {
   player.dodge = { t: DODGE.time, vx: vx / l, vy: vy / l };
   player.dodgeCool = DODGE.cool;
   player.inv = Math.max(player.inv, DODGE.inv);
+  perfectDodgeCheck(); // part-46
   burst(player.x, player.y - 10, 10, alien().color);
   window.OmniSound?.play('punch');
 }
@@ -11621,6 +11628,12 @@ function extrasMenu() {
       ['LOGROS', () => achMenu(extrasMenu)],
       ['CÓDICE ALIEN', () => codexMenu(extrasMenu)],
       ['BOSS RUSH', bossRushMenu],
+      ['TORRE DEL VACÍO', towerMenu],
+      ['RETOS SEMANALES', () => weeklyMenu(extrasMenu)],
+      ['ENTRENAMIENTO', trainingToggle],
+      ['TIENDA', () => shopMenu(extrasMenu)],
+      ['COLECCIÓN', () => collectionMenu(extrasMenu)],
+      ['TÍTULOS', () => titlesMenu(extrasMenu)],
       ['DIFICULTAD', () => difficultyMenu(extrasMenu)],
       ['MANDO', padHelp],
       ['VOLVER', pauseMenu],
@@ -12718,7 +12731,7 @@ let sagaLastNear = '', sagaZoneSeen = -1;
 function sagaTick(dt) {
   sagaInit();
   const s = SG();
-  if (zone !== sagaZoneSeen) { sagaZoneSeen = zone; setTimeout(sagaEnterZone, 500); }
+  if (zone !== sagaZoneSeen) { sagaZoneSeen = zone; if (!dun.on) setTimeout(sagaEnterZone, 500); }
   // dress the zone's enemies
   if (zone === SAGA_ZONE_PLANT || zone === SAGA_ZONE_VOID)
     for (const e of enemies)
@@ -12726,7 +12739,7 @@ function sagaTick(dt) {
         e.sagaKind = zone === SAGA_ZONE_PLANT ? 'rad' : e.boss && e.max > 1000 ? 'specter' : 'void';
         if (net.role !== 'guest' && e.sagaKind !== 'specter') e.hp = e.max = Math.round((zone === SAGA_ZONE_PLANT ? 180 : 280) * (1 + player.level * 0.04)); // the host owns enemy health
       }
-  if (zone === SAGA_ZONE_VOID && s.step === 6 && net.role !== 'guest' && !enemies.some((e) => e.sagaKind === 'specter' && e.alive)) sagaSpawnSpectre();
+  if (zone === SAGA_ZONE_VOID && s.step === 6 && !dun.on && net.role !== 'guest' && !enemies.some((e) => e.sagaKind === 'specter' && e.alive)) sagaSpawnSpectre();
   // the Spectre: phases out, teleports next to you, fires rings of void bolts
   if (net.role !== 'guest')
     for (const e of enemies) {
@@ -12896,7 +12909,7 @@ const BEASTS = {
   espectro: ['El Espectro', 'Ser fantasmal escapado del Vacío. Se vuelve intangible y se teletransporta.', 'Ataca justo después de que reaparezca; esquiva sus anillos.', 'Vacío Nulo'],
 };
 function beastType(e) {
-  if (!e) return null;
+  if (!e || e.dummy) return null;
   if (e.sagaKind === 'specter') return 'espectro';
   if (e.sagaKind === 'rad') return 'irradiado';
   if (e.sagaKind === 'void') return 'carcelero';
@@ -12974,6 +12987,7 @@ function scanTick(dt) {
   }
 }
 function scanDrawMark(e) { // over each enemy: progress ring while scanning, a small "?" if never scanned
+  modDraw(e); // elite labels (part-46)
   if (scan && scan.e === e) {
     const p = Math.min(1, scan.t / 1.5), y = e.y - 60;
     ctx.save();
@@ -13319,7 +13333,7 @@ function petTick(dt) {
 }
 function petDraw() {
   if (!F1().pet || !started || !pet.ok) return;
-  const c = (omniActive() && getWatch().color) || '#8dff5a';
+  const c = petColor() || (omniActive() && getWatch().color) || '#8dff5a';
   ctx.save();
   ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(pet.x, player.y - 2, 14, 4, 0, 0, 7); ctx.fill();
   if (pet.zap) { ctx.strokeStyle = c; ctx.lineWidth = 3; ctx.shadowColor = c; ctx.shadowBlur = 10; ctx.beginPath(); ctx.moveTo(pet.x, pet.y); ctx.lineTo((pet.x + pet.zap.x) / 2 + 8, (pet.y + pet.zap.y) / 2 - 10); ctx.lineTo(pet.zap.x, pet.zap.y); ctx.stroke(); ctx.shadowBlur = 0; }
@@ -13455,6 +13469,7 @@ function bossRushEnd(why) {
     if (first) { xp(800); player.coins = (player.coins || 0) + 250; }
     else if (rec) player.coins = (player.coins || 0) + 150;
     if (rec) f.rushBest = rush.t;
+    stats().rush = (stats().rush || 0) + 1;
     showDialog('¡BOSS RUSH COMPLETADO!', 'Tiempo: ' + rushFmt(rush.t), '<p>' + (rec ? '<b>¡NUEVO RÉCORD!</b> ' : 'Récord: ' + rushFmt(f.rushBest) + '. ') + (first ? '+800 EXP · +250 monedas' : rec ? '+150 monedas' : '') + '</p>', [['GENIAL', closeDialog], ['OTRA VEZ', bossRushStart]]);
     playWatchSFX('recharged');
     save();
@@ -13708,6 +13723,370 @@ function dailyCalendar() {
     '<div class="daily7">' + DAILY.map(([lab], i) => '<div class="' + (i < L.streak ? 'got' : '') + '"><b>DÍA ' + (i + 1) + '</b><small>' + lab + '</small></div>').join('') + '</div><p>Se recoge sola al empezar a jugar cada jornada.</p>',
     [['VOLVER', pauseMenu]]);
 }
+// ============================================================================================
+// OMNI 0.22 · FEATURE BATCH 2 — combat + progression
+//   PERFECT DODGE  dodge just before a hit lands → slow motion, +20 Ultra, and your next hit is a ×2 COUNTER
+//   ELEMENTS       every alien has an element; every enemy type has weak points (+35 % damage, "¡DÉBIL!")
+//   ELITE MODS     1 in 10 normal enemies spawns as an elite: SHIELDED, FAST, SPLITTER or REGEN (+EXP, +coins)
+//   VOID TOWER     endless floors in the Null Void, a captain every 5th floor, best floor saved (Extras)
+//   TRAINING       a training dummy with live damage-per-second readout (Extras)
+//   WEEKLY         3 weekly challenges (resets Monday), 300 coins + 300 EXP each
+//   LEVEL CAP 30   + PRESTIGE at 30: back to level 1 keeping everything, a ★ that adds +5 % damage (max 10)
+//   TITLES         earned by playing, shown under your health bar
+//   COIN SHOP      movement trails, watch colours, pet colours
+//   COLLECTION     everything you have unlocked, as percentages
+// State: player.f2 = { prestige, title, owned[], equip{}, week{}, dunBest, titles[] }
+// ============================================================================================
+const LEVEL_CAP = 30;
+function F2() {
+  const f = (player.f2 = player.f2 && typeof player.f2 === 'object' ? player.f2 : {});
+  f.prestige = f.prestige | 0;
+  if (!Array.isArray(f.owned)) f.owned = [];
+  if (!f.equip || typeof f.equip !== 'object') f.equip = {};
+  if (!f.week || typeof f.week !== 'object') f.week = {};
+  return f;
+}
+// ---------------- elements ----------------
+const ELEM = {};
+for (const [el, ids] of Object.entries({
+  fire: ['heatblast', 'swampfire', 'bestia'],
+  ice: ['bigchill', 'arctiguana'],
+  water: ['waterhazard', 'ripjaws', 'ampfibian', 'walkatrout'],
+  electric: ['buzzshock', 'feedback', 'shocksquatch', 'lodestar', 'nrg', 'ampfibian', 'xlr8', 'fasttrack'],
+  plant: ['wildvine', 'swampfire', 'insect', 'eatle'],
+  light: ['diamond', 'chromastone', 'alienx', 'ghostfreak', 'echoecho', 'anodite'],
+  heavy: ['fourarms', 'humungousaur', 'cannonbolt', 'armodrillo', 'rath', 'bloxx', 'gravattack', 'waybig', 'terraspin', 'ballweevil'],
+  tech: ['upgrade', 'nanomech', 'greymatter', 'brainstorm', 'clockwork', 'juryrigg', 'atomix'],
+})) for (const id of ids) (ELEM[id] = ELEM[id] || []).push(el);
+const ELEM_NAME = { fire: 'Fuego', ice: 'Hielo', water: 'Agua', electric: 'Electricidad', plant: 'Planta', light: 'Luz', heavy: 'Fuerza', tech: 'Tecnología' };
+const WEAK = { dron: ['electric', 'tech'], cabecilla: ['heavy', 'fire'], caballero: ['electric', 'heavy'], elite: ['electric', 'tech'], jefe: ['water', 'ice'], robot: ['electric', 'tech'], irradiado: ['water', 'ice'], carcelero: ['fire', 'light'], espectro: ['light', 'electric'] };
+function myElems() {
+  if (race === 'osmo') return { electric: ['electric'], fire: ['fire'], stone: ['heavy'], wood: ['plant'] }[player.form] || [];
+  if (race === 'anodite') return ['light'];
+  return player.alien ? ELEM[player.activeAlien] || [] : [];
+}
+let weakPopT = 0, counterUntil = 0, slowUntil = 0;
+// damageEnemy (part-08): weak points, perfect-dodge counter, elite shield
+function dmgMod(e, dmg) {
+  const t = beastType(e), w = (t && WEAK[t]) || [], now = performance.now();
+  if (myElems().some((x) => w.includes(x))) {
+    dmg *= 1.35;
+    if (now > weakPopT) { weakPopT = now + 700; popup(e.x - 30, e.y - 130, '¡DÉBIL!', '#ffd84a'); }
+  }
+  if (now < counterUntil) { counterUntil = 0; dmg *= 2; popup(e.x + 30, e.y - 150, '¡CONTRAATAQUE!', '#ff7a4a'); flash = 0.15; }
+  if (e.mod === 'shield' && e.shield > 0) { const a = Math.min(e.shield, dmg * 0.7); e.shield -= a; dmg -= a; if (e.shield <= 0) { burst(e.x, e.y - 60, 20, '#8de5f3'); popup(e.x, e.y - 140, 'ESCUDO ROTO', '#8de5f3'); } }
+  if (e.dummy) dummyHit(dmg);
+  return dmg;
+}
+const featSlow = () => (performance.now() < slowUntil ? 0.3 : 1);
+// dodge (part-21): was a hit about to land?
+function perfectDodgeCheck() {
+  const near = enemies.some((e) => e.alive && e.wind > 0 && e.wind < 0.4 && dist(e, player) < 100) ||
+    hostileShots.some((p) => p.t > 0 && Math.hypot(p.x - player.x, p.y + 35 - player.y) < 120 && (p.dx * (player.x - p.x) + p.dy * (player.y - 35 - p.y)) > 0);
+  if (!near) return;
+  slowUntil = performance.now() + 900;
+  counterUntil = performance.now() + 1800;
+  player.inv = Math.max(player.inv, 0.6);
+  if (typeof F1 === 'function' && omniActive()) F1().ultra = Math.min(100, F1().ultra + 20);
+  toast('¡ESQUIVA PERFECTA! · tu próximo golpe hace ×2');
+  playWatchSFX('select');
+}
+// ---------------- elite modifiers ----------------
+const MODS = { shield: ['BLINDADO', '#8de5f3'], fast: ['VELOZ', '#ffe27a'], split: ['DIVISOR', '#c084ff'], regen: ['REGENERA', '#7dff9a'] };
+function eliteRoll() {
+  if (net.role === 'guest') return;
+  for (const e of enemies) {
+    if (e.modRolled) continue;
+    e.modRolled = true;
+    if (e.boss || e.knight || e.elite || e.rush || e.temp || e.dummy || e.hunter || e.majorBoss || e.robotBoss || e.mini || e.dun || Math.random() > 0.1) continue;
+    const k = Object.keys(MODS)[Math.floor(Math.random() * 4)];
+    e.mod = k;
+    e.baseMax = e.max;
+    e.max = e.hp = Math.round(e.max * 1.6);
+    if (k === 'shield') e.shield = e.max * 0.5;
+  }
+}
+function eliteTickMods(dt) {
+  if (net.role === 'guest') return;
+  for (const e of enemies) if (e.alive && e.mod === 'regen' && e.hp < e.max) e.hp = Math.min(e.max, e.hp + e.max * 0.02 * dt);
+}
+function eliteKill(e) {
+  if (!e.mod) return;
+  xp(30);
+  player.coins = (player.coins || 0) + 20;
+  popup(e.x, e.y - 150, 'ÉLITE · +20 🪙', MODS[e.mod][1]);
+  if (e.mod === 'split' && net.role !== 'guest')
+    for (const s of [-1, 1]) {
+      const x = e.x + s * 50, hp = Math.round(e.max * 0.3);
+      enemies.push({ id: 700 + Math.floor(Math.random() * 99), x, y: e.y, homeX: x, homeY: e.y, face: -s, hp, max: hp, kind: 'enemy', rcd: 2, cast: 0, stun: 0.4, alive: true, respawn: 1e9, cd: 1, wind: 0, anim: 0, hit: 0, moving: false, mini: true, temp: true, modRolled: true, sagaKind: e.sagaKind });
+    }
+  if (e.baseMax) { e.max = e.baseMax; e.baseMax = 0; }
+  e.mod = null; // a respawned enemy rolls again
+  e.shield = 0;
+  e.modRolled = !!e.temp;
+}
+function modDraw(e) { // over each enemy (part-43 scanDrawMark)
+  if (e.mod && e.alive) {
+    const [n, c] = MODS[e.mod];
+    txt('★ ' + n, e.x, e.y - 128, 8, c);
+    if (e.mod === 'shield' && e.shield > 0) { ctx.save(); ctx.strokeStyle = c; ctx.globalAlpha = 0.5; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(e.x, e.y - 50, 42, 62, 0, 0, 7); ctx.stroke(); ctx.restore(); }
+  }
+  if (e.mini && e.alive) txt('MINI', e.x, e.y - 112, 7, '#c084ff');
+}
+// ---------------- training dummy ----------------
+const dummy = { hits: [], total: 0 };
+function dummyHit(d) { dummy.hits.push([performance.now(), d]); dummy.total += d; }
+function dummyDps() { const now = performance.now(); dummy.hits = dummy.hits.filter((h) => now - h[0] < 5000); return Math.round(dummy.hits.reduce((a, h) => a + h[1], 0) / 5); }
+function trainingToggle() {
+  closeDialog();
+  const i = enemies.findIndex((e) => e.dummy);
+  if (i >= 0) { enemies.splice(i, 1); toast('Muñeco retirado'); return; }
+  const x = clamp(player.x + (player.face || 1) * 160, region().minX + 60, region().maxX - 60);
+  enemies.push({ id: 600, x, y: player.y, homeX: x, homeY: player.y, face: -1, hp: 1e9, max: 1e9, kind: 'enemy', rcd: 1e9, cast: 0, stun: 1e9, alive: true, respawn: 1e9, cd: 1e9, wind: 0, anim: 0, hit: 0, moving: false, dummy: true, modRolled: true });
+  dummy.hits = []; dummy.total = 0;
+  toast('Muñeco de entrenamiento · golpéalo para medir tu daño por segundo');
+}
+function f2DrawEnemy(e) {
+  if (!e.dummy) return false;
+  ctx.fillStyle = '#6b4a2a'; ctx.fillRect(e.x - 5, e.y - 90, 10, 90);
+  ctx.fillStyle = '#8a6238'; ctx.fillRect(e.x - 30, e.y - 80, 60, 10);
+  for (const [r, c] of [[30, '#e8e2d0'], [22, '#d04a3a'], [14, '#e8e2d0'], [6, '#d04a3a']]) { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(e.x, e.y - 112, r, 0, 7); ctx.fill(); }
+  if (e.hit > 0) { ctx.fillStyle = 'rgba(255,255,255,.4)'; ctx.beginPath(); ctx.arc(e.x, e.y - 112, 32, 0, 7); ctx.fill(); }
+  txt('DPS ' + dummyDps(), e.x, e.y - 158, 13, '#ffe27a');
+  txt('TOTAL ' + Math.round(dummy.total), e.x, e.y - 144, 9, '#d6e8da');
+  e.hp = e.max; // never dies
+  return true;
+}
+// ---------------- void tower (endless) ----------------
+const dun = { on: false, floor: 0, next: 0 };
+function towerMenu() {
+  showDialog('TORRE DEL VACÍO', F2().dunBest ? 'Récord: piso ' + F2().dunBest : 'Sin récord',
+    '<p>Pisos sin fin en el Vacío Nulo. Cada piso trae más carceleros y más fuertes; cada 5 pisos, un capitán. Entre pisos recuperas un 15 % de vida. Cada piso da EXP y monedas.</p>',
+    [['¡SUBIR!', towerStart], ['VOLVER', extrasMenu]]);
+}
+function towerStart() {
+  if (net.role === 'guest' && net.peer) return toast('La torre la abre el anfitrión');
+  if (arenaOn() || rush.on) return toast('Termina antes lo que estás haciendo');
+  closeDialog();
+  dun.on = true; dun.floor = 0; dun.next = 2;
+  if (zone !== SAGA_ZONE_VOID) enterZone(SAGA_ZONE_VOID, 'center');
+  enemies = [];
+  zoneStates[region().id] = enemies;
+  toast('TORRE DEL VACÍO · piso 1');
+}
+function towerSpawn() {
+  dun.floor++;
+  const n = dun.floor, r = region(), cx = (r.minX + r.maxX) / 2, k = 1 + n * 0.12 + player.level * 0.03, cap = n % 5 === 0, count = Math.min(2 + n, 9);
+  enemies = [];
+  for (let i = 0; i < count; i++) {
+    const side = i % 2 ? 1 : -1, x = clamp(cx + side * (260 + Math.random() * 380), r.minX + 50, r.maxX - 50), y = r.top + 30 + Math.random() * (r.bottom - r.top - 60), boss = cap && i === 0, hp = Math.round(260 * k * (boss ? 4 : 1));
+    enemies.push({ id: 800 + i, x, y, homeX: x, homeY: y, face: -side, hp, max: hp, boss, sagaKind: 'void', kind: 'enemy', rcd: 1.6 + i * 0.2, cast: 0, stun: 0, alive: true, respawn: 1e9, cd: 1, wind: 0, anim: 0, hit: 0, moving: false, dun: true, modRolled: true });
+  }
+  zoneStates[r.id] = enemies;
+  toast('PISO ' + n + (cap ? ' · ¡CAPITÁN!' : '') + ' · ' + count + ' carceleros');
+  playWatchSFX(cap ? 'warning' : 'confirm');
+}
+function towerEnd(why) {
+  if (!dun.on) return;
+  dun.on = false;
+  const reached = Math.max(0, dun.floor - 1);
+  if (reached > (F2().dunBest || 0)) { F2().dunBest = reached; toast('Torre terminada · NUEVO RÉCORD: piso ' + reached); }
+  else toast('Torre terminada · pisos superados: ' + reached);
+  delete zoneStates[REGIONS[SAGA_ZONE_VOID].id];
+  if (zone === SAGA_ZONE_VOID && why !== 'defeat') spawnEnemies();
+  save();
+}
+function towerTick(dt) {
+  if (!dun.on) return;
+  if (zone !== SAGA_ZONE_VOID) return towerEnd('left');
+  if (net.role === 'guest') return;
+  if (dun.next > 0) { dun.next -= dt; if (dun.next <= 0) towerSpawn(); return; }
+  if (!enemies.some((e) => e.dun && e.alive)) {
+    const n = dun.floor;
+    xp(20 * n);
+    player.coins = (player.coins || 0) + 10 * n;
+    player.hp = Math.min(maxHP(), player.hp + maxHP() * 0.15);
+    if (n > (F2().dunBest || 0)) F2().dunBest = n;
+    toast('¡Piso ' + n + ' superado! · +' + 20 * n + ' EXP · +' + 10 * n + ' monedas');
+    dun.next = 3;
+    save();
+  }
+}
+// ---------------- weekly challenges ----------------
+const WEEKLY = [
+  ['kills', 'Derrota 150 enemigos', 150], ['transforms', 'Transfórmate 40 veces', 40], ['missions', 'Completa 5 misiones', 5],
+  ['puzzles', 'Resuelve 6 puzles', 6], ['powers', 'Usa 300 poderes', 300], ['dailies', 'Completa 6 retos diarios', 6],
+  ['combo', 'Consigue un combo de 40', 40], ['rush', 'Completa el Boss Rush', 1], ['floors', 'Llega al piso 10 de la Torre', 10], ['scans', 'Escanea 3 enemigos nuevos', 3],
+];
+function weekId(d = new Date()) {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())), day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  return t.getUTCFullYear() + '-W' + Math.ceil(((t - y0) / 86400000 + 1) / 7);
+}
+function weekCounters() {
+  const s = stats(), b = (typeof BX === 'function' && BX()) || {};
+  return { kills: s.kills, transforms: s.transforms, missions: s.missions, puzzles: s.puzzles, powers: s.powers, dailies: s.dailies, rush: s.rush || 0, scans: Object.values(b).filter((x) => x && x.scanned).length };
+}
+function WK() {
+  const f = F2(), id = weekId();
+  if (f.week.id !== id) {
+    let h = 0; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    const pool = WEEKLY.map((w, i) => i), picks = [];
+    while (picks.length < 3) { h = (h * 1103515245 + 12345) >>> 0; const i = pool.splice(h % pool.length, 1)[0]; picks.push(i); }
+    f.week = { id, picks, base: weekCounters(), done: {}, combo: 0, floors: 0 };
+  }
+  return f.week;
+}
+function weekProgress(i) {
+  const w = WK(), [key, , goal] = WEEKLY[i], now = weekCounters();
+  const v = key === 'combo' ? w.combo : key === 'floors' ? w.floors : (now[key] || 0) - (w.base[key] || 0);
+  return Math.min(goal, Math.max(0, v));
+}
+function weekTick() {
+  const w = WK();
+  if (typeof combo !== 'undefined') w.combo = Math.max(w.combo || 0, combo.n);
+  if (dun.on) w.floors = Math.max(w.floors || 0, dun.floor - 1);
+  for (const i of w.picks) {
+    if (w.done[i]) continue;
+    if (weekProgress(i) >= WEEKLY[i][2]) {
+      w.done[i] = true;
+      xp(300);
+      player.coins = (player.coins || 0) + 300;
+      toast('¡RETO SEMANAL! ' + WEEKLY[i][1] + ' · +300 EXP · +300 monedas');
+      playWatchSFX('recharged');
+      save();
+    }
+  }
+}
+function weeklyMenu(back) {
+  const w = WK();
+  showDialog('RETOS SEMANALES', 'Semana ' + w.id.split('-W')[1] + ' · se renuevan el lunes',
+    w.picks.map((i) => { const [, n, g] = WEEKLY[i], p = weekProgress(i); return '<div class="xrow"><b>' + (w.done[i] ? '✔ ' : '') + n + '</b><span class="xbar"><i style="width:' + (p / g) * 100 + '%"></i></span><small>' + p + ' / ' + g + ' · 300 EXP · 300 monedas</small></div>'; }).join(''),
+    [['VOLVER', back || extrasMenu]]);
+}
+// ---------------- prestige ----------------
+const prestigeMult = () => 1 + F2().prestige * 0.05;
+function prestigeMenu() {
+  const f = F2();
+  if (player.level < LEVEL_CAP) return showDialog('PRESTIGIO', 'Nivel ' + LEVEL_CAP + ' necesario', '<p>Al llegar al nivel ' + LEVEL_CAP + ' puedes volver al nivel 1 conservando todo (aliens, relojes, mejoras, monedas) y ganar una ★ de prestigio: +5 % de daño permanente por estrella (máx. 10).</p><p>Tienes ★' + f.prestige + '.</p>', [['VOLVER', pauseMenu]]);
+  if (f.prestige >= 10) return toast('Ya tienes el prestigio máximo ★10');
+  showDialog('PRESTIGIO', '¿Volver al nivel 1?', '<p>Conservas todos tus aliens, relojes, mejoras, monedas e historias. Ganas <b>★' + (f.prestige + 1) + '</b> (+5 % de daño permanente).</p>', [['¡PRESTIGIO!', () => {
+    if (typeof CORE_ALIENS !== 'undefined') for (const id of CORE_ALIENS) if (ALIENS[id] && alienUnlocked(id)) grantAlien(id); // level-unlocked aliens stay unlocked
+    f.prestige++;
+    player.level = 1; player.xp = 0;
+    closeDialog();
+    levelBanner('★' + f.prestige);
+    toast('¡PRESTIGIO ★' + f.prestige + '! · +' + f.prestige * 5 + ' % de daño');
+    playWatchSFX('recharged');
+    hud(); save();
+  }], ['AHORA NO', pauseMenu]]);
+}
+// ---------------- titles ----------------
+const TITLES = [
+  ['novato', 'Novato', 'Empieza a jugar', () => true],
+  ['fantasmas', 'Cazafantasmas', 'Completa la Historia 02', () => typeof SG === 'function' && SG().step >= 8],
+  ['cazador', 'Cazador de cazadores', 'Completa la Historia 03', () => typeof F1 === 'function' && F1().s3.step >= 5],
+  ['combo', 'Rey del combo', 'Consigue un combo de 40', () => (WK().combo || 0) >= 40 || (typeof combo !== 'undefined' && combo.best >= 40)],
+  ['rush', 'Imparable', 'Completa el Boss Rush', () => typeof F1 === 'function' && !!F1().rushBest],
+  ['torre', 'Escalador del Vacío', 'Llega al piso 10 de la Torre', () => (F2().dunBest || 0) >= 10],
+  ['bestia', 'Naturalista', 'Escanea todo el bestiario', () => typeof BX === 'function' && Object.values(BX()).filter((x) => x && x.scanned).length >= 9],
+  ['rico', 'Millonario', 'Ten 5000 monedas', () => (player.coins || 0) >= 5000],
+  ['mejora', 'Mecánico', 'Mejora un alien al máximo', () => typeof F1 === 'function' && Object.values(F1().upg).some((v) => v >= 5)],
+  ['leyenda', 'Leyenda', 'Consigue una ★ de prestigio', () => F2().prestige >= 1],
+];
+function titleOk(id) { const t = TITLES.find((x) => x[0] === id); try { return !!t && t[3](); } catch (e) { return false; } }
+function titlesMenu(back) {
+  const f = F2();
+  showDialog('TÍTULOS', TITLES.filter((t) => titleOk(t[0])).length + ' / ' + TITLES.length + ' conseguidos',
+    '<div class="codex">' + TITLES.map(([id, n, d]) => { const ok = titleOk(id); return '<button class="cx' + (ok ? '' : ' locked') + '" data-title="' + id + '" style="--c:' + (f.title === id ? 'var(--ox)' : '#8de5f3') + '"><b>' + (f.title === id ? '▶ ' : '') + (ok ? n : '???') + '</b><small>' + d + '</small></button>'; }).join('') + '</div><p>Tu título aparece bajo la barra de vida.</p>',
+    [['VOLVER', back || extrasMenu]]);
+  for (const b of document.querySelectorAll('[data-title]')) b.onclick = () => { if (!titleOk(b.dataset.title)) return toast('Aún no lo tienes'); f.title = b.dataset.title; save(); hud(); titlesMenu(back); };
+}
+// ---------------- coin shop ----------------
+const SHOP = [
+  ['trail_fire', 'Estela de fuego', 'trail', 400, '#ff8a3a'], ['trail_ice', 'Estela de hielo', 'trail', 400, '#9fe8ff'], ['trail_spark', 'Estela de chispas', 'trail', 600, '#ffe27a'], ['trail_void', 'Estela del Vacío', 'trail', 800, '#b98cff'],
+  ['ox_gold', 'Reloj dorado', 'ox', 700, '#ffd84a'], ['ox_white', 'Reloj blanco', 'ox', 500, '#eef4ff'], ['ox_purple', 'Reloj morado', 'ox', 500, '#b98cff'], ['ox_cyan', 'Reloj cian', 'ox', 500, '#5fe8ff'],
+  ['pet_gold', 'Chispa dorado', 'pet', 600, '#ffd84a'], ['pet_red', 'Chispa rojo', 'pet', 400, '#ff5a4a'], ['pet_ghost', 'Chispa fantasma', 'pet', 800, '#c9a7ff'],
+];
+const SHOP_KIND = { trail: 'Estelas', ox: 'Color del reloj (interfaz)', pet: 'Color de Chispa' };
+function shopMenu(back) {
+  const f = F2();
+  showDialog('TIENDA', (player.coins || 0) + ' monedas',
+    Object.entries(SHOP_KIND).map(([k, n]) => '<h4 class="shoph">' + n + '</h4><div class="codex">' + SHOP.filter((s) => s[2] === k).map(([id, name, , price, col]) => {
+      const own = f.owned.includes(id), on = f.equip[k] === id;
+      return '<button class="cx" data-shop="' + id + '" style="--c:' + col + '"><b style="color:' + col + '">' + (on ? '▶ ' : '') + name + '</b><small>' + (on ? 'EQUIPADO · toca para quitar' : own ? 'Tuyo · toca para equipar' : price + ' monedas') + '</small></button>';
+    }).join('') + '</div>').join(''),
+    [['VOLVER', back || extrasMenu]]);
+  for (const b of document.querySelectorAll('[data-shop]'))
+    b.onclick = () => {
+      const it = SHOP.find((s) => s[0] === b.dataset.shop), [id, name, kind, price] = it;
+      if (!f.owned.includes(id)) {
+        if ((player.coins || 0) < price) return toast('Te faltan ' + (price - (player.coins || 0)) + ' monedas'), playWatchSFX('error');
+        player.coins -= price;
+        f.owned.push(id);
+        toast('¡Comprado! ' + name);
+        f.equip[kind] = id;
+      } else f.equip[kind] = f.equip[kind] === id ? null : id;
+      playWatchSFX('select');
+      oxApplied = '';
+      hud(); save();
+      shopMenu(back);
+    };
+}
+const shopColor = (kind) => { const id = F2().equip[kind], it = id && SHOP.find((s) => s[0] === id); return it ? it[4] : null; };
+const petColor = () => shopColor('pet');
+let oxApplied = '';
+function shopApply() {
+  const c = shopColor('ox'), g = $('#game');
+  if (!g) return;
+  if (c && g.style.getPropertyValue('--ox') !== c) g.style.setProperty('--ox', c);
+  if (!c && oxApplied) { applyWatchTheme(); }
+  oxApplied = c || '';
+}
+function trailTick() {
+  const c = shopColor('trail');
+  if (!c || !player.moving || Math.random() > 0.6) return;
+  particles.push({ x: player.x + (Math.random() - 0.5) * 20, y: player.y - 8 - Math.random() * 30, dx: -(player.face || 1) * 30, dy: -10 - Math.random() * 20, t: 0.45, color: c, size: 3 + Math.random() * 2 });
+}
+// ---------------- collection book ----------------
+function collectionMenu(back) {
+  const row = (n, a, b) => '<div class="xrow"><b>' + n + '</b><span class="xbar"><i style="width:' + (b ? (a / b) * 100 : 0) + '%"></i></span><small>' + a + ' / ' + b + ' · ' + (b ? Math.round((a / b) * 100) : 0) + ' %</small></div>';
+  const ids = codexIds(), bx = typeof BX === 'function' ? BX() : {}, f1 = typeof F1 === 'function' ? F1() : { upg: {}, s3: {} }, got = player.ach || {};
+  const parts = [
+    ['Aliens', ids.filter((id) => alienUnlocked(id)).length, ids.length],
+    ['Bestiario', Object.values(bx).filter((x) => x && x.scanned).length, 9],
+    ['Zonas', discovered.length, REGIONS.length],
+    ['Logros', ACHS.filter((a) => got[a[0]]).length, ACHS.length],
+    ['Misiones', Object.keys(MS().done).length, MISSIONS.length],
+    ['Historias', [SG().step >= 8, (f1.s3 || {}).step >= 5].filter(Boolean).length, 2],
+    ['Tienda', F2().owned.length, SHOP.length],
+    ['Títulos', TITLES.filter((t) => titleOk(t[0])).length, TITLES.length],
+    ['Mejoras ★', Object.values(f1.upg).reduce((a, v) => a + Math.min(5, v), 0), ids.length * 5],
+  ];
+  const tot = Math.round((parts.reduce((a, p) => a + (p[2] ? p[1] / p[2] : 0), 0) / parts.length) * 100);
+  showDialog('COLECCIÓN', 'Total: ' + tot + ' %', parts.map((p) => row(...p)).join(''), [['VOLVER', back || extrasMenu]]);
+}
+// ---------------- tick + HUD ----------------
+let f2T = 0;
+function f2Tick(dt) {
+  F2();
+  eliteRoll();
+  eliteTickMods(dt);
+  towerTick(dt);
+  trailTick();
+  f2T -= dt;
+  if (f2T <= 0) { f2T = 0.5; weekTick(); shopApply(); }
+}
+function f2Hud() {
+  const f = F2();
+  if (f.prestige) $('#level').textContent = 'NV. ' + player.level + ' ★' + f.prestige;
+  let t = document.getElementById('ptitle');
+  const v = document.querySelector('.vitals');
+  if (!t && v) { t = document.createElement('span'); t.id = 'ptitle'; v.append(t); }
+  const tt = TITLES.find((x) => x[0] === f.title);
+  if (t) t.textContent = tt && titleOk(tt[0]) ? '« ' + tt[1] + ' »' : '';
+}
 applyWatchTheme();
 resize();
 boot();
@@ -13718,7 +14097,7 @@ if (window.__game)
     missionBoard, missionAccept, activeMission, MS, MISSIONS, coopOn, coopState, coopShare, coopTickMissions, COOP_SITES,
     arenaStart, arenaEnd, arena, arenaBest, statEvent, stats, daily, dailyMenu, achMenu, achCheck, ACHS, codexMenu, codexCard, codexIds, extrasMenu, difficultyMenu, diffCfg, diffKey, DIFFS, PAD, padPoll, padHelp,
     watchAnim, WATCH_ERAS, eraPlaylist, eraOf, storyPlay, storyFor, storyDraw, storyFit, storyPreload, BOARDS, SHEET_ROWS, SKIN_ART, boardId,
-    F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
+    F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
     get enemies() { return enemies; },
     get sagaCineOn() { return sagaCineOn; },
     get scan() { return scan; },
