@@ -1,0 +1,160 @@
+'use strict';
+// OMNI roster data (0.9.3). Loaded BEFORE i18n.js so its text is translated. Read by src/part-17 (alien kits).
+// Every alien here uses a data-driven KIT: a placeholder sprite (a recoloured body from the six hand-drawn aliens) and
+// six moves built from reusable move kinds (see KIT_MOVES in part-17). Replace `base/hue` with real art later via
+// ROW_ALIAS or a new sprite row, and swap individual moves for custom code: the registry does not care.
+(function () {
+  // ---- archetypes: six move slots [basic, II, III, IV, extra V, extra VI]. kind -> KIT_MOVES[kind] ----
+  // fields: k kind, n name(es), s short, d base damage, cd cooldown, u mastery unlock; rest are move parameters
+  const ARCH = {
+    blaster: [
+      { k: 'bolt', n: 'Disparo de energía', s: 'DISPARO', d: 20, cd: 0.7, u: 0 },
+      { k: 'bolt', n: 'Ráfaga triple', s: 'TRIPLE', d: 14, cd: 3.5, u: 15, shots: 3, spread: 0.2 },
+      { k: 'nova', n: 'Onda expansiva', s: 'ONDA', d: 40, cd: 7, u: 40, r: 150 },
+      { k: 'meteor', n: 'Impacto orbital', s: 'IMPACTO', d: 72, cd: 11, u: 75 },
+      { k: 'swarm', n: 'Lluvia de disparos', s: 'LLUVIA', d: 12, cd: 7, shots: 6 },
+      { k: 'field', n: 'Zona de energía', s: 'ZONA', d: 18, cd: 12, r: 125, time: 5 },
+    ],
+    brute: [
+      { k: 'slam', n: 'Puñetazo', s: 'PUÑETAZO', d: 24, cd: 0.9, u: 0, r: 90 },
+      { k: 'dash', n: 'Embestida', s: 'EMBESTIDA', d: 46, cd: 7, u: 15 },
+      { k: 'shield', n: 'Coraza', s: 'CORAZA', d: 0, cd: 14, u: 40, amount: 90, time: 10 },
+      { k: 'nova', n: 'Terremoto', s: 'TERREMOTO', d: 60, cd: 13, u: 75, r: 190, stun: 0.7 },
+      { k: 'slam', n: 'Doble golpe', s: 'DOBLE', d: 44, cd: 5, r: 120 },
+      { k: 'nova', n: 'Rugido aturdidor', s: 'RUGIDO', d: 30, cd: 10, r: 160, stun: 1.2 },
+    ],
+    speedy: [
+      { k: 'bolt', n: 'Tajo veloz', s: 'TAJO', d: 9, cd: 0.4, u: 0, speed: 620, r: 8 },
+      { k: 'dash', n: 'Carrera', s: 'CARRERA', d: 28, cd: 5, u: 15 },
+      { k: 'chain', n: 'Cadena de golpes', s: 'CADENA', d: 22, cd: 8, u: 40, targets: 4 },
+      { k: 'nova', n: 'Torbellino', s: 'TORBELLINO', d: 50, cd: 11, u: 75, r: 170 },
+      { k: 'swarm', n: 'Ráfaga relámpago', s: 'RELÁMPAGO', d: 7, cd: 6, shots: 8 },
+      { k: 'phase', n: 'Desvanecer', s: 'DESVANECER', d: 0, cd: 12, time: 2.5 },
+    ],
+    tank: [
+      { k: 'bolt', n: 'Proyectil pesado', s: 'PESADO', d: 26, cd: 1, u: 0, speed: 330, r: 14 },
+      { k: 'shield', n: 'Armadura', s: 'ARMADURA', d: 0, cd: 15, u: 15, amount: 120, time: 12 },
+      { k: 'slam', n: 'Aplastar', s: 'APLASTAR', d: 50, cd: 7, u: 40, r: 110 },
+      { k: 'field', n: 'Campo hostil', s: 'CAMPO', d: 12, cd: 9, u: 75, r: 135, time: 6 },
+      { k: 'heal', n: 'Regeneración', s: 'REGENERAR', d: 0, cd: 18, pct: 0.3 },
+      { k: 'nova', n: 'Onda de choque', s: 'CHOQUE', d: 48, cd: 9, r: 170, stun: 0.5 },
+    ],
+    trickster: [
+      { k: 'bolt', n: 'Dardo', s: 'DARDO', d: 17, cd: 0.65, u: 0, slow: 2 },
+      { k: 'phase', n: 'Esquiva', s: 'ESQUIVA', d: 0, cd: 10, u: 15, time: 3 },
+      { k: 'chain', n: 'Rebote', s: 'REBOTE', d: 26, cd: 7, u: 40, targets: 3 },
+      { k: 'field', n: 'Trampa', s: 'TRAMPA', d: 14, cd: 12, u: 75, r: 140, time: 5, fx: 'puddle' },
+      { k: 'swarm', n: 'Dardos múltiples', s: 'DARDOS', d: 11, cd: 6, shots: 5, slow: 1.5 },
+      { k: 'nova', n: 'Destello', s: 'DESTELLO', d: 22, cd: 11, r: 150, stun: 1.4 },
+    ],
+    support: [
+      { k: 'bolt', n: 'Rayo', s: 'RAYO', d: 18, cd: 0.7, u: 0 },
+      { k: 'heal', n: 'Curación', s: 'CURACIÓN', d: 0, cd: 12, u: 15, pct: 0.25 },
+      { k: 'shield', n: 'Escudo', s: 'ESCUDO', d: 0, cd: 13, u: 40, amount: 80, time: 10 },
+      { k: 'nova', n: 'Pulso', s: 'PULSO', d: 52, cd: 11, u: 75, r: 180 },
+      { k: 'field', n: 'Aura dañina', s: 'AURA', d: 14, cd: 12, r: 130, time: 5 },
+      { k: 'bolt', n: 'Rayos gemelos', s: 'GEMELOS', d: 14, cd: 5, shots: 3, spread: 0.12 },
+    ],
+    beast: [
+      { k: 'slam', n: 'Zarpazo', s: 'ZARPAZO', d: 20, cd: 0.65, u: 0, r: 85 },
+      { k: 'dash', n: 'Salto feroz', s: 'SALTO', d: 38, cd: 5, u: 15 },
+      { k: 'drain', n: 'Mordisco', s: 'MORDISCO', d: 44, cd: 8, u: 40, r: 100, heal: 0.4 },
+      { k: 'nova', n: 'Rugido', s: 'RUGIDO', d: 58, cd: 12, u: 75, r: 200, stun: 0.9 },
+      { k: 'slam', n: 'Garras dobles', s: 'GARRAS', d: 36, cd: 5, r: 110 },
+      { k: 'nova', n: 'Aullido', s: 'AULLIDO', d: 24, cd: 10, r: 170, stun: 1.2 },
+    ],
+    ghost: [
+      { k: 'bolt', n: 'Toque espectral', s: 'TOQUE', d: 19, cd: 0.7, u: 0 },
+      { k: 'phase', n: 'Intangible', s: 'INTANGIBLE', d: 0, cd: 11, u: 15, time: 3.5 },
+      { k: 'drain', n: 'Drenar', s: 'DRENAR', d: 38, cd: 8, u: 40, r: 130, heal: 0.5 },
+      { k: 'chain', n: 'Pesadilla', s: 'PESADILLA', d: 30, cd: 12, u: 75, targets: 5 },
+      { k: 'field', n: 'Niebla', s: 'NIEBLA', d: 15, cd: 12, r: 140, time: 5, fx: 'puddle' },
+      { k: 'nova', n: 'Susto', s: 'SUSTO', d: 20, cd: 11, r: 170, stun: 1.8 },
+    ],
+  };
+  const ROWS = { h: 1, d: 4, f: 5, x: 11, b: 16, i: 21 };
+  // id, archetype, base sprite, hue, saturation, brightness, height, hp, speed, colour, unlock level, signature move (es | en) -> slot IV
+  const R = [
+    ['greymatter', 'trickster', 'x', 0, 0.15, 1.15, 64, 120, 250, '#b9c4c9', 2, 'Genio táctico', 'Tactical genius'],
+    ['ripjaws', 'beast', 'b', 195, 1.1, 1.0, 96, 260, 230, '#4fa8ff', 3, 'Mordida abisal', 'Abyssal bite'],
+    ['upgrade', 'support', 'd', 120, 0.8, 0.55, 110, 220, 200, '#39ff88', 4, 'Fusión técnica', 'Technical merge'],
+    ['ghostfreak', 'ghost', 'h', 250, 0.25, 1.4, 125, 190, 210, '#d9d4ff', 5, 'Posesión', 'Possession'],
+    ['cannonbolt', 'brute', 'f', 45, 1.2, 1.25, 120, 380, 200, '#ffe27a', 2, 'Bola de cañón', 'Cannonball'],
+    ['wildvine', 'trickster', 'd', 90, 1.2, 0.9, 123, 230, 185, '#59c44d', 4, 'Lianas', 'Vines'],
+    ['blitzwolfer', 'beast', 'b', 215, 0.9, 0.9, 95, 270, 260, '#8fb4ff', 6, 'Aullido sónico', 'Sonic howl'],
+    ['snareoh', 'trickster', 'd', 40, 0.7, 0.8, 123, 210, 175, '#c9b78a', 7, 'Vendas', 'Bandages'],
+    ['frankenstrike', 'blaster', 'f', 200, 0.8, 0.9, 140, 340, 185, '#8fd0ff', 8, 'Rayo Tesla', 'Tesla bolt'],
+    ['upchuck', 'tank', 'f', 90, 1.1, 1.0, 110, 360, 170, '#a8d04a', 9, 'Ácido digestivo', 'Digestive acid'],
+    ['ditto', 'trickster', 'x', 285, 1.1, 1.0, 70, 160, 240, '#ff9ad5', 10, 'Clonación', 'Duplication'],
+    ['eyeguy', 'blaster', 'd', 330, 1.3, 1.1, 120, 210, 175, '#ff6fa8', 11, 'Rayo ocular', 'Eye beam'],
+    ['waybig', 'brute', 'f', 15, 1.1, 1.2, 210, 700, 150, '#ff8a4a', 13, 'Tamaño cósmico', 'Cosmic size'],
+    ['arctiguana', 'blaster', 'd', 20, 1.0, 1.1, 112, 210, 190, '#9be9ff', 6, 'Aliento helado', 'Frost breath'],
+    ['buzzshock', 'blaster', 'i', 200, 1.4, 1.1, 118, 190, 215, '#ffe94f', 7, 'Descarga eléctrica', 'Electric discharge'],
+    ['spitter', 'trickster', 'i', 120, 1.2, 0.9, 118, 200, 205, '#9cff5a', 8, 'Escupitajo', 'Spit'],
+    ['swampfire', 'blaster', 'h', 90, 1.0, 0.95, 123, 240, 175, '#9bd23c', 6, 'Llamarada pantanosa', 'Swamp blaze'],
+    ['bigchill', 'ghost', 'i', 190, 0.6, 1.2, 125, 200, 220, '#cfe9ff', 10, 'Fase helada', 'Frozen phase'],
+    ['humungousaur', 'brute', 'f', 330, 0.9, 0.95, 160, 480, 175, '#8a73ff', 9, 'Embestida titánica', 'Titan charge'],
+    ['echoecho', 'blaster', 'd', 210, 0.3, 1.4, 80, 150, 215, '#e6f2ff', 7, 'Onda sónica', 'Sonic wave'],
+    ['goop', 'tank', 'd', 150, 1.2, 0.8, 120, 350, 160, '#7be0c6', 12, 'Masa viscosa', 'Gooey mass'],
+    ['rath', 'beast', 'f', 25, 1.3, 0.9, 140, 420, 230, '#ff9a3c', 14, 'Furia de Rath', 'Rath rage'],
+    ['jetray', 'speedy', 'i', 345, 1.2, 1.0, 115, 190, 330, '#ff6fa0', 8, 'Rayo neuronal', 'Neuroshock'],
+    ['chromastone', 'support', 'd', 280, 1.4, 1.2, 120, 230, 175, '#c070ff', 11, 'Prisma de energía', 'Energy prism'],
+    ['brainstorm', 'blaster', 'x', 300, 0.7, 1.1, 100, 180, 230, '#ff7ad9', 12, 'Descarga psíquica', 'Psychic discharge'],
+    ['spidermonkey', 'speedy', 'x', 20, 1.0, 0.9, 110, 200, 300, '#e07a3c', 9, 'Telaraña', 'Webbing'],
+    ['alienx', 'support', 'd', 60, 1.6, 1.4, 150, 1000, 190, '#ff5a5a', 20, 'Voluntad absoluta', 'Absolute will'],
+    ['lodestar', 'blaster', 'f', 220, 0.6, 0.8, 135, 300, 180, '#9aa7b8', 13, 'Imán gigante', 'Giant magnet'],
+    ['nanomech', 'speedy', 'x', 260, 0.8, 1.2, 56, 140, 270, '#7ad9ff', 14, 'Nano enjambre', 'Nano swarm'],
+    ['waterhazard', 'blaster', 'd', 160, 1.2, 1.1, 118, 230, 180, '#4fc8ff', 13, 'Chorro tóxico', 'Toxic jet'],
+    ['ampfibian', 'speedy', 'x', 150, 1.4, 1.0, 110, 190, 290, '#39e5ff', 14, 'Arco voltaico', 'Voltaic arc'],
+    ['armodrillo', 'brute', 'f', 60, 0.5, 0.9, 140, 400, 175, '#ffc13a', 15, 'Taladro sísmico', 'Seismic drill'],
+    ['terraspin', 'tank', 'f', 130, 1.0, 0.9, 130, 400, 185, '#7fa8ff', 15, 'Ciclón', 'Cyclone'],
+    ['nrg', 'tank', 'f', 5, 1.4, 0.8, 150, 440, 150, '#ff4d3a', 16, 'Radiación', 'Radiation'],
+    ['fasttrack', 'speedy', 'x', 230, 1.0, 1.2, 120, 190, 400, '#3dd5ff', 16, 'Turbo total', 'Full turbo'],
+    ['chamalien', 'trickster', 'x', 100, 1.2, 1.0, 115, 200, 250, '#b0ff6a', 17, 'Camuflaje', 'Camouflage'],
+    ['clockwork', 'support', 'd', 40, 0.6, 1.2, 120, 220, 185, '#ffd966', 17, 'Tiempo detenido', 'Stopped time'],
+    ['eatle', 'tank', 'i', 40, 1.2, 0.8, 118, 300, 200, '#c88a3c', 18, 'Quijada voraz', 'Hungry jaws'],
+    ['juryrigg', 'support', 'd', 60, 1.0, 0.9, 120, 230, 190, '#ffb347', 18, 'Arreglo rápido', 'Quick fix'],
+    ['feedback', 'blaster', 'x', 20, 1.3, 1.0, 120, 210, 230, '#ff7a3a', 12, 'Absorción de energía', 'Energy absorption'],
+    ['bloxx', 'tank', 'f', 270, 0.8, 1.1, 140, 380, 170, '#ff5ab8', 13, 'Bloques', 'Block barrage'],
+    ['gravattack', 'blaster', 'f', 270, 1.1, 0.9, 130, 320, 175, '#a98cff', 14, 'Gravedad', 'Gravity well'],
+    ['crashhopper', 'brute', 'b', 100, 1.2, 1.0, 100, 300, 265, '#5be37a', 15, 'Salto devastador', 'Crash leap'],
+    ['ballweevil', 'tank', 'i', 20, 1.0, 0.9, 110, 280, 210, '#d09a60', 16, 'Bola rodante', 'Rolling ball'],
+    ['shocksquatch', 'brute', 'f', 190, 1.4, 1.1, 150, 400, 190, '#6fe2ff', 16, 'Trueno', 'Thunder'],
+    ['walkatrout', 'trickster', 'b', 180, 1.0, 1.0, 95, 190, 230, '#ffb04a', 17, 'Torpeza total', 'Total clumsiness'],
+    ['peskydust', 'trickster', 'x', 270, 0.9, 1.4, 55, 130, 280, '#ffe29a', 17, 'Polvo del sueño', 'Sleep dust'],
+    ['molestache', 'beast', 'f', 30, 0.8, 0.9, 130, 330, 190, '#c49a6c', 18, 'Cavar túnel', 'Dig tunnel'],
+    ['theworst', 'trickster', 'd', 90, 0.7, 0.7, 120, 180, 190, '#a5b05a', 18, 'Mala suerte', 'Bad luck'],
+    ['kickinhawk', 'speedy', 'i', 10, 1.1, 0.9, 118, 230, 300, '#ff8d5a', 19, 'Patada halcón', 'Hawk kick'],
+    ['toepick', 'beast', 'd', 340, 1.0, 0.8, 120, 260, 235, '#c58fff', 19, 'Punta afilada', 'Sharp toe'],
+    ['astrodactyl', 'speedy', 'i', 300, 1.0, 1.0, 120, 210, 320, '#8f9bff', 19, 'Picado espacial', 'Space dive'],
+    ['bullfrag', 'brute', 'f', 350, 1.2, 0.9, 150, 430, 180, '#ff7a7a', 20, 'Metralla', 'Frag barrage'],
+    ['atomix', 'blaster', 'f', 120, 1.5, 1.2, 145, 380, 180, '#6aff7a', 20, 'Fisión nuclear', 'Nuclear fission'],
+    ['gutrot', 'tank', 'b', 75, 1.0, 0.7, 100, 330, 215, '#9fbf3a', 20, 'Gas pútrido', 'Rotten gas'],
+    ['whampire', 'ghost', 'd', 220, 0.5, 0.9, 125, 250, 200, '#b78cff', 20, 'Succión de sangre', 'Blood drain'],
+  ];
+  window.OMNI_ROSTER = { ARCH, ROWS, R };
+  // English for the move names (Spanish source text is translated through OMNI_EN).
+  const en = {
+    'Disparo de energía': 'Energy shot', 'Ráfaga triple': 'Triple burst', 'Onda expansiva': 'Shockwave', 'Impacto orbital': 'Orbital strike',
+    'Lluvia de disparos': 'Shot rain', 'Zona de energía': 'Energy zone', 'Puñetazo': 'Punch', 'Embestida': 'Charge', 'Coraza': 'Carapace',
+    'Terremoto': 'Earthquake', 'Doble golpe': 'Double strike', 'Rugido aturdidor': 'Stunning roar', 'Tajo veloz': 'Quick slash', 'Carrera': 'Sprint',
+    'Cadena de golpes': 'Strike chain', 'Torbellino': 'Whirlwind', 'Ráfaga relámpago': 'Lightning burst', 'Desvanecer': 'Fade',
+    'Proyectil pesado': 'Heavy projectile', 'Armadura': 'Armor', 'Aplastar': 'Crush', 'Campo hostil': 'Hostile field', 'Regeneración': 'Regeneration',
+    'Onda de choque': 'Shock wave', 'Dardo': 'Dart', 'Esquiva': 'Dodge', 'Rebote': 'Ricochet', 'Trampa': 'Trap', 'Dardos múltiples': 'Multi darts',
+    'Destello': 'Flash', 'Rayo': 'Ray', 'Curación': 'Healing', 'Escudo': 'Shield', 'Pulso': 'Pulse', 'Aura dañina': 'Harmful aura', 'Rayos gemelos': 'Twin rays',
+    'Zarpazo': 'Claw swipe', 'Salto feroz': 'Fierce leap', 'Mordisco': 'Bite', 'Rugido': 'Roar', 'Garras dobles': 'Double claws', 'Aullido': 'Howl',
+    'Toque espectral': 'Spectral touch', 'Intangible': 'Intangible', 'Drenar': 'Drain', 'Pesadilla': 'Nightmare', 'Niebla': 'Mist', 'Susto': 'Scare',
+    'DISPARO': 'SHOT', 'TRIPLE': 'TRIPLE', 'ONDA': 'WAVE', 'IMPACTO': 'STRIKE', 'LLUVIA': 'RAIN', 'ZONA': 'ZONE', 'PUÑETAZO': 'PUNCH', 'EMBESTIDA': 'CHARGE',
+    'CORAZA': 'CARAPACE', 'TERREMOTO': 'QUAKE', 'DOBLE': 'DOUBLE', 'RUGIDO': 'ROAR', 'TAJO': 'SLASH', 'CARRERA': 'SPRINT', 'CADENA': 'CHAIN',
+    'TORBELLINO': 'WHIRL', 'RELÁMPAGO': 'LIGHTNING', 'DESVANECER': 'FADE', 'PESADO': 'HEAVY', 'ARMADURA': 'ARMOR', 'APLASTAR': 'CRUSH', 'CAMPO': 'FIELD',
+    'REGENERAR': 'REGEN', 'CHOQUE': 'SHOCK', 'DARDO': 'DART', 'ESQUIVA': 'DODGE', 'REBOTE': 'BOUNCE', 'TRAMPA': 'TRAP', 'DARDOS': 'DARTS',
+    'DESTELLO': 'FLASH', 'RAYO': 'RAY', 'CURACIÓN': 'HEAL', 'ESCUDO': 'SHIELD', 'PULSO': 'PULSE', 'AURA': 'AURA', 'GEMELOS': 'TWINS', 'ZARPAZO': 'SWIPE',
+    'SALTO': 'LEAP', 'MORDISCO': 'BITE', 'GARRAS': 'CLAWS', 'AULLIDO': 'HOWL', 'TOQUE': 'TOUCH', 'INTANGIBLE': 'PHASE', 'DRENAR': 'DRAIN',
+    'PESADILLA': 'NIGHTMARE', 'NIEBLA': 'MIST', 'SUSTO': 'SCARE',
+    'Aprende esta habilidad por 3 puntos': 'Learn this ability for 3 points',
+  };
+  for (const r of R) en[r[11]] = r[12];
+  // shorts are first words of the signature names (uppercase)
+  for (const r of R) { const w = r[11].split(' ')[0].toUpperCase(); en[w] = en[w] || r[12].split(' ')[0].toUpperCase(); }
+  window.OMNI_EN = Object.assign(window.OMNI_EN || {}, en);
+})();

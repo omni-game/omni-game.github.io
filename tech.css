@@ -1,0 +1,151 @@
+/* =====================================================================================
+   OMNI 0.16 · "OMNITRIX TECH" interface skin. Loaded last: black glass, neon edges in the
+   current watch's colour (--ox), cut corners, hex grid and scanlines. Layout stays the same.
+   ===================================================================================== */
+:root, #game {
+  --t-bg: rgba(4, 10, 8, .9);
+  --t-bg2: rgba(8, 18, 14, .94);
+  --t-edge: color-mix(in srgb, var(--ox) 70%, transparent);
+  --t-dim: color-mix(in srgb, var(--ox) 28%, transparent);
+  --t-glow: color-mix(in srgb, var(--ox) 35%, transparent);
+  --t-cut: 10px;
+  --t-hex: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='48' viewBox='0 0 28 48'%3E%3Cpath d='M14 0l14 8v16L14 32 0 24V8zM14 32l14 8v16M0 40l14-8' fill='none' stroke='%237dff9a' stroke-opacity='.09' stroke-width='1'/%3E%3C/svg%3E");
+  --t-scan: repeating-linear-gradient(0deg, rgba(125,255,154,.035) 0 1px, transparent 1px 3px);
+}
+#game { font-family: 'Bahnschrift', 'DIN Alternate', 'Eurostile', 'Segoe UI', system-ui, sans-serif; }
+#game button, #game .panel, #modal .dialog { font-family: inherit; }
+
+/* ---------- shared tech panel ---------- */
+#game .panel, .tree-button, #coins, #lawstatus, #lanstatus, .more-button, .jump-button, .slide-button, .talk, #toast, #special, #arenahud, #kbhint {
+  background: var(--t-scan), var(--t-hex), linear-gradient(160deg, var(--t-bg2), var(--t-bg)) !important;
+  border: 1px solid var(--t-edge) !important;
+  border-radius: 0 !important;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.6), inset 0 0 18px var(--t-dim), 0 0 14px var(--t-dim) !important;
+  clip-path: polygon(var(--t-cut) 0, 100% 0, 100% calc(100% - var(--t-cut)), calc(100% - var(--t-cut)) 100%, 0 100%, 0 var(--t-cut));
+  backdrop-filter: blur(3px);
+}
+/* top-left corner tick */
+.vitals::before, .omni::before, .mission::before, #dial::before {
+  content: ''; position: absolute; left: 0; top: 0; width: 22px; height: 22px; pointer-events: none;
+  background: linear-gradient(135deg, var(--ox) 0 7px, transparent 7px);
+  filter: drop-shadow(0 0 4px var(--ox));
+}
+.vitals, .omni, .mission { border-left-width: 1px !important; border-right-width: 1px !important; }
+.identity span, .tiny, .mastery, .vitals small, .omni small, #energyname, #masterylabel { text-transform: uppercase; letter-spacing: 1.6px !important; }
+.identity span { color: var(--ox) !important; text-shadow: 0 0 6px var(--t-glow); }
+.tiny { color: var(--ox) !important; }
+.mission strong { color: #eafff0; }
+
+/* bars: segmented energy cells */
+.bar { background: #020604 !important; border: 1px solid var(--t-dim) !important; border-radius: 0 !important; }
+.bar i { box-shadow: 0 0 8px var(--t-glow); position: relative; }
+.bar i::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 9px, rgba(0,0,0,.55) 9px 11px); }
+.hp i { background: linear-gradient(90deg, #2fbf5a, var(--ox)) !important; }
+.xp i { background: linear-gradient(90deg, #6e5bd8, #b4a6ff) !important; }
+
+/* ---------- Omnitrix button: a round watch face ---------- */
+.transform {
+  width: 112px !important; height: 112px !important; bottom: 12px !important; left: 206px !important;
+  border-radius: 50% !important; clip-path: none !important;
+  background: radial-gradient(circle at 50% 50%, #0a120d 0 46%, #1a1f1c 47% 58%, #050807 59% 64%, var(--t-dim) 65% 67%, #0b100d 68%) !important;
+  border: 3px solid var(--ox) !important;
+  box-shadow: 0 0 0 4px #050807, 0 0 22px var(--t-glow), inset 0 0 22px var(--t-dim) !important;
+}
+.transform .hourglass { width: 34px !important; height: 34px !important; margin-bottom: 4px !important; }
+.transform strong { font-size: 8.5px !important; max-width: 92px !important; text-align: center; letter-spacing: .8px; line-height: 10px !important; }
+.transform small { font-size: 7.5px !important; margin-top: 2px !important; color: var(--ox) !important; }
+.transform.unavailable { border-color: #59615d !important; box-shadow: 0 0 0 4px #050807 !important; }
+.transform.unavailable .hourglass { background: #59615d !important; filter: none !important; }
+.talk { left: 196px !important; bottom: 132px !important; width: 128px !important; color: #06120a !important;
+  background: linear-gradient(90deg, var(--ox), color-mix(in srgb, var(--ox) 70%, #fff)) !important; font-weight: 800; letter-spacing: 1px; }
+
+/* ---------- alien dial strip ---------- */
+#dial { left: 334px !important; background: var(--t-scan), var(--t-hex), linear-gradient(160deg, var(--t-bg2), var(--t-bg)) !important; }
+#dialportrait { border-radius: 50% !important; border: 2px solid var(--ox) !important; box-shadow: 0 0 12px var(--t-glow), inset 0 0 10px var(--t-dim) !important; background: radial-gradient(circle, color-mix(in srgb, var(--ox) 22%, #050807), #050807 70%) !important; }
+#dialprev, #dialnext { background: #06100b !important; border: 1px solid var(--t-edge) !important; border-radius: 0 !important; color: var(--ox) !important;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+#dialname { color: var(--ox) !important; letter-spacing: 2px !important; text-shadow: 0 0 6px var(--t-glow); }
+
+/* ---------- attacks: hex buttons ---------- */
+#attacks { gap: 6px !important; }
+.attack {
+  border-radius: 0 !important; border: 0 !important;
+  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+  background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--ox) 26%, #07110c), #050907 70%) !important;
+  box-shadow: inset 0 0 0 2px var(--t-edge), inset 0 0 18px var(--t-dim) !important;
+}
+.attack b { font-family: inherit !important; color: var(--ox) !important; text-shadow: 0 0 8px var(--t-glow); }
+.attack span { color: #e4ffe9; }
+.attack small { color: color-mix(in srgb, var(--ox) 60%, #9aa) !important; }
+.attack.locked { filter: grayscale(.9) brightness(.7); }
+.attack.cooldown { box-shadow: inset 0 0 0 2px #45524c !important; }
+.more-button, .jump-button, .slide-button { color: var(--ox) !important; letter-spacing: 1px; }
+.tree-button { color: var(--ox) !important; }
+
+/* ---------- joystick: watch-ring ---------- */
+#joystick { border-radius: 50% !important; background: radial-gradient(circle, rgba(4,10,8,.35) 0 55%, rgba(4,10,8,.7) 56%) !important;
+  border: 2px solid var(--t-edge) !important; box-shadow: 0 0 16px var(--t-dim), inset 0 0 20px var(--t-dim) !important; }
+#joystick .joystick-ring { border: 1px dashed var(--t-dim) !important; }
+#stick { background: radial-gradient(circle at 40% 30%, color-mix(in srgb, var(--ox) 70%, #fff), color-mix(in srgb, var(--ox) 35%, #04100a)) !important;
+  border: 2px solid #050807 !important; box-shadow: 0 0 14px var(--t-glow) !important; }
+#joystick > span { color: var(--ox) !important; opacity: .6; }
+
+/* toasts, pause, map */
+#toast { color: #e8ffe9; font-weight: 600; }
+#pause { border-radius: 0 !important; color: var(--ox) !important; background: var(--t-bg) !important; border: 1px solid var(--t-edge) !important;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
+#minimap { border-radius: 0 !important; outline: 1px solid var(--t-dim); }
+#kbhint b { background: #06100b !important; border-color: var(--t-edge) !important; border-radius: 0 !important; }
+
+/* ---------- dialogs ---------- */
+#modal { background: radial-gradient(ellipse at 50% 50%, rgba(2,10,6,.7), rgba(0,0,0,.88)) !important; backdrop-filter: blur(2px) saturate(.8); }
+#modal .dialog {
+  border-radius: 0 !important; border: 1px solid var(--t-edge) !important; border-top: 3px solid var(--ox) !important;
+  background: var(--t-scan), var(--t-hex), linear-gradient(170deg, #07130d, #030805) !important;
+  box-shadow: 0 0 40px var(--t-dim), inset 0 0 40px rgba(0,0,0,.6) !important;
+  clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+}
+#modal .eyebrow { color: var(--ox) !important; text-shadow: 0 0 6px var(--t-glow); }
+#modal .eyebrow::before { content: '◢ '; }
+#modal h2 { text-transform: uppercase; letter-spacing: 1px !important; color: #effff1; }
+#dialogbuttons button, .pbtn, .mcard, .wcard, .oxcard, .xrow, .ach, .codex .cx, .pstat > div, .pmast span {
+  border-radius: 0 !important; background: linear-gradient(160deg, #0b1a12, #060d09) !important;
+  border: 1px solid var(--t-dim) !important;
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+}
+#dialogbuttons button, .pbtn { text-transform: uppercase; letter-spacing: .8px; color: #dfffe5 !important; }
+#dialogbuttons button:hover, .pbtn:hover, .mcard:hover, .wcard:hover, .codex .cx:hover { border-color: var(--ox) !important; box-shadow: inset 0 0 14px var(--t-dim); }
+#dialogbuttons button:first-child, .pbtn.main { background: linear-gradient(90deg, var(--ox), color-mix(in srgb, var(--ox) 70%, #fff)) !important; color: #04110a !important; border-color: var(--ox) !important; font-weight: 800; }
+.pbtn.danger { background: linear-gradient(160deg, #2a0c0f, #12060a) !important; border-color: #a4434c88 !important; color: #ffc4c4 !important; }
+.pgroup h4 { color: var(--ox) !important; }
+.pgroup h4::before { content: '▸ '; }
+.wcard.active, .oxcard.active, .mcard.active { border-color: var(--ox) !important; box-shadow: inset 0 0 18px var(--t-glow) !important; }
+.mcard b, .xrow b { color: var(--ox) !important; }
+.xbar i { background: linear-gradient(90deg, #2fbf5a, var(--ox)) !important; }
+.padfocus { outline: 2px solid var(--ox) !important; }
+
+/* ---------- title menu ---------- */
+#menu { background: linear-gradient(90deg, rgba(2,8,5,.96), rgba(2,8,5,.84) 40%, rgba(2,8,5,.1) 78%), var(--t-scan) !important; }
+#menu h1 { color: #e9ffe9 !important; text-shadow: 0 0 18px #7dff9a88, 3px 3px 0 #0b3a1a !important; }
+#menu .eyebrow { color: #7dff9a !important; }
+.primary { border-radius: 0 !important; background: linear-gradient(90deg, #7dff9a, #c8ffb8) !important; color: #03140a !important; border: 0 !important;
+  box-shadow: 0 0 24px #7dff9a55 !important; clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px); }
+.menu-grid button, .menu-grid #jobsbtn {
+  border-radius: 0 !important; background: linear-gradient(160deg, #0b1a12, #050c08) !important; border: 1px solid #7dff9a44 !important; color: #d9ffe0 !important;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); text-transform: uppercase;
+}
+.menu-grid button:hover { border-color: #7dff9a !important; box-shadow: inset 0 0 14px #7dff9a33 !important; }
+
+/* arena / mission accents */
+#arenahud { color: var(--ox) !important; border-radius: 0 !important; }
+.mission { border-left: 1px solid var(--t-edge) !important; }
+/* 0.16.2 core light */
+.transform[data-core="charge"] { border-color: #ff4d4d !important; box-shadow: 0 0 0 4px #050807, 0 0 22px #ff4d4d66 !important; }
+.transform[data-core="charge"] .hourglass { background: #ff4d4d !important; filter: drop-shadow(0 0 6px #ff4d4d) !important; animation: corePulse 1.2s ease-in-out infinite; }
+.transform[data-core="warn"] { animation: coreWarnRing .5s steps(2) infinite; }
+.transform[data-core="warn"] .hourglass { background: #ffb23f !important; filter: drop-shadow(0 0 8px #ffb23f) !important; animation: coreBlink .5s steps(2) infinite; }
+.transform[data-core="active"] .hourglass { animation: corePulse 2s ease-in-out infinite; }
+@keyframes corePulse { 50% { opacity: .55; } }
+@keyframes coreBlink { 50% { opacity: .25; } }
+@keyframes coreWarnRing { 50% { border-color: #ffb23f !important; box-shadow: 0 0 0 4px #050807, 0 0 26px #ffb23f88 !important; } }
+#watchanim { position: absolute; left: calc(var(--gx, 0px) + 300px); top: 170px; width: 360px; height: 200px; z-index: 14; pointer-events: none; }

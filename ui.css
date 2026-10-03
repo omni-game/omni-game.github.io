@@ -1,0 +1,114 @@
+/* OMNI 0.9.2 UI polish: loaded last, overrides layout from style.css */
+:root { --ox: #baf780; --ui-radius: 8px; --ui-gap: 12px; }
+#game { --ox: #baf780; font-family: system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+button { font-family: inherit; }
+@media (hover: hover) { button:hover { filter: brightness(1.14); } }
+button:focus-visible { outline: 2px solid var(--ox); outline-offset: 2px; }
+
+/* shared panel look */
+.panel { border-radius: var(--ui-radius); border: 1px solid #8fb1a54d; backdrop-filter: blur(4px); box-shadow: 0 6px 22px #0005; }
+.panel, .tree-button, #coins, #lawstatus, #lanstatus, #shieldstatus, #fullpower, .more-button, .attack, .transform, .jump-button, .slide-button, .talk, #toast { border-radius: var(--ui-radius); }
+
+/* ---- top row: four equal cards on one baseline ---- */
+.vitals, .omni, .mission, #mapbtn { top: 14px; height: 92px; }
+.vitals { left: 14px; width: 228px; padding: 11px 14px 8px; }
+.omni { left: 252px; width: 228px; padding: 11px 14px 8px; }
+.mission { left: 490px; right: auto; width: 300px; padding: 11px 14px; border-right: 0; border-left: 3px solid #d3ae72; }
+#mapbtn { left: 800px; width: 98px; padding: 4px; }
+#minimap { width: 90px; height: 56px; border-radius: 5px; }
+#pause { left: 906px; right: auto; top: 14px; width: 40px; height: 40px; border-radius: var(--ui-radius); }
+.identity span { letter-spacing: 1.4px; }
+
+/* ---- second row: status chips on the left, tidy stack ---- */
+#lawstatus { left: 14px; top: 114px; max-width: 228px; height: 28px; display: flex; align-items: center; padding: 0 10px; }
+#regen { left: 16px; top: 148px; }
+#shieldstatus { left: 14px; top: 166px; border-radius: var(--ui-radius); }
+#fullpower { left: 14px; top: 188px; width: 228px; }
+.tree-button { left: 252px; top: 114px; width: 110px; height: 28px; border-color: color-mix(in srgb, var(--ox) 55%, transparent); color: var(--ox); }
+#coins { left: 370px; top: 114px; height: 28px; padding: 0 10px; display: flex; align-items: center; }
+#clock { right: 16px; top: 118px; font-size: 9px; }
+#toast { top: 152px; max-width: 520px; white-space: normal; text-align: center; line-height: 1.35; border-color: color-mix(in srgb, var(--ox) 45%, transparent); }
+#lanstatus { right: 14px; top: 140px; }
+
+/* ---- bottom: touch controls ---- */
+.transform { left: 200px; bottom: 20px; width: 130px; height: 84px; }
+#dial { left: 342px; bottom: 20px; border-radius: var(--ui-radius); }
+.jump-button { bottom: 20px; }
+.talk { left: 200px; bottom: 114px; }
+#joystick { bottom: 18px; left: 20px; }
+#attacks { bottom: 20px; }
+.attack { border-radius: var(--ui-radius); }
+
+/* ---- Omnitrix themes: colour + dial shape ---- */
+.omni .battery i, .masterybar i { background: var(--ox); }
+.transform { border-color: color-mix(in srgb, var(--ox) 60%, transparent); border-bottom: 3px solid var(--ox); box-shadow: 0 0 26px color-mix(in srgb, var(--ox) 16%, transparent); background: linear-gradient(140deg, color-mix(in srgb, var(--ox) 16%, #0b141b), #0c171dee); }
+.transform.unavailable { border-color: #888b8b; border-bottom-color: #888b8b; box-shadow: none; background: #253038bd; }
+.hourglass { background: var(--ox); clip-path: var(--ox-shape, polygon(0 0, 100% 0, 65% 50%, 100% 100%, 0 100%, 35% 50%)); filter: drop-shadow(0 0 6px var(--ox)); }
+#dial { border-color: color-mix(in srgb, var(--ox) 38%, #758e84); }
+.omni .identity span { color: var(--ox); }
+[data-ox="classic"] { --ox-shape: polygon(0 0, 100% 0, 65% 50%, 100% 100%, 0 100%, 35% 50%); }
+[data-ox="prime"] { --ox-shape: circle(50%); }
+[data-ox="ember"] { --ox-shape: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+[data-ox="crimson"] { --ox-shape: polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%); }
+[data-ox="azure"] { --ox-shape: polygon(50% 0, 100% 100%, 0 100%); }
+[data-ox="violet"] { --ox-shape: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); }
+[data-ox="gold"] { --ox-shape: polygon(0 0, 50% 36%, 100% 0, 100% 100%, 50% 64%, 0 100%); }
+[data-ox="stealth"] { --ox-shape: polygon(35% 0, 65% 0, 65% 35%, 100% 35%, 100% 65%, 65% 65%, 65% 100%, 35% 100%, 35% 65%, 0 65%, 0 35%, 35% 35%); }
+[data-ox="prime"] .hourglass, .oxcard[data-ox="prime"] .oxshape { background: radial-gradient(circle, transparent 33%, var(--ox) 36%); }
+.oxgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 10px 0 4px; }
+.oxcard { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 14px 6px 10px; background: #14232d; border: 1px solid #55737a; border-radius: var(--ui-radius); font-size: 10px; letter-spacing: .5px; }
+.oxcard.active { border-color: var(--ox); box-shadow: 0 0 0 1px var(--ox), 0 0 18px color-mix(in srgb, var(--ox) 30%, transparent); background: #1b3038; }
+.oxshape { width: 44px; height: 44px; background: var(--ox); clip-path: var(--ox-shape); filter: drop-shadow(0 0 7px var(--ox)); }
+
+/* ---- main menu: compact two-column grid ---- */
+.menu-content { top: 26px; left: 56px; width: 372px; }
+.menu-content h1 { font-size: 64px; margin: 10px 0 8px; letter-spacing: 9px; }
+.menu-content p { font-size: 12px; line-height: 1.45; margin-bottom: 12px; }
+.primary { width: 100%; min-width: 0; border-radius: var(--ui-radius); }
+.menu-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.menu-grid button, .menu-grid #jobsbtn { margin: 0 !important; min-width: 0 !important; width: 100%; padding: 10px 8px; font-size: 10px; letter-spacing: .6px; background: #182934e8 !important; border: 1px solid #6d9180; border-radius: var(--ui-radius); color: #e5f1e8; min-height: 38px; }
+.menu-grid .wide { grid-column: 1 / -1; }
+.menu-grid button:hover { border-color: var(--ox); }
+.menu-notes { margin-top: 12px; }
+.menu-content #loading { margin-top: 8px; }
+
+/* ---- keyboard hint bar (PC) / hide stick on desktop ---- */
+#kbhint { display: none; position: absolute; left: 14px; bottom: 20px; padding: 8px 8px; font-size: 8.5px; line-height: 1.9; letter-spacing: 0; color: #c7d6d3; width: 172px; pointer-events: none; white-space: nowrap; }
+#kbhint b { display: inline-block; min-width: 16px; text-align: center; padding: 0 3px; margin-right: 2px; background: #223540; border: 1px solid #5d7c85; border-radius: 4px; color: var(--ox); font-size: 9px; }
+@media (hover: hover) and (pointer: fine) {
+  #joystick { display: none; }
+  #kbhint { display: block; }
+  button { cursor: pointer; }
+}
+/* 0.15.5 UI polish */
+#game.selopen #hud { opacity: .12; transition: opacity .15s; }
+#game #hud { transition: opacity .2s; }
+#game.selopen #watchsel { background: radial-gradient(ellipse at 50% 55%, rgba(4,12,8,.55), rgba(2,6,4,.88)); }
+#kbhint.mini { width: auto; padding: 4px 8px; line-height: 1.4; }
+#kbhint.mini > * { display: none; }
+#kbhint.mini::before { content: 'H · TECLAS'; font-size: 9px; letter-spacing: 1px; color: var(--ox); }
+#kbhint.pad.mini::before { content: 'H · TECLAS · 🎮 MANDO'; }
+.dialog.pausewide { width: 640px; max-height: 500px; }
+.pstat { display: flex; gap: 10px; margin: 0 0 10px; }
+.pstat > div { flex: 1; padding: 8px 12px; background: #0e1c26; border: 1px solid #3c5a5a; border-left: 3px solid var(--ox); font-size: 12px; line-height: 1.5; color: #dfeee0; }
+.pstat small { font-size: 10px; color: #a9bdbd; }
+.pmast { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
+.pmast span { position: relative; overflow: hidden; padding: 4px 6px; font-size: 9.5px; background: #101b22; border: 1px solid #33484c; color: #ffe0b8; white-space: nowrap; text-overflow: ellipsis; }
+.pmast i { position: absolute; left: 0; bottom: 0; height: 2px; background: #ffa556; }
+.pgroup { margin-top: 8px; }
+.pgroup h4 { margin: 0 0 5px; font-size: 9px; letter-spacing: 1.6px; color: var(--ox); font-weight: 800; }
+.pbtns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.pbtn { padding: 9px 8px; font-size: 10.5px; letter-spacing: .4px; background: #213240; border: 1px solid #5d7a7a66; text-align: center; }
+.pbtn.main { background: #c6ed92; color: #17251d; font-weight: 800; border-color: #a6c978; }
+.pbtn.danger { background: #3a1e22; border-color: #9a4b4b88; color: #ffc9c9; }
+.pbtn:focus-visible, .pbtn.padfocus { outline: 2px solid var(--ox); }
+/* 0.15.5 wide screens: world in the middle, HUD out to the edges */
+#game { --gx: 0px; }
+#world, #watchsel, #watchfx { position: absolute; left: var(--gx) !important; top: 0; width: 960px !important; height: 540px; }
+#game.wide { background: radial-gradient(ellipse at 50% 50%, #0d1a20 0%, #060b12 70%); }
+#game.wide #world { box-shadow: 0 0 40px #000c; }
+@media (pointer: coarse) {
+  #attacks { grid-template-columns: repeat(2, 92px); gap: 9px; }
+  .attack { height: 78px; }
+  .jump-button { transform: scale(1.12); transform-origin: bottom center; }
+}
