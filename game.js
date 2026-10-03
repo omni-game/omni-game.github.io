@@ -1,4 +1,4 @@
-window.OMNI_BUILD=51;
+window.OMNI_BUILD=52;
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -3667,6 +3667,7 @@ function damageEnemy(e, dmg) {
     bestiaryKill(e); // codex scanning (part-43)
     featKill(e); // batch 1 (part-45)
     eliteKill(e); // batch 2 (part-46)
+    f3Kill(e); // batch 3 (part-47)
     if (zone === 1 && net.peer) lanSend({ type: 'reward', kill: true });
     if (quest.state === 'active' && zone === 1) {
       quest.kills++;
@@ -4270,8 +4271,8 @@ function pauseMenu() {
     eras = w && w.eras ? w.eras.map((e) => ERA_NAMES[e]).join(' + ') : '',
     mc = w && player.masterControl && w.masterControl;
   const groups = [
-    ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['MISIONES', missionBoard], ['HISTORIA · ECOS DEL VACÍO', sagaMenu], ['HISTORIA 03 · CAZADOR', s3Menu], ['BOSS RUSH', bossRushMenu], ['EXTRAS · ARENA · RETOS · LOGROS', extrasMenu], ['MAPA', () => showWorldMap()], ['MINIJUEGOS / TRABAJOS', jobsMenu], ['MULTIJUGADOR · CROSSPLAY', lanMenu]]],
-    ['RELOJ Y ALIENS', [['RELOJ / OMNITRIX', () => watchMenu()], ['MEJORAS DE ALIENS', () => upgradeMenu()], ['SKINS DE ALIENS', alienSkinMenu], ['ÁRBOL', skillTree], ['GUÍA / ATAQUES', guide]]],
+    ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['MISIONES', missionBoard], ['HISTORIA · ECOS DEL VACÍO', sagaMenu], ['HISTORIA 03 · CAZADOR', s3Menu], ['BOSS RUSH', bossRushMenu], ['EXTRAS · ARENA · RETOS · LOGROS', extrasMenu], ['MAPA', () => showWorldMap()], ['VIAJE RÁPIDO', () => travelMenu()], ['FAVORES', () => favoursMenu()], ['MINIJUEGOS / TRABAJOS', jobsMenu], ['MULTIJUGADOR · CROSSPLAY', lanMenu]]],
+    ['RELOJ Y ALIENS', [['RELOJ / OMNITRIX', () => watchMenu()], ['MEJORAS DE ALIENS', () => upgradeMenu()], ['EQUIPOS DE ALIENS', () => loadoutMenu()], ['MEJORAS DEL RELOJ', () => watchUpgMenu()], ['LABORATORIO DE ADN', () => labMenu()], ['VARIANTES', () => variantMenu()], ['SKINS DE ALIENS', alienSkinMenu], ['ÁRBOL', skillTree], ['GUÍA / ATAQUES', guide]]],
     ['PERSONAJE', [['PERSONAJE / SKIN', skinMenu], ['RAZAS', raceMenu], ['MODO FOTO', photoMode], ['TÍTULOS', () => titlesMenu(pauseMenu)], ['PRESTIGIO', prestigeMenu], ['MASCOTA: ' + (F1().pet ? 'SÍ' : 'NO'), () => { F1().pet = !F1().pet; save(); pauseMenu(); }], ['RECOMPENSA DIARIA', dailyCalendar]]],
     [
       'AJUSTES',
@@ -4285,6 +4286,7 @@ function pauseMenu() {
         ['DIAL: ' + (dialDocked() ? 'MINI' : 'PANTALLA COMPLETA'), () => { dialDockSet(!dialDocked()); pauseMenu(); }],
         ['MANDO', padHelp],
         ['TRANSFERIR PARTIDA', () => transferMenu(pauseMenu)],
+        ['FALLOS DEL RELOJ: ' + (F3().glitch ? 'SÍ' : 'NO'), () => { F3().glitch = !F3().glitch; save(); pauseMenu(); }],
         ['NUEVA PARTIDA', newGameConfirm, 'danger'],
       ],
     ],
@@ -4401,6 +4403,7 @@ function hitPlayer(amount) {
 function interact() {
   if (sagaInteract()) return; // Historia 02 (part-42)
   if (featInteract()) return; // Historia 03 (part-45)
+  if (f3Interact()) return; // favours (part-47)
   if (talkExtra()) return;
   if (puzzleInteract()) return;
   if (missionInteract()) return;
@@ -4837,7 +4840,7 @@ function updateEnemies(dt) {
       e.wind -= dt;
       if (e.wind <= 0 && d < 66 && lineClear(e.x, e.y, t.x, t.y)) {
         if (t.kind === 'civil') damageCitizen(t, e.boss ? 15 : 10, 'enemy');
-        else hurtTeam(t, e.boss ? 18 : 10);
+        else hurtTeam(t, Math.round((e.boss ? 18 : 10) * nightDmg()));
       }
       if (paused) return;
       continue;
@@ -4853,14 +4856,14 @@ function updateEnemies(dt) {
         dx: Math.cos(a) * 230,
         dy: Math.sin(a) * 230,
         t: 2.2,
-        damage: e.boss ? 12 : 9,
+        damage: Math.round((e.boss ? 12 : 9) * nightDmg()),
         r: 8,
       });
     }
     if (d < 350) {
       if (d > 52) {
         let slow = effects.some((f) => f.type === 'field' && f.t > 0 && dist(e, f) < f.r) ? 0.55 : 1,
-          speed = (e.boss ? 58 : 69) * slow * (e.mod === 'fast' ? 1.7 : 1);
+          speed = (e.boss ? 58 : 69) * slow * (e.mod === 'fast' ? 1.7 : 1) * nightSpeed();
         moveActor(e, ((t.x - e.x) / d) * speed * dt, ((t.y - e.y) / d) * speed * dt);
         e.anim += dt * 7;
         e.moving = true;
@@ -4927,6 +4930,7 @@ function update(dt) {
   scanTick(dt); // codex scanning (part-43)
   featTick(dt); // batch 1 (part-45)
   f2Tick(dt); // batch 2 (part-46)
+  f3Tick(dt); // batch 3 (part-47)
   eliteTick();
   sigTick(dt);
   anoditeTick(dt);
@@ -5187,6 +5191,7 @@ function hud() {
   sagaHud(); // part-42
   f1Hud(); // part-45
   f2Hud(); // part-46
+  f3Hud(); // part-47
   anoditeHud();
 }
 function spriteInfo(row) {
@@ -5415,6 +5420,7 @@ function draw() {
   drawNetworkEffects();
   sagaDraw(); // part-42
   featDraw(); // part-45
+  f3Draw(); // part-47
   const actors = (
     started
       ? [
@@ -5538,6 +5544,7 @@ function draw() {
         ctx.fill();
         ctx.restore();
       }
+      ctx.filter = (!lowGfx() && variantFilter()) || 'none'; // mastery colour variants (part-47)
       sprite(
         pose.row,
         pose.f,
@@ -5552,6 +5559,7 @@ function draw() {
         player.face,
         player.downed ? 0.5 : player.travel ? travelAlpha() : player.inv > 0 && Math.floor(clock * 12) % 2 === 0 ? 0.45 : 1,
       );
+      ctx.filter = 'none';
       if (player.downed) drawDowned(player, player.downed);
       if (player.shield > 0) {
         ctx.save();
@@ -5824,6 +5832,7 @@ function draw() {
   }
   drawSensory();
   ctx.restore();
+  weatherDraw(); // part-47
   if (flash > 0) {
     ctx.fillStyle = 'rgba(178,255,122,' + flash * 0.8 + ')';
     ctx.fillRect(0, 0, W, H);
@@ -7020,7 +7029,7 @@ function watchPlaylist(w = getWatch()) {
 }
 function ensureSelection() {
   const l = watchPlaylist();
-  if (!l.includes(player.selected)) player.selected = l[0];
+  if (!l.includes(player.selected) && !labFusionOk(player.selected)) player.selected = l[0]; // DNA lab fusions are allowed (part-47)
 }
 
 // ---------------- timing (per watch; Osmo race keeps the original numbers) ----------------
@@ -7033,9 +7042,9 @@ function ultForm(id = player.activeAlien) {
 }
 const ultOn = () => omniActive() && player.alien && player.ultimate && !!ultForm();
 function drainRate() {
-  return timingFor().drainPerSec * (ultOn() ? ultForm().drainMult : 1);
+  return timingFor().drainPerSec * (ultOn() ? ultForm().drainMult : 1) * wupDrain();
 }
-const rechargeRate = () => timingFor().rechargePerSec;
+const rechargeRate = () => timingFor().rechargePerSec * wupRecharge();
 function cooldownRate() {
   return timingFor().cooldownRate * (ultOn() ? ultForm().cooldownRate : 1);
 }
@@ -7049,8 +7058,8 @@ function quickSwapCfg() {
   if (!omniActive()) return null;
   const w = getWatch(),
     mc = !!player.masterControl && !!w.masterControl;
-  if (w.quickSwap) return mc ? { cost: Math.floor(w.quickSwap.cost / 2), cooldown: w.quickSwap.cooldown / 2 } : w.quickSwap;
-  return mc ? { cost: 6, cooldown: 2 } : null;
+  if (w.quickSwap) return mc ? { cost: Math.floor(w.quickSwap.cost / 2), cooldown: (w.quickSwap.cooldown / 2) * wupSwap() } : { ...w.quickSwap, cooldown: w.quickSwap.cooldown * wupSwap() };
+  return mc ? { cost: 6, cooldown: 2 * wupSwap() } : null;
 }
 
 // ---------------- semantic watch SFX ----------------
@@ -11403,6 +11412,7 @@ function statEvent(kind, d = {}) {
     const s = stats();
     if (kind === 'kill') s.kills++;
     if (kind === 'transform') {
+      try { onTransformEvent(d.alien); } catch (e) {} // combo finisher + malfunction (part-47)
       s.transforms++;
       if (d.alien && !s.aliens.includes(d.alien)) s.aliens.push(d.alien);
       if (d.alien && isFusionId(d.alien)) s.fusion = true;
@@ -12988,6 +12998,7 @@ function scanTick(dt) {
 }
 function scanDrawMark(e) { // over each enemy: progress ring while scanning, a small "?" if never scanned
   modDraw(e); // elite labels (part-46)
+  f3DrawEnemyLabel(e); // zone bosses (part-47)
   if (scan && scan.e === e) {
     const p = Math.min(1, scan.t / 1.5), y = e.y - 60;
     ctx.save();
@@ -13775,6 +13786,7 @@ function dmgMod(e, dmg) {
   }
   if (now < counterUntil) { counterUntil = 0; dmg *= 2; popup(e.x + 30, e.y - 150, '¡CONTRAATAQUE!', '#ff7a4a'); flash = 0.15; }
   if (e.mod === 'shield' && e.shield > 0) { const a = Math.min(e.shield, dmg * 0.7); e.shield -= a; dmg -= a; if (e.shield <= 0) { burst(e.x, e.y - 60, 20, '#8de5f3'); popup(e.x, e.y - 140, 'ESCUDO ROTO', '#8de5f3'); } }
+  dmg *= weatherDmg(); // part-47
   if (e.dummy) dummyHit(dmg);
   return dmg;
 }
@@ -14087,6 +14099,369 @@ function f2Hud() {
   const tt = TITLES.find((x) => x[0] === f.title);
   if (t) t.textContent = tt && titleOk(tt[0]) ? '« ' + tt[1] + ' »' : '';
 }
+// ============================================================================================
+// OMNI 0.23 · FEATURE BATCH 3 — world + watch
+//   FAVOURS        side quests from people around the bay, one at a time (Pause → Favores)
+//   ZONE BOSSES    a named boss can appear when you enter an area (at most every 5 min per area)
+//   WORLD EVENTS   every few minutes for 60 s: meteor shower, invasion, coin rain, eclipse
+//   BADGES         2 hidden Plumber badges in most areas: walk over them (25 coins each, all = bonus)
+//   NIGHT          at night enemies hit 25 % harder and move faster, but kills give more EXP
+//   WEATHER        rain (water +15 %, fire −10 %), storm (electric +20 %), fog; changes every few minutes
+//   FAST TRAVEL    jump to any area you have visited (Pause → Mapa / Viaje rápido)
+//   LOADOUTS       3 saved favourite sets for the dial and quick swap
+//   WATCH UPGRADES battery, recharge, quick-swap (coins)
+//   DNA LAB        fuse any two of your aliens and transform into the fusion on any watch (150 coins each)
+//   VARIANTS       colour variants for an alien at 50 % and 100 % mastery
+//   COMBO FINISHER transform or swap during a 5+ combo for a blast around you
+//   MALFUNCTION    rarely the watch picks a different alien for you (can be turned off)
+// State: player.f3 = { fav{}, badges{}, bossT{}, loadouts[], wup{}, lab[], variant{}, glitch }
+// ============================================================================================
+function F3() {
+  const f = (player.f3 = player.f3 && typeof player.f3 === 'object' ? player.f3 : {});
+  for (const k of ['fav', 'badges', 'bossT', 'wup', 'variant']) if (!f[k] || typeof f[k] !== 'object') f[k] = {};
+  if (!Array.isArray(f.loadouts)) f.loadouts = [null, null, null];
+  if (!Array.isArray(f.lab)) f.lab = [];
+  if (f.glitch === undefined) f.glitch = true;
+  return f;
+}
+const OUTDOOR = [0, 1, 2, 3, 4, 5, 7, 11, 13];
+// ---------------- favours (side quests) ----------------
+const FAVOURS = [
+  { id: 'f1', who: 'Lucía, pescadora', text: 'Se me cayó la caja de cebos en la Ribera de luciérnagas. ¿Me la traes?', type: 'fetch', zone: 2, x: 1180, y: 740, reward: [120, 60] },
+  { id: 'f2', who: 'Don Ramiro, frutero', text: 'Unos drones asustan a mis clientes del Mercado. Echa a 5.', type: 'clear', zone: 4, count: 5, reward: [160, 80] },
+  { id: 'f3', who: 'Nora, guarda forestal', text: 'Perdí 3 sensores en las Ruinas del pinar. Están marcados en verde.', type: 'collect', zone: 0, spots: [[380, 690], [900, 760], [1360, 700]], reward: [180, 90] },
+  { id: 'f4', who: 'Teo, repartidor', text: 'Lleva este paquete al Barrio residencial, junto a la casa del roble.', type: 'fetch', zone: 7, x: 1180, y: 760, reward: [140, 70] },
+  { id: 'f5', who: 'Capitana Iris', text: 'Los Muelles están llenos de drones. Derrota a 8.', type: 'clear', zone: 5, count: 8, reward: [220, 110] },
+  { id: 'f6', who: 'Profesor Alvar', text: 'Necesito 3 muestras de cristal de la Zona devastada.', type: 'collect', zone: 11, spots: [[420, 700], [820, 640], [1250, 740]], reward: [220, 110] },
+  { id: 'f7', who: 'Mina, guía', text: 'Un turista se dejó la cámara en Ciudad Bahía, junto al puente rojo.', type: 'fetch', zone: 3, x: 1300, y: 760, reward: [150, 70] },
+  { id: 'f8', who: 'Ingeniera Sol', text: 'La Central sigue inestable. Derrota 6 drones irradiados.', type: 'clear', zone: 13, count: 6, reward: [300, 150], need: () => SG().step >= 2 },
+];
+function favActive() { const f = F3().fav; return f.id ? FAVOURS.find((x) => x.id === f.id) : null; }
+function favoursMenu(back) {
+  const f = F3().fav, done = f.done || {}, act = favActive();
+  showDialog('FAVORES', Object.keys(done).length + ' / ' + FAVOURS.length + ' completados',
+    (act ? '<p class="reward"><b>En curso:</b> ' + act.who + ' — ' + act.text + ' (' + favStatus(act) + ')</p>' : '<p>Elige un favor. Solo uno a la vez.</p>') +
+      '<div class="codex">' + FAVOURS.map((q) => { const ok = !q.need || q.need(); return '<button class="cx' + (done[q.id] || !ok ? ' locked' : '') + '" data-fav="' + q.id + '" style="--c:#ffe27a"><b>' + (done[q.id] ? '✔ ' : act && act.id === q.id ? '▶ ' : '') + q.who + '</b><small>' + (ok ? REGIONS[q.zone].name + ' · ' + q.reward[0] + ' EXP · ' + q.reward[1] + ' 🪙' : 'Más adelante en la historia') + '</small></button>'; }).join('') + '</div>',
+    [...(act ? [['ABANDONAR', () => { F3().fav.id = null; save(); hud(); favoursMenu(back); }]] : []), ['VOLVER', back || pauseMenu]]);
+  for (const b of document.querySelectorAll('[data-fav]'))
+    b.onclick = () => {
+      const q = FAVOURS.find((x) => x.id === b.dataset.fav);
+      if (done[q.id] || (q.need && !q.need())) return;
+      Object.assign(F3().fav, { id: q.id, n: 0, got: [] });
+      toast('Favor aceptado · ' + q.who + ' · ' + REGIONS[q.zone].name);
+      playWatchSFX('confirm');
+      closeDialog(); hud(); save();
+    };
+}
+function favStatus(q) { const f = F3().fav; return q.type === 'clear' ? Math.min(q.count, f.n || 0) + ' / ' + q.count : q.type === 'collect' ? (f.got || []).length + ' / ' + q.spots.length : 've a ' + REGIONS[q.zone].name; }
+function favDone(q) {
+  const f = F3().fav;
+  (f.done = f.done || {})[q.id] = true;
+  f.id = null;
+  xp(q.reward[0]);
+  player.coins = (player.coins || 0) + q.reward[1];
+  toast('¡Favor cumplido! ' + q.who + ' · +' + q.reward[0] + ' EXP · +' + q.reward[1] + ' monedas');
+  playWatchSFX('recharged');
+  hud(); save();
+}
+function favNear() {
+  const q = favActive();
+  if (!q || zone !== q.zone) return null;
+  if (q.type === 'fetch' && dist(player, q) < 110) return ['◆ ' + (q.id === 'f4' ? 'ENTREGAR PAQUETE' : 'RECOGER'), () => favDone(q)];
+  if (q.type === 'collect') {
+    const f = F3().fav, i = q.spots.findIndex((s, k) => !(f.got || []).includes(k) && Math.hypot(player.x - s[0], player.y - s[1]) < 110);
+    if (i >= 0) return ['◆ RECOGER', () => { (f.got = f.got || []).push(i); burst(q.spots[i][0], q.spots[i][1] - 20, 16, '#7dff9a'); if (f.got.length >= q.spots.length) favDone(q); else { toast('Recogido ' + f.got.length + ' / ' + q.spots.length); hud(); } }];
+  }
+  return null;
+}
+function favKill() { const q = favActive(); if (q && q.type === 'clear' && zone === q.zone) { F3().fav.n = (F3().fav.n || 0) + 1; if (F3().fav.n >= q.count) favDone(q); else hud(); } }
+// ---------------- zone bosses ----------------
+const ZBOSS = { 0: 'Coloso del pinar', 1: 'Rey de los invasores', 2: 'Bestia del río', 3: 'Gran dron urbano', 4: 'Saqueador del mercado', 5: 'Pirata de los muelles', 7: 'Merodeador del barrio', 11: 'Chatarra viviente', 13: 'Núcleo descontrolado' };
+let zbZone = -1;
+function zoneBossCheck() {
+  if (net.role === 'guest' || !ZBOSS[zone] || arenaOn() || rush.on || dun.on || (zone === 1 && quest.state !== 'done')) return;
+  const f = F3(), now = Date.now();
+  if (now - (f.bossT[zone] || 0) < 5 * 60 * 1000 || Math.random() > 0.35) return;
+  f.bossT[zone] = now;
+  const r = region(), x = (r.minX + r.maxX) / 2 + 300, y = (r.top + r.bottom) / 2, hp = Math.round(1400 * (1 + player.level * 0.06));
+  enemies.push({ id: 650, x, y, homeX: x, homeY: y, face: -1, hp, max: hp, boss: true, zboss: ZBOSS[zone], kind: 'enemy', rcd: 1, cast: 0, stun: 0, alive: true, respawn: 1e9, cd: 1, wind: 0, anim: 0, hit: 0, moving: false, temp: true, modRolled: true, sagaKind: zone === 13 ? 'rad' : undefined });
+  toast('¡JEFE DE ZONA! ' + ZBOSS[zone]);
+  playWatchSFX('warning');
+}
+// ---------------- world events ----------------
+const EVENTS = { meteor: ['LLUVIA DE METEOROS', 'Caen meteoros sobre los enemigos'], invasion: ['INVASIÓN', 'Más enemigos · EXP doble'], coins: ['LLUVIA DE MONEDAS', '+5 monedas por cada enemigo'], eclipse: ['ECLIPSE', 'Noche total · enemigos más fuertes · más EXP'] };
+const wev = { kind: null, t: 0, next: 150 + Math.random() * 120, tick: 0 };
+function eventTick(dt) {
+  if (!started || !OUTDOOR.includes(zone)) return;
+  if (wev.kind) {
+    wev.t -= dt;
+    if (wev.kind === 'meteor' && net.role !== 'guest') {
+      wev.tick -= dt;
+      const live = enemies.filter((e) => e.alive);
+      if (wev.tick <= 0 && live.length) { wev.tick = 1.6; const e = live[Math.floor(Math.random() * live.length)]; effects.push({ type: 'meteor', x: e.x, y: e.y, t: 1.05, max: 1.05, r: 120, hit: false, damage: 45 * multiplier() }); }
+    }
+    if (wev.t <= 0) { toast('Evento terminado · ' + EVENTS[wev.kind][0]); wev.kind = null; wev.next = 180 + Math.random() * 180; }
+    eventHud();
+    return;
+  }
+  wev.next -= dt;
+  if (wev.next <= 0 && !arenaOn() && !rush.on && !dun.on) {
+    const ks = Object.keys(EVENTS);
+    wev.kind = ks[Math.floor(Math.random() * ks.length)];
+    wev.t = 60;
+    if (wev.kind === 'invasion' && net.role !== 'guest') {
+      const r = region();
+      for (let i = 0; i < 4; i++) { const x = r.minX + 100 + Math.random() * (r.maxX - r.minX - 200), y = r.top + 30 + Math.random() * (r.bottom - r.top - 60); enemies.push({ id: 900 + i, x, y, homeX: x, homeY: y, face: -1, hp: 140, max: 140, kind: 'enemy', rcd: 1 + i * 0.4, cast: 0, stun: 0, alive: true, respawn: 1e9, cd: 1, wind: 0, anim: 0, hit: 0, moving: false, temp: true }); }
+    }
+    toast('¡EVENTO! ' + EVENTS[wev.kind][0] + ' · ' + EVENTS[wev.kind][1]);
+    playWatchSFX('warning');
+  }
+  eventHud();
+}
+let evEl = null;
+function eventHud() {
+  if (!evEl) { evEl = document.createElement('div'); evEl.id = 'eventhud'; $('#game').append(evEl); }
+  const on = !!wev.kind && started && OUTDOOR.includes(zone);
+  evEl.classList.toggle('hidden', !on);
+  if (on) { const t = '⚡ ' + EVENTS[wev.kind][0] + ' · ' + Math.ceil(wev.t) + ' s'; if (evEl.textContent !== t) evEl.textContent = t; }
+}
+// ---------------- night ----------------
+function isNight() {
+  if (wev.kind === 'eclipse') return true;
+  const daylight = dayMode === 'día' ? 1 : dayMode === 'ciclo' ? (1 - Math.cos((clock / 90) * Math.PI)) / 2 : 0;
+  return daylight < 0.3 && OUTDOOR.includes(zone);
+}
+const nightDmg = () => (isNight() ? 1.25 : 1);
+const nightSpeed = () => (isNight() ? 1.12 : 1);
+let wasNight = null;
+// ---------------- weather ----------------
+const WEATHERS = { clear: ['Despejado', ''], rain: ['Lluvia', 'aliens de agua +15 % · fuego −10 %'], storm: ['Tormenta', 'aliens eléctricos +20 %'], fog: ['Niebla', 'poca visibilidad'] };
+const wx = { kind: 'clear', t: 120, drops: [] };
+function weatherTick(dt) {
+  wx.t -= dt;
+  if (wx.t <= 0) {
+    const r = Math.random();
+    const k = r < 0.5 ? 'clear' : r < 0.75 ? 'rain' : r < 0.9 ? 'fog' : 'storm';
+    wx.t = 150 + Math.random() * 90;
+    if (k !== wx.kind && OUTDOOR.includes(zone)) toast('Tiempo: ' + WEATHERS[k][0] + (WEATHERS[k][1] ? ' · ' + WEATHERS[k][1] : ''));
+    wx.kind = k;
+  }
+}
+function weatherDmg() {
+  if (!OUTDOOR.includes(zone)) return 1;
+  const el = myElems();
+  if (wx.kind === 'rain') return el.includes('water') ? 1.15 : el.includes('fire') ? 0.9 : 1;
+  if (wx.kind === 'storm') return el.includes('electric') ? 1.2 : 1;
+  return 1;
+}
+function weatherDraw() { // screen space, after the world (part-11)
+  if (!started || !OUTDOOR.includes(zone) || wx.kind === 'clear') return;
+  const n = lowGfx() ? 40 : 110;
+  if (wx.kind === 'rain' || wx.kind === 'storm') {
+    ctx.save(); ctx.strokeStyle = 'rgba(170,200,255,.45)'; ctx.lineWidth = 1.5; ctx.beginPath();
+    for (let i = 0; i < n; i++) { const x = (i * 97 + clock * 260 * (1 + (i % 3) * 0.2)) % (W + 60) - 30, y = (i * 53 + clock * 700) % (H + 40) - 20; ctx.moveTo(x, y); ctx.lineTo(x - 6, y + 16); }
+    ctx.stroke(); ctx.restore();
+    if (wx.kind === 'storm' && Math.sin(clock * 0.9) > 0.995) { ctx.fillStyle = 'rgba(230,240,255,.35)'; ctx.fillRect(0, 0, W, H); }
+  }
+  if (wx.kind === 'fog') {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, 'rgba(200,210,220,.05)'); g.addColorStop(0.6, 'rgba(200,210,220,.28)'); g.addColorStop(1, 'rgba(200,210,220,.38)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
+  if (isNight() && wev.kind === 'eclipse') { ctx.fillStyle = 'rgba(10,0,25,.35)'; ctx.fillRect(0, 0, W, H); }
+}
+// ---------------- plumber badges ----------------
+function badgeSpots(z) {
+  const r = REGIONS[z], R = seeded(1000 + z * 77), out = [];
+  for (let tries = 0; out.length < 2 && tries < 60; tries++) {
+    const x = r.minX + 80 + R() * (r.maxX - r.minX - 160), y = r.top + 20 + R() * (r.bottom - r.top - 40);
+    if (!isSolid(x, y) && !out.some((p) => Math.abs(p[0] - x) < 300)) out.push([Math.round(x), Math.round(y)]);
+  }
+  return out;
+}
+const BADGE_ZONES = OUTDOOR.concat([6, 14]);
+const badgeTotal = () => BADGE_ZONES.length * 2;
+const badgeCount = () => Object.keys(F3().badges).length;
+let badgeCache = {};
+function badgeTick() {
+  if (!BADGE_ZONES.includes(zone)) return;
+  const spots = (badgeCache[zone] = badgeCache[zone] || badgeSpots(zone)), f = F3();
+  spots.forEach(([x, y], i) => {
+    const k = zone + ':' + i;
+    if (f.badges[k] || Math.hypot(player.x - x, player.y - y) > 55) return;
+    f.badges[k] = 1;
+    player.coins = (player.coins || 0) + 25;
+    burst(x, y - 20, 24, '#ffe27a');
+    playWatchSFX('dna_added');
+    const n = badgeCount();
+    toast('INSIGNIA FONTANERO ' + n + ' / ' + badgeTotal() + ' · +25 monedas');
+    if (n >= badgeTotal()) { player.coins += 2000; xp(1000); toast('¡TODAS LAS INSIGNIAS! · +2000 monedas · +1000 EXP'); }
+    save();
+  });
+}
+function badgeDraw() {
+  if (!BADGE_ZONES.includes(zone)) return;
+  const spots = (badgeCache[zone] = badgeCache[zone] || badgeSpots(zone)), f = F3();
+  spots.forEach(([x, y], i) => {
+    if (f.badges[zone + ':' + i]) return;
+    const s = Math.abs(Math.cos(clock * 3)), yy = y - 26 + Math.sin(clock * 2 + i) * 4;
+    ctx.save(); ctx.translate(x, yy); ctx.scale(Math.max(0.15, s), 1);
+    ctx.fillStyle = '#ffd84a'; ctx.strokeStyle = '#5a3b06'; ctx.lineWidth = 2;
+    ctx.beginPath(); for (let k = 0; k < 6; k++) { const a = (k / 6) * Math.PI * 2 - Math.PI / 2; ctx.lineTo(Math.cos(a) * 11, Math.sin(a) * 11); } ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#5a3b06'; ctx.fillRect(-2, -6, 4, 12);
+    ctx.restore();
+  });
+}
+// ---------------- fast travel ----------------
+const TRAVEL_OK = [0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 14];
+function travelMenu(back) {
+  const list = TRAVEL_OK.filter((i) => REGIONS[i] && discovered.includes(REGIONS[i].id) && (i !== 14 || SG().step >= 4));
+  showDialog('VIAJE RÁPIDO', 'Zonas que ya has visitado', '<div class="codex">' + list.map((i) => '<button class="cx" data-go="' + i + '" style="--c:' + (REGIONS[i].color || '#8de5f3') + '"><b>' + (i === zone ? '▶ ' : '') + REGIONS[i].name + '</b><small>' + REGIONS[i].subtitle + '</small></button>').join('') + '</div>', [['VOLVER', back || pauseMenu]]);
+  for (const b of document.querySelectorAll('[data-go]'))
+    b.onclick = () => {
+      const i = +b.dataset.go;
+      if (net.role === 'guest' && net.peer) return toast('El anfitrión dirige los viajes');
+      if (arenaOn() || rush.on || dun.on) return toast('Termina antes lo que estás haciendo');
+      if (i === zone) return closeDialog();
+      closeDialog();
+      enterZone(i, 'center');
+      playWatchSFX('activate');
+    };
+}
+// ---------------- loadouts ----------------
+function loadoutMenu(back) {
+  const f = F3(), cur = (player.watchFav || []).filter((id) => ALIENS[id]);
+  showDialog('EQUIPOS DE ALIENS', 'Tres grupos de favoritos',
+    '<p>Guarda tus favoritos actuales (los que usa el cambio rápido) en un hueco y cámbialos de golpe. Favoritos ahora: <b>' + (cur.length ? cur.map((id) => ALIENS[id].name).join(', ') : 'ninguno · márcalos con F en el dial') + '</b></p>' +
+      f.loadouts.map((l, i) => '<div class="xrow"><b>EQUIPO ' + 'ABC'[i] + '</b><small>' + (l && l.length ? l.map((id) => (ALIENS[id] ? ALIENS[id].name : id)).join(', ') : 'vacío') + '</small><span class="lbtns"><button class="pbtn" data-ls="' + i + '">GUARDAR</button><button class="pbtn main" data-lu="' + i + '">USAR</button></span></div>').join(''),
+    [['VOLVER', back || pauseMenu]]);
+  for (const b of document.querySelectorAll('[data-ls]')) b.onclick = () => { if (!cur.length) return toast('Marca primero favoritos en el dial (F)'); f.loadouts[+b.dataset.ls] = cur.slice(); save(); toast('Equipo ' + 'ABC'[+b.dataset.ls] + ' guardado'); loadoutMenu(back); };
+  for (const b of document.querySelectorAll('[data-lu]')) b.onclick = () => { const l = f.loadouts[+b.dataset.lu]; if (!l || !l.length) return toast('Ese equipo está vacío'); player.watchFav = l.slice(); if (!player.alien) { player.selected = l[0]; ensureSelection(); } save(); hud(); toast('Equipo ' + 'ABC'[+b.dataset.lu] + ' activo'); playWatchSFX('select'); loadoutMenu(back); };
+}
+// ---------------- watch upgrades ----------------
+const WUP = { bat: ['Batería', 'gasta un 10 % menos por nivel', [300, 600, 1000]], rec: ['Recarga', 'recarga un 15 % más rápido por nivel', [250, 500, 900]], swap: ['Cambio rápido', 'enfriamiento un 15 % menor por nivel', [300, 600, 1000]] };
+const wupLv = (k) => Math.min(3, F3().wup[k] | 0);
+const wupDrain = () => (omniActive() ? 1 - wupLv('bat') * 0.1 : 1);
+const wupRecharge = () => (omniActive() ? 1 + wupLv('rec') * 0.15 : 1);
+const wupSwap = () => 1 - wupLv('swap') * 0.15;
+function watchUpgMenu(back) {
+  showDialog('MEJORAS DEL RELOJ', (player.coins || 0) + ' monedas', '<div class="codex">' + Object.entries(WUP).map(([k, [n, d, costs]]) => { const lv = wupLv(k); return '<button class="cx" data-wup="' + k + '" style="--c:var(--ox)"><b>' + n + ' ' + '▮'.repeat(lv) + '▯'.repeat(3 - lv) + '</b><small>' + d + ' · ' + (lv >= 3 ? 'MÁXIMO' : costs[lv] + ' monedas') + '</small></button>'; }).join('') + '</div>', [['VOLVER', back || pauseMenu]]);
+  for (const b of document.querySelectorAll('[data-wup]')) b.onclick = () => { const k = b.dataset.wup, lv = wupLv(k), c = WUP[k][2][lv]; if (lv >= 3) return; if ((player.coins || 0) < c) return toast('Te faltan ' + (c - player.coins) + ' monedas'); player.coins -= c; F3().wup[k] = lv + 1; playWatchSFX('dna_added'); save(); hud(); watchUpgMenu(back); };
+}
+// ---------------- DNA lab ----------------
+let labA = null;
+function labMenu(back) {
+  const f = F3(), ids = codexIds().filter((id) => alienUnlocked(id) && CORE_ALIENS.includes(id));
+  if (!omniActive()) return toast('El laboratorio de ADN es para portadores del Omnitrix');
+  showDialog('LABORATORIO DE ADN', labA ? 'Elige el segundo alien (colores y poderes)' : 'Elige el primer alien (cuerpo)',
+    (f.lab.length ? '<h4 class="shoph">Tus fusiones · toca para transformarte</h4><div class="codex">' + f.lab.map((fid) => { ensureFusion(fid); return ALIENS[fid] ? '<button class="cx" data-lab="' + fid + '" style="--c:' + (ALIENS[fid].color || '#b6ff4d') + '"><b>' + ALIENS[fid].name + '</b><small>' + fusionParts(fid).map((p) => ALIENS[p].name).join(' + ') + '</small></button>' : ''; }).join('') + '</div>' : '') +
+      '<h4 class="shoph">Nueva fusión · 150 monedas · ' + (labA ? ALIENS[labA].name + ' + ?' : '? + ?') + '</h4><div class="codex">' + ids.filter((id) => id !== labA).map((id) => '<button class="cx" data-labp="' + id + '" style="--c:' + (ALIENS[id].color || '#7dff9a') + '"><b>' + ALIENS[id].name + '</b></button>').join('') + '</div>',
+    [...(labA ? [['CANCELAR', () => { labA = null; labMenu(back); }]] : []), ['VOLVER', () => { labA = null; (back || pauseMenu)(); }]]);
+  for (const b of document.querySelectorAll('[data-labp]'))
+    b.onclick = () => {
+      if (!labA) { labA = b.dataset.labp; return labMenu(back); }
+      const fid = ensureFusion(labA, b.dataset.labp);
+      labA = null;
+      if (!fid) return toast('Esa fusión no es posible');
+      if (f.lab.includes(fid)) return labMenu(back);
+      if ((player.coins || 0) < 150) return toast('Necesitas 150 monedas'), labMenu(back);
+      player.coins -= 150;
+      f.lab.unshift(fid);
+      if (f.lab.length > 8) f.lab.length = 8;
+      toast('¡Fusión creada! ' + ALIENS[fid].name);
+      playWatchSFX('dna_added');
+      save();
+      labMenu(back);
+    };
+  for (const b of document.querySelectorAll('[data-lab]'))
+    b.onclick = () => {
+      if (player.alien) return toast('Vuelve a humano primero');
+      if (player.battery <= 0) return toast('Batería vacía');
+      player.selected = b.dataset.lab;
+      closeDialog();
+      transform({ fromSelector: true });
+    };
+}
+const labFusionOk = (id) => isFusionId(id) && F3().lab.includes(id) && !!ALIENS[id];
+// ---------------- mastery variants ----------------
+const VARIANTS = [['Original', ''], ['Variante (50 %)', 'hue-rotate(110deg) saturate(1.2)'], ['Dorada (100 %)', 'sepia(.85) saturate(2.6) hue-rotate(-12deg) brightness(1.08)']];
+function variantFilter() {
+  if (!player.alien) return '';
+  const v = F3().variant[player.activeAlien] | 0, m = (player.masteries && player.masteries[player.activeAlien]) || 0;
+  if (v === 2 && m < 100) return '';
+  if (v === 1 && m < 50) return '';
+  return VARIANTS[v] ? VARIANTS[v][1] : '';
+}
+function variantMenu(back) {
+  const ids = codexIds().filter((id) => alienUnlocked(id) && ((player.masteries && player.masteries[id]) || 0) >= 50);
+  showDialog('VARIANTES DE COLOR', 'Se desbloquean con la maestría', '<p>Al 50 % de maestría: una variante de color. Al 100 %: la versión dorada.</p><div class="codex">' + (ids.length ? ids.map((id) => { const v = F3().variant[id] | 0, m = Math.floor(player.masteries[id]); return '<button class="cx" data-var="' + id + '" style="--c:' + (ALIENS[id].color || '#7dff9a') + '"><b>' + ALIENS[id].name + '</b><small>' + VARIANTS[v][0] + ' · maestría ' + m + ' % · toca para cambiar</small></button>'; }).join('') : '<p>Ningún alien llega aún al 50 % de maestría.</p>') + '</div>', [['VOLVER', back || pauseMenu]]);
+  for (const b of document.querySelectorAll('[data-var]')) b.onclick = () => { const id = b.dataset.var, m = player.masteries[id] || 0, max = m >= 100 ? 2 : 1; F3().variant[id] = ((F3().variant[id] | 0) + 1) % (max + 1); save(); variantMenu(back); };
+}
+// ---------------- combo finisher + malfunction (statEvent 'transform', part-34) ----------------
+function onTransformEvent(id) {
+  if (typeof combo !== 'undefined' && combo.n >= 5 && started) {
+    const n = combo.n, d = n * 8 * multiplier();
+    areaHit(player.x, player.y, 190, d, 0.6);
+    effects.push({ type: 'resonance', x: player.x, y: player.y, r: 190, t: 0.5, max: 0.5, color: '#ffd84a' });
+    flash = 0.25;
+    toast('¡FINAL DE COMBO! ×' + n + ' · ' + Math.round(d) + ' de daño en área');
+  }
+  if (F3().glitch && omniActive() && !isFusionId(id) && Math.random() < 0.03) {
+    const l = watchPlaylist().filter((x) => x !== id && ALIENS[x]);
+    if (!l.length) return;
+    const pick = l[Math.floor(Math.random() * l.length)];
+    setTimeout(() => {
+      if (!player.alien) return;
+      const cfg = quickSwapCfg(), cool = player.swapCool;
+      player.swapCool = 0;
+      if (cfg) watchSwap(pick);
+      else { player.activeAlien = pick; player.cool = player.cooldowns[pick]; player.hp = Math.min(maxHP(), player.hp); hud(); }
+      player.swapCool = cool;
+      toast('¡FALLO DEL OMNITRIX! Te has convertido en ' + ALIENS[pick].name);
+      playWatchSFX('error');
+    }, 700);
+  }
+}
+// ---------------- tick / draw / hud / interact ----------------
+let f3ZoneSeen = -1;
+function f3Tick(dt) {
+  F3();
+  if (zone !== f3ZoneSeen) { f3ZoneSeen = zone; setTimeout(zoneBossCheck, 1500); }
+  eventTick(dt);
+  weatherTick(dt);
+  badgeTick();
+  const n = isNight();
+  if (started && n !== wasNight) { if (n && wasNight === false && OUTDOOR.includes(zone)) toast('Cae la noche · enemigos más fuertes · +EXP'); wasNight = n; }
+}
+function f3Draw() {
+  badgeDraw();
+  const q = favActive();
+  if (q && zone === q.zone) {
+    const pts = q.type === 'fetch' ? [[q.x, q.y]] : q.type === 'collect' ? q.spots.filter((s, k) => !(F3().fav.got || []).includes(k)) : [];
+    for (const [x, y] of pts) { ctx.save(); ctx.strokeStyle = '#7dff9a'; ctx.lineWidth = 3; ctx.globalAlpha = 0.6 + 0.3 * Math.sin(clock * 5); ctx.beginPath(); ctx.ellipse(x, y, 34, 11, 0, 0, 7); ctx.stroke(); ctx.restore(); txt('▼', x, y - 40 - Math.sin(clock * 4) * 5, 16, '#7dff9a'); }
+  }
+}
+function f3DrawEnemyLabel(e) { if (e.zboss && e.alive) txt('JEFE DE ZONA · ' + e.zboss.toUpperCase(), e.x, e.y - 140, 9, '#ffb59a'); }
+function f3Kill(e) {
+  favKill();
+  if (wev.kind === 'coins') { player.coins = (player.coins || 0) + 5; popup(e.x - 20, e.y - 110, '+5 🪙', '#ffe27a'); }
+  if (wev.kind === 'invasion') xp(10);
+  if (isNight()) xp(4);
+  if (e.zboss) { xp(150); player.coins = (player.coins || 0) + 80; toast('¡Jefe de zona derrotado! ' + e.zboss + ' · +150 EXP · +80 monedas'); }
+}
+function f3Hud() {
+  const n = favNear();
+  if (n) { $('#talk').classList.remove('hidden'); $('#talk').textContent = n[0]; }
+  const q = favActive();
+  if (!q || activeMission() || sagaActive() || (F1().s3.step >= 1 && F1().s3.step <= 4) || [6, 8, 9, 10, 12].includes(zone)) return;
+  $('#mission .tiny').textContent = 'FAVOR · ' + q.who.toUpperCase();
+  $('#questtext').textContent = q.text.length > 46 ? q.text.slice(0, 44) + '…' : q.text;
+  $('#questsub').textContent = REGIONS[q.zone].name + ' · ' + favStatus(q);
+}
+let f3LastNear = '';
+function f3Near() { const n = favNear(); const l = n ? n[0] : ''; if (l !== f3LastNear) { f3LastNear = l; hud(); } return n; }
+function f3Interact() { if (!started) return false; const n = favNear(); if (!n) return false; n[1](); return true; }
+setInterval(() => { try { if (started) f3Near(); } catch (e) {} }, 300);
 applyWatchTheme();
 resize();
 boot();
@@ -14097,7 +14472,7 @@ if (window.__game)
     missionBoard, missionAccept, activeMission, MS, MISSIONS, coopOn, coopState, coopShare, coopTickMissions, COOP_SITES,
     arenaStart, arenaEnd, arena, arenaBest, statEvent, stats, daily, dailyMenu, achMenu, achCheck, ACHS, codexMenu, codexCard, codexIds, extrasMenu, difficultyMenu, diffCfg, diffKey, DIFFS, PAD, padPoll, padHelp,
     watchAnim, WATCH_ERAS, eraPlaylist, eraOf, storyPlay, storyFor, storyDraw, storyFit, storyPreload, BOARDS, SHEET_ROWS, SKIN_ART, boardId,
-    F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
+    F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
     get enemies() { return enemies; },
     get sagaCineOn() { return sagaCineOn; },
     get scan() { return scan; },

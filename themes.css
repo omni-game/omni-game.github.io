@@ -252,3 +252,6 @@
 /* 0.22 batch 2 */
 #ptitle { display: block; margin-top: 3px; font-size: 8px; letter-spacing: 1.5px; color: var(--ox); text-align: left; }
 .shoph { margin: 10px 0 5px; font-size: 9px; letter-spacing: 1.6px; color: var(--ox); }
+/* 0.23 batch 3 */
+#eventhud { position: absolute; left: 50%; top: 92px; transform: translateX(-50%); z-index: 7; pointer-events: none; padding: 5px 14px; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; color: #ffe27a; background: rgba(30, 14, 2, .85); border: 1px solid #ffe27a88; animation: corePulse 1.6s ease-in-out infinite; }
+.xrow .lbtns { display: flex; gap: 6px; margin-top: 4px; } .xrow .lbtns .pbtn { padding: 6px 10px; }
