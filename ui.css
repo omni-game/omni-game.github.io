@@ -112,7 +112,7 @@ button:focus-visible { outline: 2px solid var(--ox); outline-offset: 2px; }
   .attack { height: 78px; }
   .jump-button { transform: scale(1.12); transform-origin: bottom center; }
 }
-/* 0.17 mini dial: only the watch face, next to the hero; the game stays fully visible */
-#game.dock #watchsel { left: calc(var(--gx) + 960px - 270px) !important; top: 150px; width: 240px !important; height: 240px; background: none !important; }
-#game.dock.dockleft #watchsel { left: calc(var(--gx) + 30px) !important; }
-#game.selopen.dock #hud { opacity: .85; }
+/* 0.17 mini dial: the watch face opens on the transform button; the game stays fully visible */
+#game.dock #watchsel { width: 260px !important; height: 300px; background: none !important; z-index: 300 !important; }
+#game.selopen.dock #hud { opacity: 1; }
+#game.selopen.dock #transform, #game.selopen.dock .talk { visibility: hidden; }
