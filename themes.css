@@ -281,3 +281,41 @@
 /* the collapsed key-help chip: its loose text nodes must collapse too */
 #game #kbhint.mini { font-size: 0 !important; width: auto !important; }
 #game #kbhint.mini::before { font-size: 9px; }
+
+/* ===================== 0.26 · CLEAN HUD LAYOUT (#game.hudlite, any theme) ===================== */
+#game.hudlite .vitals::before, #game.hudlite .omni::before, #game.hudlite .mission::before, #game.hudlite .vitals::after, #game.hudlite .omni::after, #game.hudlite .mission::after { display: none !important; }
+#game.hudlite .vitals { top: 10px !important; left: 10px !important; width: 196px !important; height: auto !important; padding: 6px 10px 7px !important; transform: none !important; }
+#game.hudlite .vitals .identity { font-size: 10px !important; }
+#game.hudlite .vitals .bar.hp { height: 10px !important; margin-top: 5px !important; }
+#game.hudlite .vitals .bar.hp span { font-size: 8px !important; line-height: 10px; }
+#game.hudlite .vitals .bar.xp { height: 3px !important; margin-top: 3px !important; }
+#game.hudlite .vitals small, #game.hudlite #batteryhint, #game.hudlite .omni .mastery, #game.hudlite .omni .masterybar,
+#game.hudlite #regen, #game.hudlite #clock, #game.hudlite #mapbtn span, #game.hudlite #lawstatus:not(.wanted), #game.hudlite #treebtn.zero { display: none !important; }
+#game.hudlite .omni { top: 54px !important; left: 10px !important; width: 196px !important; height: auto !important; padding: 4px 10px 6px !important; transform: none !important; }
+#game.hudlite .omni .identity { font-size: 9px !important; }
+#game.hudlite .omni .bar.battery { height: 4px !important; margin-top: 4px !important; }
+#game.hudlite #coins, #game.hudlite #treebtn { top: 84px !important; height: 18px !important; padding: 0 2px !important; background: none !important; border: 0 !important; box-shadow: none !important; clip-path: none !important; font-size: 9px !important; width: auto !important; text-shadow: 0 1px 2px #000; }
+#game.hudlite #coins { left: 12px !important; }
+#game.hudlite #treebtn { left: 112px !important; }
+#game.hudlite #lawstatus.wanted { top: 106px !important; left: 10px !important; height: 22px !important; font-size: 8px !important; }
+#game.hudlite .mission { top: 10px !important; right: 104px !important; left: auto !important; width: 236px !important; height: auto !important; padding: 6px 10px 7px !important; border: 0 !important; box-shadow: none !important; clip-path: none !important; transform: none !important;
+  background: linear-gradient(270deg, rgba(4, 10, 12, .78), rgba(4, 10, 12, .38)) !important; text-align: right !important; }
+#game.hudlite .mission .tiny { font-size: 7px !important; }
+#game.hudlite .mission strong { font-size: 11px !important; margin: 2px 0 !important; }
+#game.hudlite .mission > span:last-child { font-size: 8.5px !important; }
+#game.hudlite #mapbtn { top: 10px !important; right: 56px !important; left: auto !important; width: 42px !important; height: 42px !important; padding: 2px !important; transform: none !important; }
+#game.hudlite #minimap { width: 36px !important; height: 36px !important; object-fit: cover; }
+#game.hudlite #pause { top: 10px !important; right: 10px !important; width: 40px !important; height: 42px !important; }
+#game.hudlite #emotebtn { top: 58px !important; right: 10px !important; width: 40px !important; height: 30px !important; font-size: 14px !important; }
+#game.hudlite #ultrabtn:not(.ready):not(.on) { display: none !important; }
+#game.hudlite #scanbtn { font-size: 9px !important; padding: 5px 10px !important; width: auto !important; }
+@media (pointer: fine) {
+  #game.hudlite .jump-button, #game.hudlite .more-button, #game.hudlite .slide-button { display: none !important; }
+  #game.hudlite #attacks { scale: .82; transform-origin: 100% 100%; }
+}
+#game.hudlite[data-ui="comic"] .mission { background: var(--dots) 0 0 / 6px 6px, var(--paper) !important; border: 3px solid var(--ink) !important; box-shadow: 3px 3px 0 var(--ink) !important; }
+#game.hudlite[data-ui="comic"] #coins, #game.hudlite[data-ui="comic"] #treebtn { background: var(--paper) !important; border: 2px solid var(--ink) !important; padding: 0 6px !important; text-shadow: none; }
+#game.hudlite[data-ui="comic"] #treebtn { left: 118px !important; }
+#game.hudlite[data-ui="comic"] .omni { top: 64px !important; }
+#game.hudlite[data-ui="comic"] #coins, #game.hudlite[data-ui="comic"] #treebtn { top: 106px !important; }
+#game.hudlite[data-ui="comic"] .vitals .identity, #game.hudlite[data-ui="comic"] .omni .identity { font-size: 13px !important; }

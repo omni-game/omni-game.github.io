@@ -1,4 +1,4 @@
-window.OMNI_BUILD=55;
+window.OMNI_BUILD=56;
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -2915,6 +2915,7 @@ function storyTalk() {
 }
 function ensureRobot() {
   if (net.role === 'guest' || zone !== 11) return;
+  if (typeof S4 === 'function' && S4().step === 4) return; // the Mk II has the arena (part-50)
   let b = enemies.find((e) => e.robotBoss);
   if (b?.alive || player.robotTimer > 0) return;
   const fresh = {
@@ -3306,6 +3307,7 @@ function multiplier() {
     (race === 'osmo' && player.form === 'fire' && player.fireCharge >= 60 ? 1.12 : 1) *
     (ultOn() ? ultForm().damageMult : 1) *
     upgDmg() * // alien upgrades (part-45)
+    alienPower() * // size / power tier (part-49)
     prestigeMult() * // prestige stars (part-46)
     ((player.critT || 0) > 0 ? 1.8 : 1) // Grey Matter / Brainstorm analysis (part-28)
   );
@@ -3558,6 +3560,7 @@ function spawnEnemies() {
     for (const e of enemies) {
       e.hp = e.max = e.knight === 'melee' ? 440 : 380;
     }
+  for (const e of enemies) { e.lvBase = e.max; e.hp = e.max = lvHp(e.max); } // grow with the player (part-49)
   zoneStates[region().id] = enemies;
 }
 function enterZone(next, side) {
@@ -3663,8 +3666,9 @@ function damageEnemy(e, dmg) {
       knightKill();
       if (net.peer) lanSend({ type: 'knightKill' });
     }
-    xp(e.knight ? 28 : e.boss ? 24 : 10);
-    coopShareXP(e.knight ? 28 : e.boss ? 24 : 10);
+    const kx = Math.round((e.knight ? 28 : e.boss ? 24 : 10) * lvXp()); // part-49
+    xp(kx);
+    coopShareXP(kx);
     dnaDrop();
     missionKill(e); // mission board (part-27)
     sagaKill(e); // Historia 02 (part-42)
@@ -3909,6 +3913,7 @@ function skillCost(i) {
 }
 function attack(i) {
   if (!started || paused || player.downed) return;
+  if (debateBlocks()) return; // Alien X (part-49)
   const cost = skillCost(i);
   if (cost > 0 && !(player.cool[i] > 0) && unlockedSkill(skillId(), i) && player.battery <= cost + 1) {
     toast('Energía insuficiente · Necesitas ' + cost + '% de batería');
@@ -4276,7 +4281,7 @@ function pauseMenu() {
     eras = w && w.eras ? w.eras.map((e) => ERA_NAMES[e]).join(' + ') : '',
     mc = w && player.masterControl && w.masterControl;
   const groups = [
-    ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['MISIONES', missionBoard], ['HISTORIA · ECOS DEL VACÍO', sagaMenu], ['HISTORIA 03 · CAZADOR', s3Menu], ['BOSS RUSH', bossRushMenu], ['EXTRAS · ARENA · RETOS · LOGROS', extrasMenu], ['MAPA', () => showWorldMap()], ['VIAJE RÁPIDO', () => travelMenu()], ['FAVORES', () => favoursMenu()], ['ARCADE', () => arcadeMenu()], ...(net.peer ? [['REGALAR MONEDAS', giftMenu]] : []), ['MINIJUEGOS / TRABAJOS', jobsMenu], ['MULTIJUGADOR · CROSSPLAY', lanMenu]]],
+    ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['MISIONES', missionBoard], ['HISTORIA · ECOS DEL VACÍO', sagaMenu], ['HISTORIA 03 · CAZADOR', s3Menu], ['HISTORIA 04 · SOBRECARGA', s4Menu], ['BOSS RUSH', bossRushMenu], ['EXTRAS · ARENA · RETOS · LOGROS', extrasMenu], ['MAPA', () => showWorldMap()], ['VIAJE RÁPIDO', () => travelMenu()], ['FAVORES', () => favoursMenu()], ['ARCADE', () => arcadeMenu()], ...(net.peer ? [['REGALAR MONEDAS', giftMenu]] : []), ['MINIJUEGOS / TRABAJOS', jobsMenu], ['MULTIJUGADOR · CROSSPLAY', lanMenu]]],
     ['RELOJ Y ALIENS', [['RELOJ / OMNITRIX', () => watchMenu()], ['MEJORAS DE ALIENS', () => upgradeMenu()], ['EQUIPOS DE ALIENS', () => loadoutMenu()], ['MEJORAS DEL RELOJ', () => watchUpgMenu()], ['LABORATORIO DE ADN', () => labMenu()], ['VARIANTES', () => variantMenu()], ['SKINS DE ALIENS', alienSkinMenu], ['ÁRBOL', skillTree], ['GUÍA / ATAQUES', guide]]],
     ['PERSONAJE', [['PERSONAJE / SKIN', skinMenu], ['RAZAS', raceMenu], ['MODO FOTO', photoMode], ['TÍTULOS', () => titlesMenu(pauseMenu)], ['PRESTIGIO', prestigeMenu], ['MODO STREAMER: ' + (stream.on ? 'SÍ' : 'NO'), streamToggle], ...(stream.on ? [['RULETA DEL CHAT', chatRoulette]] : []), ['MASCOTA: ' + (F1().pet ? 'SÍ' : 'NO'), () => { F1().pet = !F1().pet; save(); pauseMenu(); }], ['RECOMPENSA DIARIA', dailyCalendar]]],
     [
@@ -4379,7 +4384,9 @@ function hitPlayer(amount) {
   )
     return;
   if (player.downed) return;
-  amount = amount * diffCfg().dmg; // difficulty (part-32)
+  amount = sizeGuard(amount); // tiny aliens dodge, giants shrug (part-49)
+  if (!amount) return;
+  amount = amount * diffCfg().dmg * lvDmg(); // difficulty (part-32) · level (part-49)
   player.regenWait = 20;
   if (player.shield > 0 && player.alien) { // any alien's shield move (Diamante, kit 'shield' moves)
     const absorbed = Math.min(player.shield, amount);
@@ -4398,6 +4405,7 @@ function hitPlayer(amount) {
     }
   }
   player.hp -= amount;
+  sfx('hurt'); // part-52
   player.hurtT = 0.3;
   player.inv = 0.65;
   shake = 0.17;
@@ -4821,6 +4829,7 @@ function updateEnemies(dt) {
         e.respawn -= dt;
         if (e.respawn <= 0) {
           e.alive = true;
+          if (e.lvBase && !e.mod) e.max = lvHp(e.lvBase); // part-49
           e.hp = e.max;
           e.x = e.homeX;
           e.y = e.homeY;
@@ -4939,6 +4948,7 @@ function update(dt) {
   f2Tick(dt); // batch 2 (part-46)
   f3Tick(dt); // batch 3 (part-47)
   f4Tick(dt); // batch 4 (part-48)
+  scaleTick(dt); // sizes / power (part-49)
   eliteTick();
   sigTick(dt);
   anoditeTick(dt);
@@ -5198,6 +5208,7 @@ function hud() {
   hudMissions();
   sagaHud(); // part-42
   f1Hud(); // part-45
+  s4Hud(); // part-50
   f2Hud(); // part-46
   f3Hud(); // part-47
   f4Hud(); // part-48
@@ -5516,7 +5527,8 @@ function draw() {
               ? '#62dfff22'
               : '#ff842017';
         ctx.beginPath();
-        ctx.ellipse(o.x, o.y - 3, 51, 17, 0, 0, Math.PI * 2);
+        const sk = clamp(alienHeight(player.activeAlien) / 115, 0.45, 3.2); // shadow follows body size (part-49)
+        ctx.ellipse(o.x, o.y - 3, 51 * sk, 17 * sk, 0, 0, Math.PI * 2);
         ctx.fill();
         if (alien().fusion) fusionParticles(o);
         if (!paused && player.activeAlien === 'heatblast' && Math.random() < 0.2)
@@ -5530,7 +5542,7 @@ function draw() {
             size: 2,
           });
       }
-      let row = player.alien ? alien().row : SKINS[player.skin].row;
+      let row = player.alien ? (ultOn() && ultForm().row) || alien().row : SKINS[player.skin].row; // Ultimate art (part-22)
       if (player.jump > 0 && !player.alien) {
         if (player.skin === 0) {
           row = 20;
@@ -5554,6 +5566,7 @@ function draw() {
         ctx.fill();
         ctx.restore();
       }
+      scaleDrawMarker(o); // tiny aliens (part-49)
       ctx.filter = (!lowGfx() && variantFilter()) || 'none'; // mastery colour variants (part-47)
       sprite(
         pose.row,
@@ -7052,7 +7065,7 @@ function ultForm(id = player.activeAlien) {
 }
 const ultOn = () => omniActive() && player.alien && player.ultimate && !!ultForm();
 function drainRate() {
-  return timingFor().drainPerSec * (ultOn() ? ultForm().drainMult : 1) * wupDrain();
+  return timingFor().drainPerSec * (ultOn() ? ultForm().drainMult : 1) * wupDrain() * tierDrain();
 }
 const rechargeRate = () => timingFor().rechargePerSec * wupRecharge();
 function cooldownRate() {
@@ -8246,7 +8259,7 @@ function seqDraw(g, r) {
     flashRect(g, '#ffd2bc', (1 - p) * 0.5);
   } else if (st === 'ULTIMATE_REVERT') {
     flashRect(g, '#ff9b73', (1 - p) * 0.6);
-    g.strokeStyle = c; g.lineWidth = 3; g.beginPath(); g.arc(cx, cy, (1 - p) * 140, 0, 7); g.stroke();
+    g.strokeStyle = c; g.lineWidth = 3; g.beginPath(); g.arc(cx, cy, Math.max(0, 1 - p) * 140, 0, 7); g.stroke();
   }
   g.restore();
   if (r.t >= r.dur) {
@@ -8549,8 +8562,9 @@ function kitShot(s, d, angle, color, speed) {
 const KIT_SND = { bolt: 'fire', swarm: 'fire', nova: 'punch', slam: 'punch', dash: 'punch', chain: 'crystal', drain: 'spit' };
 function kitAttack(i) {
   const id = player.activeAlien,
-    s = ALIENS[id].skills[i];
-  if (!s) return;
+    s0 = ALIENS[id].skills[i];
+  if (!s0) return;
+  const s = s0.r ? { ...s0, r: Math.round(s0.r * sizeReach()) } : s0; // area grows with body size (part-49)
   if (!unlockedSkill(id, i)) {
     toast(i < 4 ? s.name + ': requiere ' + s.unlock + '% de maestría' : 'Aprende esta habilidad por 3 puntos');
     return;
@@ -9428,7 +9442,16 @@ const SHEET_KIND_FRAME = { bolt: 4, swarm: 6, chain: 6, slam: 5, dash: 3, nova: 
   const S = window.OMNI_SHEETS || {};
   let k = 0;
   for (const [id, m] of Object.entries(S)) {
-    const skinOf = id.startsWith('skin_') ? id.slice(5) : null;
+    const skinOf = id.startsWith('skin_') ? id.slice(5) : null,
+      ultOf = id.startsWith('ult_') ? id.slice(4) : null; // Ultimate forms with their own art (sheet "ult_<base>")
+    if (ultOf) {
+      if (!ULTIMATES[ultOf]) continue;
+      const row = 2000 + k++, img = new Image();
+      img.src = m.src;
+      SHEET_ROWS[row] = { table: m.table, sheet: img, anchors: m.anchors, base: m.base };
+      Object.assign(ULTIMATES[ultOf], { row, art: true, scale: ULTIMATES[ultOf].scale || 1.12 });
+      continue;
+    }
     if (!ALIENS[skinOf || id]) continue;
     const row = 2000 + k++,
       img = new Image();
@@ -9445,7 +9468,7 @@ const SHEET_KIND_FRAME = { bolt: 4, swarm: 6, chain: 6, slam: 5, dash: 3, nova: 
 // pose for an alien that has a sheet (null = use the normal rules)
 function sheetPose(o) {
   const d = o.alien && ALIENS[o.activeAlien],
-    sh = d && d.sheet;
+    sh = d && ((o === player && ultOn() && ultForm().art && { hurt: 9 }) || d.sheet);
   if (!sh) return null;
   if (o.attack > 0) return o.attackFrame >= 3 && o.attackFrame <= 11 ? o.attackFrame : 4;
   const tv = o.travel && (o.travel.type || o.travel); // travelling pose (part-24)
@@ -11630,7 +11653,7 @@ function codexCard(id, back) {
     info.species || A.name,
     '<div class="cxcard" style="--c:' + (A.color || '#7dff9a') + '"><p><b>Vida</b> ' + A.hp + ' · <b>Velocidad</b> ' + (SPEEDS[id] || '—') + '</p>' +
       '<p><b>Viaje rápido (SHIFT)</b> ' + (tv && TRAVEL_TYPES[tv] ? TRAVEL_TYPES[tv].name : '—') + (sig ? ' · <b>Movimiento firma</b> ' + sig[1] : '') + '</p>' +
-      '<p><b>Maestría</b> ' + Math.floor((player.masteries && player.masteries[id]) || 0) + '%</p><ul class="cxskills">' + skills + '</ul></div>',
+      scaleLine(id) + '<p><b>Maestría</b> ' + Math.floor((player.masteries && player.masteries[id]) || 0) + '%</p><ul class="cxskills">' + skills + '</ul></div>',
     [['CÓDICE', () => codexMenu(back)], ['VOLVER', back || closeDialog]],
   );
 }
@@ -11714,7 +11737,7 @@ setInterval(() => {
     if (started && !paused) uiPlayT += 0.25;
     const kb = $('#kbhint');
     if (kb) {
-      const mini = kbManual != null ? kbManual : uiPlayT > 40;
+      const mini = kbManual != null ? kbManual : uiPlayT > (typeof hudLite === 'function' && hudLite() ? 15 : 40); // clean HUD folds it sooner
       kb.classList.toggle('mini', mini);
       kb.classList.toggle('pad', !!(PAD && PAD.name));
     }
@@ -12139,6 +12162,21 @@ if (window.OMNI_REMOTE_ON)
     if (e && v.version) e.textContent = e.textContent.replace(/\d+\.\d+(\.\d+)?/, v.version);
   }).catch(() => {});
 setInterval(updateCheck, 10 * 60 * 1000);
+// ---------------- offline play on the website (www/sw.js) ----------------
+(function offlineCache() {
+  try {
+    if ((location.protocol !== 'https:' && location.hostname !== 'localhost') || !('serviceWorker' in navigator) || window.__omniSingle) return;
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      const warm = () => {
+        const c = navigator.connection;
+        if (c && (c.saveData || /2g/.test(c.effectiveType || ''))) return;
+        const sw = reg.active || navigator.serviceWorker.controller;
+        if (sw) sw.postMessage({ type: 'warm' });
+      };
+      setTimeout(warm, window.__omniWarmMs || 25000); // after the game has settled, store the rest for offline play
+    }).catch(() => {});
+  } catch (e) {}
+})();
 // ============================================================================================
 // OMNI PRIMING + SIDE DIAL (0.17)
 //  · while the dial is open the hero reaches for the watch in the world: 3 hand-made frames per skin
@@ -13126,6 +13164,14 @@ function gfxLabel() {
     if (d && d.set) Object.defineProperty(P, 'shadowBlur', { get: d.get, set(v) { d.set.call(this, LOW ? 0 : v); }, configurable: true });
   } catch (e) {}
 })();
+// safety net: a negative radius (an effect drawn one frame past its end) throws and drops the whole frame
+(() => {
+  try {
+    const P = CanvasRenderingContext2D.prototype, arc = P.arc, ell = P.ellipse;
+    P.arc = function (x, y, r, a, b, c) { return arc.call(this, x, y, r > 0 ? r : 0, a, b, c); };
+    if (ell) P.ellipse = function (x, y, rx, ry, ...rest) { return ell.call(this, x, y, rx > 0 ? rx : 0, ry > 0 ? ry : 0, ...rest); };
+  } catch (e) {}
+})();
 gfxApply();
 let lowFrame = 0;
 const drawThisFrame = () => !LOW || (lowFrame ^= 1) === 1;
@@ -13157,8 +13203,8 @@ function uiMenu(back) {
     'Elige el estilo de la pantalla',
     '<p>Cambia cómo se ven el HUD, los menús y la pantalla de título. Todos usan el color de tu reloj.</p><div class="uicards">' +
       UI_THEMES.map(([id, n, d]) => '<button data-ui="' + id + '" class="' + (id === cur ? 'on' : '') + '"><b>' + n + '</b><small>' + d + '</small></button>').join('') +
-      '</div>',
-    [['LISTO', back || closeDialog]],
+      '</div><p><b>Distribución</b> ' + (hudLite() ? 'LIMPIA: solo lo importante, más pantalla para jugar.' : 'COMPLETA: todos los paneles a la vista.') + '</p>',
+    [['LISTO', back || closeDialog], [hudLite() ? 'VER HUD COMPLETO' : 'VER HUD LIMPIO', () => { hudLiteApply(!hudLite()); playWatchSFX('select'); uiMenu(back); }]],
   );
   for (const b of document.querySelectorAll('.uicards [data-ui]'))
     b.onclick = () => { uiApply(b.dataset.ui); playWatchSFX('select'); uiMenu(back); };
@@ -13195,6 +13241,7 @@ document.addEventListener('keydown', (e) => {
 });
 // ---------------- level up banner ----------------
 function levelBanner(lv) {
+  sfx('levelup'); // part-52
   let el = document.getElementById('levelup');
   if (el) el.remove();
   el = document.createElement('div');
@@ -13345,6 +13392,8 @@ function featKill(e) {
     popup(e.x + 20, e.y - 120, '+2 🪙', '#ffe27a');
   }
   if (e.hunter) s3HunterDown();
+  s4Kill(e); // part-50
+  sfx('kill'); // part-52
   if (zone === 6 && F1().s3.step === 2) { F1().s3.kills++; if (F1().s3.kills >= 6) s3Go(3); else hud(); }
 }
 // ---------------- daily reward ----------------
@@ -13625,6 +13674,7 @@ function story3Talk() { // from Agent Vega once Story 02 is done (part-42)
     { w: 'AGENTE VEGA', c: '#8de5f3', t: 'Kraal está bajo custodia y todo el ADN robado vuelve a su sitio. Gran trabajo.' },
     { w: 'AGENTE VEGA', c: '#8de5f3', t: 'Los Fontaneros te deben otra. Toma tu recompensa.' },
   ], () => { s.step = 5; xp(1500); player.coins = (player.coins || 0) + 400; statEvent('mission', { id: 'saga3' }); toast('¡HISTORIA 03 COMPLETADA! · +1500 EXP · +400 monedas'); playWatchSFX('recharged'); hud(); save(); });
+  if (s.step >= 5) return story4Talk(); // Historia 04 (part-50)
   showDialog('AGENTE VEGA · FONTANEROS', s.step >= 5 ? 'Todo en calma' : 'El Cazador de ADN', s.step >= 5 ? '<p>«Por ahora no hay más misiones. Te avisaré.»</p>' : '<p>«' + S3_STEPS[s.step] + '.»</p>', [['VALE', closeDialog]]);
 }
 function s3HunterDown() {
@@ -13695,9 +13745,11 @@ function featTick(dt) {
   petTick(dt);
   rushTick(dt);
   s3Tick(dt);
+  s4Tick(dt); // part-50
   ultraHud();
 }
 function featDraw() {
+  s4Draw(); // part-50
   if (emote.ping) {
     const p = emote.ping;
     ctx.save(); ctx.strokeStyle = '#ffe27a'; ctx.lineWidth = 3; ctx.globalAlpha = Math.min(1, p.t);
@@ -13716,6 +13768,7 @@ function featDraw() {
   if (emote.theirs && net.remote && net.remote.zone === zone) bubble(net.remote.x, net.remote.y - 150, EMOTES[emote.theirs.i], '#8de5f3');
 }
 function featDrawEnemy(e, f) { // the hunter (Story 03)
+  if (s4DrawEnemy(e, f)) return true; // Robot Mk II (part-50)
   if (!e.hunter) return false;
   ctx.save(); ctx.globalAlpha = 0.3; ctx.fillStyle = '#ff6a3a'; ctx.beginPath(); ctx.ellipse(e.x, e.y - 70, 55, 85, 0, 0, 7); ctx.fill(); ctx.restore();
   sprite(17, f, e.x, e.y, 150, e.face, e.hit > 0 ? 0.55 : 1);
@@ -13749,7 +13802,7 @@ document.addEventListener('keydown', (e) => {
   if (k === 'u' && !watchHasUlt()) ultraFire();
   if (k === 'z') emoteWheel();
 });
-function f1Near() { return s3Near(); }
+function f1Near() { return s3Near() || s4Near(); } // Historia 04 (part-50)
 function featInteract() {
   if (!started) return false;
   const n = f1Near();
@@ -13841,6 +13894,7 @@ function dmgMod(e, dmg) {
   if (now < counterUntil) { counterUntil = 0; dmg *= 2; popup(e.x + 30, e.y - 150, '¡CONTRAATAQUE!', '#ff7a4a'); flash = 0.15; }
   if (e.mod === 'shield' && e.shield > 0) { const a = Math.min(e.shield, dmg * 0.7); e.shield -= a; dmg -= a; if (e.shield <= 0) { burst(e.x, e.y - 60, 20, '#8de5f3'); popup(e.x, e.y - 140, 'ESCUDO ROTO', '#8de5f3'); } }
   dmg *= weatherDmg(); // part-47
+  dmg *= s4DmgMod(e); // Robot Mk II armour (part-50)
   if (e.dummy) dummyHit(dmg);
   return dmg;
 }
@@ -14453,6 +14507,7 @@ function variantMenu(back) {
 }
 // ---------------- combo finisher + malfunction (statEvent 'transform', part-34) ----------------
 function onTransformEvent(id) {
+  scaleOnTransform(id); // part-49
   if (typeof combo !== 'undefined' && combo.n >= 5 && started) {
     const n = combo.n, d = n * 8 * multiplier();
     areaHit(player.x, player.y, 190, d, 0.6);
@@ -14947,6 +15002,431 @@ settingsApply();
 let f4LastNear = '';
 function f4Hud() { const n = voidexNear(); if (n) { $('#talk').classList.remove('hidden'); $('#talk').textContent = n[0]; } }
 setInterval(() => { try { if (!started) return; const n = voidexNear(), l = n ? n[0] : ''; if (l !== f4LastNear) { f4LastNear = l; hud(); } } catch (e) {} }, 300);
+// ============================================================================================
+// OMNI 0.26 · ALIENS TO SCALE + POWER TIERS
+//  SIZE   Every alien is drawn at its approximate height next to the human (98 px ≈ 1.6 m). Real proportions up to
+//         ~4.5 m; anything smaller than a child gets a minimum size so you can still see it (and a marker ring);
+//         Way Big is far too tall for the screen on purpose.
+//  POWER  Tier 1 (joke) … 5 (cosmic). Tier changes damage, life and how fast the watch drains, so the strongest
+//         forms are short bursts. Tiny aliens dodge hits; giants shrug some off. Area moves grow with the body.
+//  Heights are approximate (series sources disagree); tiers are game balance, not canon.
+// ============================================================================================
+const BEN_M = 1.6, BEN_PX = 98;
+// id: [metres, tier]
+const ALIEN_SCALE = {
+  heatblast: [1.8, 3], diamond: [2.1, 4], fourarms: [3.7, 4], xlr8: [1.7, 3], bestia: [1.3, 3], insect: [1.5, 3],
+  greymatter: [0.13, 2], ripjaws: [2.1, 3], upgrade: [1.8, 3], ghostfreak: [2.0, 4], cannonbolt: [2.7, 3], wildvine: [2.4, 3],
+  blitzwolfer: [2.2, 3], snareoh: [2.4, 3], frankenstrike: [3.0, 3], upchuck: [0.9, 3], ditto: [0.9, 2], eyeguy: [2.1, 3],
+  waybig: [100, 5], arctiguana: [1.5, 3], buzzshock: [0.3, 2], spitter: [2.0, 3], swampfire: [2.1, 3], bigchill: [2.2, 4],
+  humungousaur: [3.7, 4], echoecho: [0.9, 3], goop: [1.8, 3], rath: [2.1, 4], jetray: [1.9, 3], chromastone: [2.2, 4],
+  brainstorm: [1.2, 3], spidermonkey: [1.5, 3], alienx: [2.6, 5], lodestar: [2.4, 4], nanomech: [0.02, 2], waterhazard: [2.1, 3],
+  ampfibian: [2.4, 3], armodrillo: [3.5, 4], terraspin: [2.0, 3], nrg: [2.7, 4], fasttrack: [2.0, 3], chamalien: [1.8, 3],
+  clockwork: [2.1, 4], eatle: [2.7, 3], juryrigg: [0.9, 2], feedback: [1.9, 4], bloxx: [3.0, 3], gravattack: [4.5, 4],
+  crashhopper: [2.1, 3], ballweevil: [0.9, 2], shocksquatch: [2.7, 4], walkatrout: [1.2, 1], peskydust: [0.15, 2],
+  molestache: [2.0, 3], theworst: [0.9, 1], kickinhawk: [2.1, 3], toepick: [2.4, 3], astrodactyl: [2.1, 3], bullfrag: [2.7, 4],
+  atomix: [3.4, 4], gutrot: [1.8, 3], whampire: [2.1, 3],
+};
+// damage × / life × / watch drain ×
+const TIERS = {
+  1: { name: 'Curioso', dmg: 0.7, hp: 0.9, drain: 0.7 },
+  2: { name: 'Especialista', dmg: 0.85, hp: 0.9, drain: 0.85 },
+  3: { name: 'Combatiente', dmg: 1, hp: 1, drain: 1 },
+  4: { name: 'Pesado', dmg: 1.2, hp: 1.12, drain: 1.25 },
+  5: { name: 'Cósmico', dmg: 1.6, hp: 1.25, drain: 1.8 },
+};
+// a few aliens are known for one thing above all
+const ALIEN_TRAITS = {
+  theworst: { hp: 3, dmg: 0.5, note: 'Casi indestructible, pero apenas pega' },
+  alienx: { note: 'Omnipotente, pero tarda en decidirse al transformarse' },
+  waybig: { note: 'Gigante: golpes enormes, recibe la mitad de daño' },
+  greymatter: { note: 'Diminuto: esquiva muchos golpes' },
+  nanomech: { note: 'Microscópico: esquiva muchos golpes' },
+  peskydust: { note: 'Diminuto: esquiva muchos golpes' },
+  buzzshock: { note: 'Diminuto: esquiva muchos golpes' },
+};
+const TINY_PX = 34, GIANT_PX = 540;
+function scalePx(m) {
+  if (m >= 20) return GIANT_PX;
+  if (m < 0.5) return TINY_PX;
+  return Math.round(BEN_PX * Math.pow(m / BEN_M, 0.9));
+}
+const UNLOCK_OVERRIDE = { waybig: 22, alienx: 28 };
+(function applyScale() {
+  for (const [id, [m, tier]] of Object.entries(ALIEN_SCALE)) {
+    const A = ALIENS[id];
+    if (!A) continue;
+    const T = TIERS[tier], tr = ALIEN_TRAITS[id] || {};
+    A.height = scalePx(m);
+    A.metres = m;
+    A.tier = tier;
+    A.hp = Math.round(A.hp * T.hp * (tr.hp || 1));
+    const info = ALIEN_DB[id];
+    if (info && UNLOCK_OVERRIDE[id] && info.unlockLevel) {
+      info.oldUnlock = info.unlockLevel;
+      info.unlockLevel = UNLOCK_OVERRIDE[id];
+    }
+  }
+})();
+function alienScale(id = player.activeAlien) {
+  return (player.alien && race !== 'osmo' && ALIEN_SCALE[id]) || null;
+}
+function alienPower() {
+  const s = alienScale();
+  if (!s) return 1;
+  return TIERS[s[1]].dmg * ((ALIEN_TRAITS[player.activeAlien] || {}).dmg || 1);
+}
+function tierDrain() {
+  const s = alienScale();
+  return s ? TIERS[s[1]].drain : 1;
+}
+function sizeOf(id = player.activeAlien) {
+  return player.alien ? alienHeight(id) : BEN_PX;
+}
+// area moves grow with the body (kit moves; the six hand-made kits keep their own numbers)
+function sizeReach() {
+  return clamp(Math.sqrt(sizeOf() / 115), 0.85, 2.2);
+}
+// called by hitPlayer: returns the damage after size effects (0 = dodged)
+function sizeGuard(amount) {
+  if (!alienScale()) return amount;
+  const h = sizeOf();
+  if (h <= TINY_PX + 4 && Math.random() < 0.4) {
+    popup(player.x, player.y - 60, '¡ESQUIVA!', '#bdfcff');
+    sfx('dodge');
+    return 0;
+  }
+  if (h < 70 && Math.random() < 0.15) {
+    popup(player.x, player.y - 80, '¡ESQUIVA!', '#bdfcff');
+    sfx('dodge');
+    return 0;
+  }
+  if (h >= GIANT_PX) return amount * 0.5;
+  if (h >= 190) return amount * 0.85;
+  return amount;
+}
+// Alien X: two minds argue before it does anything
+function scaleOnTransform(id) {
+  if (id === 'alienx') {
+    player.debateT = 2.5;
+    toast('Alien X está deliberando… (2 s sin poder atacar)');
+  } else player.debateT = 0;
+}
+function debateBlocks() {
+  if (!(player.debateT > 0) || player.activeAlien !== 'alienx' || !player.alien) return false;
+  toast('Alien X sigue deliberando…');
+  return true;
+}
+let giantStep = 0;
+function scaleTick(dt) {
+  if (player.debateT > 0) player.debateT -= dt;
+  // saves from before 0.26 keep Way Big / Alien X if they had already reached the old unlock level
+  if (started && !player.scaleV1) {
+    player.scaleV1 = true;
+    for (const id of Object.keys(UNLOCK_OVERRIDE)) {
+      const info = ALIEN_DB[id];
+      if (info && info.oldUnlock && player.level >= info.oldUnlock && player.level < info.unlockLevel) grantAlien(id);
+    }
+  }
+  if (player.alien && sizeOf() >= GIANT_PX && player.moving && !lowGfx()) {
+    giantStep += dt;
+    if (giantStep > 0.55) { giantStep = 0; shake = Math.max(shake, 0.08); sfx('stomp'); }
+  }
+}
+// marker ring so a tiny alien never gets lost on screen
+function scaleDrawMarker(o) {
+  if (!player.alien || sizeOf() > TINY_PX + 4) return;
+  ctx.save();
+  ctx.strokeStyle = (ALIENS[player.activeAlien].color || '#8dff9a') + 'aa';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  ctx.ellipse(o.x, o.y - 14, 30, 30, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+function scaleLine(id) {
+  const s = ALIEN_SCALE[id];
+  if (!s) return '';
+  const T = TIERS[s[1]], tr = ALIEN_TRAITS[id];
+  const size = s[0] >= 20 ? 'gigante (decenas de metros)' : s[0] < 0.5 ? (s[0] < 0.05 ? 'microscópico' : '~' + Math.round(s[0] * 100) + ' cm') : '~' + s[0].toFixed(1).replace('.', ',') + ' m';
+  return '<p><b>Altura</b> ' + size + ' · <b>Poder</b> ' + '★'.repeat(s[1]) + '☆'.repeat(5 - s[1]) + ' ' + T.name + '</p>' + (tr && tr.note ? '<p><i>' + tr.note + '</i></p>' : '');
+}
+// ---------------- balance: ordinary enemies keep up with the player ----------------
+// Player damage grows ×2 by level 30 (before upgrades); drones grow ×1.75 in life and ×1.4 in damage, and give more
+// EXP so levelling doesn't slow to a crawl (≈ 200 drones per level at the top instead of ≈ 450).
+function lvN() { return Math.max(0, Math.min(30, (typeof player !== 'undefined' && player.level) || 1) - 1); }
+function lvHp(base) { return Math.round(base * (1 + lvN() * 0.026)); }
+function lvDmg() { return 1 + lvN() * 0.014; }
+function lvXp() { return 1 + lvN() * 0.04; }
+// ============================================================================================
+// OMNI 0.26 · STORY 04 · SOBRECARGA
+// After Story 03, Agent Vega reports blackouts across the bay. Draven (Ciudad Bahía) smells stolen energy:
+//  1 talk to Draven · 2 cut 4 siphon cables (2 in Ciudad Bahía, 2 in the Barrio) · 3 hold the power plant during a
+//  surge (8 enemies, telegraphed lightning) · 4 the rebuilt Vilgax robot "Mk II" in the Zona devastada: it vents
+//  heat every few seconds (×2 damage while venting, armoured otherwise), sweeps a laser and calls drones ·
+//  5 back to Vega: 2500 EXP, 600 coins, a DNA pick and the title "Guardián de la red".
+// Only existing art is used (Vega, Draven, the Vilgax robot sheet, drones).
+// ============================================================================================
+const S4_DRAVEN = { x: 1180, y: 700 };
+const S4_CABLES = [
+  { z: 3, x: 420, y: 700 }, { z: 3, x: 960, y: 790 },
+  { z: 7, x: 520, y: 760 }, { z: 7, x: 1220, y: 700 },
+];
+const S4_STEPS = ['', 'Habla con Draven en Ciudad Bahía', 'Corta 4 cables-sifón en Ciudad Bahía y el Barrio residencial (E)', 'Resiste la sobrecarga en la Central nuclear', 'Destruye al Robot Mk II en la Zona devastada', 'Vuelve con el Agente Vega en los Muelles'];
+const S4_TITLES = ['', 'Draven', 'Cables-sifón', 'Sobrecarga', 'Robot Mk II', 'Regreso'];
+function S4() {
+  const f = F1();
+  if (!f.s4 || typeof f.s4 !== 'object') f.s4 = { step: 0, cut: [false, false, false, false], kills: 0 };
+  return f.s4;
+}
+function s4Go(step, msg) {
+  S4().step = step;
+  if (step === 4) setTimeout(() => sagaCine([
+    { w: 'AGENTE VEGA', c: '#8de5f3', t: 'La energía robada va a la Zona devastada. Alguien ha reconstruido el robot de Vilgax… y lo ha mejorado.', fx: 'alarm' },
+    { w: 'AGENTE VEGA', c: '#8de5f3', t: 'Su blindaje aguanta casi todo, pero se recalienta: cuando suelte vapor, golpea con todo.' },
+  ]), 300);
+  if (msg) toast(msg);
+  playWatchSFX('confirm');
+  hud(); save();
+}
+function story4Talk() { // Agent Vega, after Story 03 (part-45)
+  const s = S4();
+  if (s.step === 0) return sagaCine([
+    { w: 'AGENTE VEGA', c: '#8de5f3', t: 'Apagones por toda la bahía. Alguien está robando energía de la Central nuclear.' },
+    { w: 'AGENTE VEGA', c: '#8de5f3', t: 'Draven dice que sabe algo. Lo tienes en Ciudad Bahía: no le pierdas de vista.' },
+  ], () => { s.cut = [false, false, false, false]; s.kills = 0; s4Go(1, 'HISTORIA 04 · Sobrecarga · ' + S4_STEPS[1]); });
+  if (s.step === 5) return sagaCine([
+    { w: 'AGENTE VEGA', c: '#8de5f3', t: 'Vuelve la luz a toda la bahía. Y el robot no se volverá a levantar.' },
+    { w: 'AGENTE VEGA', c: '#8de5f3', t: 'Recuperamos sus muestras de ADN. Elige una: te la has ganado.' },
+  ], () => { s.step = 6; xp(2500); player.coins = (player.coins || 0) + 600; statEvent('mission', { id: 'saga4' }); toast('¡HISTORIA 04 COMPLETADA! · +2500 EXP · +600 monedas · Título: Guardián de la red'); playWatchSFX('recharged'); s3Pick(); hud(); save(); });
+  showDialog('AGENTE VEGA · FONTANEROS', s.step >= 6 ? 'Todo en calma' : 'Sobrecarga', s.step >= 6 ? '<p>«Por ahora no hay más misiones. Te avisaré.»</p>' : '<p>«' + S4_STEPS[s.step] + '.»</p>', [['VALE', closeDialog]]);
+}
+function s4Near() {
+  const s = S4();
+  if (zone === 3 && s.step === 1 && dist(player, S4_DRAVEN) < 140)
+    return ['◆ HABLAR CON DRAVEN', () => sagaCine([
+      { w: 'DRAVEN', c: '#d7b762', t: 'Lo notas, ¿verdad? Huele a energía robada. Un osmosiano lo distingue a kilómetros.' },
+      { w: 'DRAVEN', c: '#d7b762', t: 'Hay cables-sifón enterrados aquí y en el Barrio residencial. Córtalos y la señal te llevará al ladrón.' },
+    ], () => s4Go(2, S4_STEPS[2]))];
+  if (s.step === 2) {
+    const i = S4_CABLES.findIndex((c, k) => !s.cut[k] && c.z === zone && dist(player, c) < 110);
+    if (i >= 0) return ['◆ CORTAR CABLE-SIFÓN', () => {
+      s.cut[i] = true;
+      burst(S4_CABLES[i].x, S4_CABLES[i].y - 20, 24, '#ffe27a');
+      shake = 0.15;
+      playWatchSFX('scan_complete');
+      const n = s.cut.filter(Boolean).length;
+      toast('Cable cortado ' + n + ' / 4');
+      if (n >= 4) sagaCine([
+        { w: 'OMNITRIX', c: '#c9ff89', t: 'Toda la energía robada sale de la Central nuclear… y la Central acaba de entrar en sobrecarga.', fx: 'alarm' },
+      ], () => s4Go(3, S4_STEPS[3]));
+      hud(); save();
+    }];
+  }
+  return null;
+}
+function s4Kill(e) {
+  const s = S4();
+  if (zone === 13 && s.step === 3 && (!e.temp || e.surge)) {
+    s.kills++;
+    if (s.kills >= 8) sagaCine([{ w: 'OMNITRIX', c: '#c9ff89', t: 'Sobrecarga estabilizada. El último pulso de energía sale hacia la Zona devastada.' }], () => s4Go(4, S4_STEPS[4]));
+    else hud();
+  }
+  if (e.mech) sagaCine([
+    { w: 'ROBOT MK II', c: '#ff8a6a', t: 'SISTEMAS… CRÍTICOS… TRANSMITIENDO… DATOS…', fx: 'shake' },
+    { w: '', c: '#c9ff89', t: 'El robot se apaga. Entre los restos hay un contenedor de ADN robado.', fx: 'flash' },
+  ], () => s4Go(5, S4_STEPS[5]));
+}
+// ---------------- the plant surge and the Mk II ----------------
+const s4Fx = []; // { type:'bolt', x, y, t } telegraphed lightning · { type:'laser', e, a, t }
+function s4Spawn() {
+  if (net.role === 'guest' || zone !== 11 || S4().step !== 4 || rush.on || arenaOn() || enemies.some((e) => e.mech && e.alive)) return;
+  const hp = Math.round(3800 * (1 + player.level * 0.04));
+  enemies.push({ id: 96, x: 1020, y: 720, homeX: 1020, homeY: 720, face: -1, hp, max: hp, boss: true, mech: true, kind: 'enemy', rcd: 1, cast: 0, stun: 0, alive: true, respawn: 1e9, cd: 1.5, wind: 0, anim: 0, hit: 0, moving: false, vent: 0, ventCd: 7, laserCd: 4, callCd: 10, modRolled: true });
+  toast('¡ROBOT MK II!');
+  playWatchSFX('warning');
+}
+function s4Tick(dt) {
+  const s = S4();
+  for (let i = s4Fx.length - 1; i >= 0; i--) {
+    const f = s4Fx[i];
+    f.t -= dt;
+    if (f.t > 0) continue;
+    if (f.type === 'bolt' && Math.hypot(player.x - f.x, (player.y - f.y) * 1.6) < 70) hitPlayer(14);
+    if (f.type === 'bolt') { burst(f.x, f.y - 30, 18, '#ffe27a'); shake = Math.max(shake, 0.1); sfx('bolt'); }
+    if (f.type === 'laser' && f.e.alive) {
+      const dx = Math.cos(f.a), dy = Math.sin(f.a), px = player.x - f.e.x, py = player.y - 35 - (f.e.y - 90),
+        along = px * dx + py * dy, off = Math.abs(px * dy - py * dx);
+      if (along > 0 && along < 900 && off < 42) hitPlayer(22);
+      f.e.firing = 0.25;
+    }
+    s4Fx.splice(i, 1);
+  }
+  if (!started || net.role === 'guest') return;
+  // power plant surge: lightning lands where you stand (watch the yellow ring)
+  if (zone === 13 && s.step === 3) {
+    s.surge = (s.surge || 0) - dt;
+    if (s.surge <= 0) {
+      s.surge = 2.2;
+      s4Fx.push({ type: 'bolt', x: player.x + (Math.random() - 0.5) * 60, y: player.y + (Math.random() - 0.5) * 30, t: 1.1, max: 1.1 });
+    }
+    // the surge keeps pulling drones in until the 8 are down
+    s.call = (s.call || 0) - dt;
+    if (s.call <= 0 && enemies.filter((e) => e.alive).length < 4) {
+      s.call = 2.5;
+      const x = clamp(player.x + (Math.random() < 0.5 ? -1 : 1) * (300 + Math.random() * 200), region().minX + 40, region().maxX - 40),
+        y = clamp(player.y + (Math.random() - 0.5) * 120, region().top + 20, region().bottom - 20), hp = lvHp(110);
+      enemies.push({ id: 850 + Math.floor(Math.random() * 99), x, y, homeX: x, homeY: y, face: -1, hp, max: hp, kind: 'enemy', rcd: 2, cast: 0, stun: 0.6, alive: true, respawn: 1e9, cd: 1.5, wind: 0, anim: 0, hit: 0, moving: false, temp: true, surge: true, sagaKind: 'rad', modRolled: true });
+      burst(x, y - 40, 14, '#ffe27a');
+    }
+  }
+  if (s.step === 4) s4Spawn();
+  // the arena is the Mk II's alone: anything else in the Zona devastada steps aside until it falls
+  if (zone === 11 && enemies.some((e) => e.mech && e.alive))
+    for (const e of enemies) if (!e.mech && !e.temp && e.alive) { e.alive = false; e.respawn = 45; }
+  for (const e of enemies) {
+    if (!e.mech || !e.alive) continue;
+    e.firing = Math.max(0, (e.firing || 0) - dt);
+    if (e.vent > 0) { e.vent -= dt; e.stun = Math.max(e.stun, 0.1); if (Math.random() < 0.4) particles.push({ x: e.x + (Math.random() - 0.5) * 80, y: e.y - 150, dx: (Math.random() - 0.5) * 40, dy: -80, t: 0.8, color: '#d9d9d9', size: 4 }); continue; }
+    e.ventCd -= dt; e.laserCd -= dt; e.callCd -= dt;
+    if (e.ventCd <= 0) { e.ventCd = 9; e.vent = 3.5; popup(e.x, e.y - 250, '¡SE RECALIENTA! ×2', '#ffd84a'); sfx('steam'); continue; }
+    if (e.laserCd <= 0) {
+      e.laserCd = e.hp < e.max * 0.5 ? 3.2 : 4.5;
+      s4Fx.push({ type: 'laser', e, a: Math.atan2(player.y - 35 - (e.y - 90), player.x - e.x), t: 0.9, max: 0.9 });
+      sfx('laser');
+      e.face = player.x >= e.x ? 1 : -1;
+    }
+    if (e.callCd <= 0) {
+      e.callCd = 13;
+      for (const k of [-1, 1]) {
+        const x = clamp(e.x + k * 140, region().minX + 40, region().maxX - 40), hp = lvHp(90);
+        enemies.push({ id: 800 + Math.floor(Math.random() * 99), x, y: e.y, homeX: x, homeY: e.y, face: -k, hp, max: hp, kind: 'enemy', rcd: 2, cast: 0, stun: 0.5, alive: true, respawn: 1e9, cd: 1.5, wind: 0, anim: 0, hit: 0, moving: false, temp: true, modRolled: true });
+      }
+      toast('El Mk II llama refuerzos');
+    }
+  }
+}
+function s4DmgMod(e) {
+  if (!e.mech) return 1;
+  if (e.vent > 0) return 2;
+  return 0.45;
+}
+function s4Draw() { // ground marks, NPC, telegraphs (before the actors)
+  const s = S4();
+  if (zone === 3 && s.step >= 1 && s.step <= 2)
+    if (!npcArt('draven0', S4_DRAVEN.x, S4_DRAVEN.y, 108, player.x >= S4_DRAVEN.x ? 1 : -1)) sprite(14, 0, S4_DRAVEN.x, S4_DRAVEN.y, 104, -1);
+  if (zone === 3 && s.step === 1) txt('DRAVEN', S4_DRAVEN.x, S4_DRAVEN.y - 124, 9, '#d7b762');
+  if (s.step === 2)
+    S4_CABLES.forEach((c, i) => {
+      if (s.cut[i] || c.z !== zone) return;
+      ctx.save();
+      ctx.strokeStyle = Math.floor(clock * 6) % 2 ? '#ffe27a' : '#a07a1a'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(c.x - 40, c.y); ctx.quadraticCurveTo(c.x, c.y - 30, c.x + 40, c.y); ctx.stroke();
+      ctx.fillStyle = '#20262c'; ctx.fillRect(c.x - 10, c.y - 34, 20, 34);
+      ctx.restore();
+      txt('CABLE-SIFÓN', c.x, c.y - 46, 8, '#ffe27a');
+    });
+  for (const f of s4Fx) {
+    const k = 1 - f.t / f.max;
+    ctx.save();
+    if (f.type === 'bolt') {
+      ctx.strokeStyle = '#ffe27a'; ctx.lineWidth = 3; ctx.globalAlpha = 0.5 + k * 0.5;
+      ctx.beginPath(); ctx.ellipse(f.x, f.y, 70, 44, 0, 0, 7); ctx.stroke();
+      ctx.globalAlpha = 0.25 * k; ctx.fillStyle = '#ffe27a'; ctx.fill();
+    } else if (f.type === 'laser' && f.e.alive) {
+      ctx.translate(f.e.x, f.e.y - 90); ctx.rotate(f.a);
+      ctx.fillStyle = '#ff4d4d'; ctx.globalAlpha = 0.15 + k * 0.35;
+      ctx.fillRect(0, -6 - k * 30, 900, 12 + k * 60);
+    }
+    ctx.restore();
+  }
+}
+function s4DrawEnemy(e, f) {
+  if (!e.mech) return false;
+  if (e.vent > 0) { ctx.save(); ctx.globalAlpha = 0.35; ctx.fillStyle = '#ffd84a'; ctx.beginPath(); ctx.ellipse(e.x, e.y - 110, 80, 130, 0, 0, 7); ctx.fill(); ctx.restore(); }
+  sprite(28, e.firing > 0 ? 6 : e.vent > 0 ? 10 : e.moving ? 1 + (Math.floor(e.anim || 0) % 2) : 0, e.x, e.y, 235, e.face, e.hit > 0 ? 0.6 : 1);
+  if (e.firing > 0) { ctx.save(); ctx.globalAlpha = 0.8; ctx.fillStyle = '#ff6a6a'; ctx.beginPath(); ctx.arc(e.x + e.face * 40, e.y - 140, 14, 0, 7); ctx.fill(); ctx.restore(); }
+  const by = e.y - 248;
+  txt('ROBOT MK II' + (e.vent > 0 ? ' · RECALENTADO' : ' · BLINDADO'), e.x, by - 8, 10, e.vent > 0 ? '#ffd84a' : '#ffb59a');
+  ctx.fillStyle = '#101522'; ctx.fillRect(e.x - 70, by, 140, 7);
+  ctx.fillStyle = '#ff7a4a'; ctx.fillRect(e.x - 70, by, 140 * Math.max(0, e.hp / e.max), 7);
+  return true;
+}
+function s4Hud() { // after f1Hud (part-11)
+  const s = S4();
+  if (!(s.step >= 1 && s.step <= 5) || activeMission() || sagaActive() || (F1().s3.step >= 1 && F1().s3.step <= 4)) return;
+  $('#mission .tiny').textContent = 'HISTORIA 04 · SOBRECARGA';
+  $('#questtext').textContent = S4_TITLES[s.step];
+  $('#questsub').textContent = s.step === 2 ? S4_STEPS[2] + ' · ' + s.cut.filter(Boolean).length + ' / 4' : s.step === 3 ? S4_STEPS[3] + ' · ' + Math.min(8, s.kills) + ' / 8' : S4_STEPS[s.step];
+}
+function s4Menu() {
+  const s = S4(), ready = F1().s3.step >= 5;
+  showDialog('HISTORIA 04 · SOBRECARGA', s.step >= 6 ? 'Completada' : s.step ? 'Paso ' + s.step + ' / 5' : 'Sin empezar',
+    !ready ? '<p>Termina primero la Historia 03 (El Cazador de ADN).</p>'
+      : s.step === 0 ? '<p>Habla con el <b>Agente Vega</b> en los Muelles del faro. Hay apagones por toda la bahía.</p><p class="reward">Recompensa: un alien del almacén de ADN · 2500 EXP · 600 monedas · título «Guardián de la red»</p>'
+        : s.step >= 6 ? '<p>La bahía tiene luz otra vez. ¡Buen trabajo!</p>' : '<p>' + S4_STEPS[s.step] + '.</p>',
+    [['VOLVER', pauseMenu]]);
+}
+TITLES.push(['red', 'Guardián de la red', 'Completa la Historia 04', () => typeof S4 === 'function' && S4().step >= 6]);
+// ============================================================================================
+// OMNI 0.26 · CLEAN HUD (default). A layout layer on top of any interface theme (www/themes.css, #game.hudlite):
+// one slim card for life + watch, coins and tree points as plain text, the mission as a light strip, a small map,
+// and anything idle hidden (karma when nobody is after you, tree with 0 points, ULTRA until it's ready, the clock,
+// the regen line). On a PC the touch-only buttons go away. Pause → Ajustes → INTERFAZ switches back to COMPLETA.
+// ============================================================================================
+function hudLite() {
+  try { return localStorage.getItem('omni-hud') !== 'full'; } catch (e) { return true; }
+}
+function hudLiteApply(on) {
+  if (on != null) try { localStorage.setItem('omni-hud', on ? 'lite' : 'full'); } catch (e) {}
+  const g = $('#game');
+  if (g) g.classList.toggle('hudlite', hudLite());
+}
+hudLiteApply();
+setInterval(() => {
+  try {
+    if (!hudLite() || !started) return;
+    const t = $('#treebtn'), n = parseInt(((t && t.textContent) || '').replace(/\D+/g, ' ').trim().split(' ')[0] || '0', 10);
+    if (t) t.classList.toggle('zero', !n);
+  } catch (e) {}
+}, 500);
+// ============================================================================================
+// OMNI 0.26 · MORE SOUND (all synthesized in the browser: no recorded or downloaded audio).
+// Level up, taking a hit, knocking an enemy out, menu buttons, story lines, tiny-alien dodges, Way Big's steps and
+// the Story 04 effects (laser charge, venting steam, lightning). Uses the SFX volume from the audio menu.
+// ============================================================================================
+const SFX_LIB = {
+  levelup: [[523, 0.12, 'square', 0.03, 0], [659, 0.12, 'square', 0.03, 90], [784, 0.12, 'square', 0.03, 180], [1046, 0.3, 'triangle', 0.035, 270]],
+  hurt: [[140, 0.14, 'sawtooth', 0.04, 0], ['n', 0.12, 500, 0.08, 0]],
+  kill: [[420, 0.06, 'square', 0.025, 0], [210, 0.12, 'triangle', 0.03, 50], ['n', 0.18, 1200, 0.06, 0]],
+  click: [[880, 0.03, 'triangle', 0.018, 0]],
+  line: [[660, 0.025, 'sine', 0.014, 0]],
+  dodge: [['n', 0.16, 3000, 0.05, 0], [1200, 0.08, 'sine', 0.015, 30]],
+  stomp: [[55, 0.25, 'sine', 0.09, 0], ['n', 0.2, 300, 0.1, 0]],
+  laser: [[300, 0.5, 'sawtooth', 0.02, 0], [600, 0.4, 'sawtooth', 0.02, 300]],
+  steam: [['n', 0.9, 4000, 0.06, 0]],
+  bolt: [['n', 0.25, 6000, 0.12, 0], [90, 0.3, 'square', 0.04, 20]],
+};
+let sfxLast = {};
+function sfx(id) {
+  const S = window.OmniSound, L = SFX_LIB[id];
+  if (!S || !L) return;
+  const now = performance.now();
+  if (now - (sfxLast[id] || 0) < 60) return; // don't stack the same sound in one frame
+  sfxLast[id] = now;
+  for (const p of L)
+    setTimeout(() => {
+      try {
+        if (p[0] === 'n') S.noise && S.noise(p[1], p[2], p[3]);
+        else S.tone(p[0], p[1], p[2], p[3]);
+      } catch (e) {}
+    }, p[4]);
+}
+// menu buttons and story lines: one listener for every dialog
+document.addEventListener('click', (e) => {
+  const b = e.target && e.target.closest && e.target.closest('#modal button, .ptabs button, #sagacine, .sagacine');
+  if (b) sfx(b.closest('#sagacine, .sagacine') ? 'line' : 'click');
+}, true);
 applyWatchTheme();
 resize();
 boot();
@@ -14957,7 +15437,7 @@ if (window.__game)
     missionBoard, missionAccept, activeMission, MS, MISSIONS, coopOn, coopState, coopShare, coopTickMissions, COOP_SITES,
     arenaStart, arenaEnd, arena, arenaBest, statEvent, stats, daily, dailyMenu, achMenu, achCheck, ACHS, codexMenu, codexCard, codexIds, extrasMenu, difficultyMenu, diffCfg, diffKey, DIFFS, PAD, padPoll, padHelp,
     watchAnim, WATCH_ERAS, eraPlaylist, eraOf, storyPlay, storyFor, storyDraw, storyFit, storyPreload, BOARDS, SHEET_ROWS, SKIN_ART, boardId,
-    F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
+    S4, s4Go, story4Talk, s4Near, s4Fx, ULTIMATES, ultOn, ultForm, ALIEN_SCALE, alienHeight, sizeGuard, alienPower, tierDrain, scaleLine, codexCard, ALIENS, F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
     get enemies() { return enemies; },
     get sagaCineOn() { return sagaCineOn; },
     get scan() { return scan; },
