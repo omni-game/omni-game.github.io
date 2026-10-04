@@ -406,3 +406,8 @@
 #credits .crroll b.big { font-size: 72px; letter-spacing: 14px; color: #c9ff89; text-shadow: 0 0 24px #7dff9a66; }
 #credits #crskip { position: absolute; right: 18px; bottom: 16px; padding: 8px 16px; background: #283947; color: #dfe; font-weight: 800; font-size: 11px; }
 @keyframes crroll { from { transform: translateY(0); } to { transform: translateY(calc(-100% - 560px)); } }
+/* ===================== 0.35 · batch 9 ===================== */
+#specbar { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); z-index: 60; display: flex; gap: 6px; align-items: center; padding: 6px 10px; background: rgba(5, 12, 9, .88); border: 1px solid #7dff9a66; }
+#specbar span { font-size: 9px; letter-spacing: 2px; color: #7dff9a; font-weight: 800; margin-right: 4px; }
+#specbar button { font-size: 18px; padding: 4px 8px; background: #102133; border: 1px solid #6a838266; }
+#specbar button[data-chx] { font-size: 10px; font-weight: 800; padding: 8px 10px; }

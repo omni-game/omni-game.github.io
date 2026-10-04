@@ -1,4 +1,4 @@
-window.OMNI_BUILD=70;window.OMNI_NOTES=["Modo villano: tres misiones como esbirro de Draven, con ataques propios (Extras)", "Rescates en la ciudad: incendios, vecinos atrapados o en una cornisa; el alien adecuado lo hace de golpe", "Nuevo tiempo: ola de calor y nieve; el clima da más poder a algunos aliens", "Dax, tu rival con reloj propio, aparece de vez en cuando para retarte", "Reto del fallo: si el reloj falla y te cambia de alien, gana la pelea con él para un premio", "Reto personalizado: tus propias reglas en la arena, con código para compartir", "Créditos y epílogo al terminar la Historia 05", "El laboratorio de ADN ahora también está en la Base Fontanera"];
+window.OMNI_BUILD=71;window.OMNI_NOTES=["Trucos de Chispa: buscar monedas, olfatear cápsulas, escudo y supercarga (pausa → PERSONAJE)", "Vecinos: haz encargos y rescates para haceros amigos; regalos, pistas y descuentos", "Nueva Partida+: elige reglas extra (enemigos rápidos, sin mapa, media vida, cristal) para ganar más EXP", "Mercado nocturno en el Mercado de Bahía: objetos raros que cambian cada noche", "Personaliza tu reloj: color, estilo del dial, efecto de transformación y sonidos", "Modo espectador en co-op: mira la partida del anfitrión y anímale con emojis"];
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -1795,6 +1795,10 @@ function lanReceive(m) {
   if (m.type === 'hurt' && m.to && net.myPid && m.to !== net.myPid) return; // meant for another guest
   if (m.type === 'hurt' && m.zone === zone && Number.isFinite(m.damage) && m.damage > 0 && m.damage <= 150) {
     hitPlayer(m.damage);
+    return;
+  }
+  if (m.type === 'b9') {
+    b9Receive(m); // co-op cheers (part-70)
     return;
   }
   if (m.type === 'b7') {
@@ -4301,9 +4305,9 @@ function pauseMenu() {
     eras = w && w.eras ? w.eras.map((e) => ERA_NAMES[e]).join(' + ') : '',
     mc = w && player.masterControl && w.masterControl;
   const groups = [
-    ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['REGISTRO DE MISIONES', () => missionLogMenu(pauseMenu)], ['BASE FONTANERA', () => baseMenu(pauseMenu)], ['MENÚ PRINCIPAL', toTitleAsk], ['NOVEDADES', () => whatsNewMenu(pauseMenu)], ['MISIONES', missionBoard], ['HISTORIA · ECOS DEL VACÍO', sagaMenu], ['HISTORIA 03 · CAZADOR', s3Menu], ['HISTORIA 04 · SOBRECARGA', s4Menu], ['HISTORIA 05 · ECO DEL ESPECTRO', s5Menu], ['NUEVA PARTIDA+', () => ngpMenu()], ['BOSS RUSH', bossRushMenu], ['GALERÍA DE JEFES', () => rematchMenu()], ['EXTRAS · ARENA · RETOS · LOGROS', extrasMenu], ['MAPA', () => showWorldMap()], ['VIAJE RÁPIDO', () => travelMenu()], ['FAVORES', () => favoursMenu()], ['ARCADE', () => arcadeMenu()], ...(net.peer ? [['REGALAR MONEDAS', giftMenu], ['INTERCAMBIO', () => tradeMenu(pauseMenu)]] : []), ['MINIJUEGOS / TRABAJOS', jobsMenu], ['MULTIJUGADOR · CROSSPLAY', lanMenu]]],
-    ['RELOJ Y ALIENS', [['RELOJ / OMNITRIX', () => watchMenu()], ['MEJORAS DE ALIENS', () => upgradeMenu()], ['EQUIPOS DE ALIENS', () => loadoutMenu()], ['MEJORAS DEL RELOJ', () => watchUpgMenu()], ['LABORATORIO DE ADN', () => labMenu()], ['VARIANTES', () => variantMenu()], ['SKINS DE ALIENS', alienSkinMenu], ['ÁRBOL', skillTree], ['GUÍA / ATAQUES', guide]]],
-    ['PERSONAJE', [['PERSONAJE / SKIN', skinMenu], ['RAZAS', raceMenu], ['MODO FOTO', photoMode], ['TÍTULOS', () => titlesMenu(pauseMenu)], ['MAESTRÍA', () => masteryMenu(pauseMenu)], ['ESTADÍSTICAS', () => statsMenu(pauseMenu)], ['PRESTIGIO', prestigeMenu], ['MODO STREAMER: ' + (stream.on ? 'SÍ' : 'NO'), streamToggle], ...(stream.on ? [['RULETA DEL CHAT', chatRoulette]] : []), ['MASCOTA: ' + (F1().pet ? 'SÍ' : 'NO'), () => { F1().pet = !F1().pet; save(); pauseMenu(); }], ['RECOMPENSA DIARIA', dailyCalendar]]],
+    ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['REGISTRO DE MISIONES', () => missionLogMenu(pauseMenu)], ['BASE FONTANERA', () => baseMenu(pauseMenu)], ['MENÚ PRINCIPAL', toTitleAsk], ['NOVEDADES', () => whatsNewMenu(pauseMenu)], ['MISIONES', missionBoard], ['HISTORIA · ECOS DEL VACÍO', sagaMenu], ['HISTORIA 03 · CAZADOR', s3Menu], ['HISTORIA 04 · SOBRECARGA', s4Menu], ['HISTORIA 05 · ECO DEL ESPECTRO', s5Menu], ['NUEVA PARTIDA+', () => ngpMenu()], ['BOSS RUSH', bossRushMenu], ['GALERÍA DE JEFES', () => rematchMenu()], ['EXTRAS · ARENA · RETOS · LOGROS', extrasMenu], ['MAPA', () => showWorldMap()], ['VIAJE RÁPIDO', () => travelMenu()], ['FAVORES', () => favoursMenu()], ['ARCADE', () => arcadeMenu()], ...(net.peer ? [['REGALAR MONEDAS', giftMenu], ['INTERCAMBIO', () => tradeMenu(pauseMenu)], ...(net.role === 'guest' ? [[specOn() ? 'DEJAR DE MIRAR' : 'MODO ESPECTADOR', specToggle]] : [])] : []), ['MINIJUEGOS / TRABAJOS', jobsMenu], ['MULTIJUGADOR · CROSSPLAY', lanMenu]]],
+    ['RELOJ Y ALIENS', [['RELOJ / OMNITRIX', () => watchMenu()], ['MEJORAS DE ALIENS', () => upgradeMenu()], ['EQUIPOS DE ALIENS', () => loadoutMenu()], ['MEJORAS DEL RELOJ', () => watchUpgMenu()], ['LABORATORIO DE ADN', () => labMenu()], ['VARIANTES', () => variantMenu()], ['PERSONALIZAR RELOJ', () => wcMenu(pauseMenu)], ['SKINS DE ALIENS', alienSkinMenu], ['ÁRBOL', skillTree], ['GUÍA / ATAQUES', guide]]],
+    ['PERSONAJE', [['PERSONAJE / SKIN', skinMenu], ['RAZAS', raceMenu], ['MODO FOTO', photoMode], ['TÍTULOS', () => titlesMenu(pauseMenu)], ['MAESTRÍA', () => masteryMenu(pauseMenu)], ['TRUCOS DE CHISPA', () => trickMenu(pauseMenu)], ['VECINOS', () => friendsMenu(pauseMenu)], ['ESTADÍSTICAS', () => statsMenu(pauseMenu)], ['PRESTIGIO', prestigeMenu], ['MODO STREAMER: ' + (stream.on ? 'SÍ' : 'NO'), streamToggle], ...(stream.on ? [['RULETA DEL CHAT', chatRoulette]] : []), ['MASCOTA: ' + (F1().pet ? 'SÍ' : 'NO'), () => { F1().pet = !F1().pet; save(); pauseMenu(); }], ['RECOMPENSA DIARIA', dailyCalendar]]],
     [
       'AJUSTES',
       [
@@ -4447,6 +4451,7 @@ function interact() {
   if (f4Interact()) return; // secrets (part-48)
   if (b7Interact()) return; // fishing (part-68)
   if (b8Interact()) return; // rescues (part-69)
+  if (b9Interact()) return; // night market (part-70)
   if (talkExtra()) return;
   if (puzzleInteract()) return;
   if (missionInteract()) return;
@@ -4988,6 +4993,7 @@ function update(dt) {
   b6Tick(dt); // batch 6 (part-67)
   b7Tick(dt); // batch 7 (part-68)
   b8Tick(dt); // batch 8 (part-69)
+  b9Tick(dt); // batch 9 (part-70)
   eliteTick();
   sigTick(dt);
   anoditeTick(dt);
@@ -5256,6 +5262,7 @@ function hud() {
   f4Hud(); // part-48
   b7Hud(); // fishing (part-68)
   b8Hud(); // rescues, villain HUD (part-69)
+  b9Hud(); // night market (part-70)
   anoditeHud();
 }
 function spriteInfo(row) {
@@ -5488,6 +5495,7 @@ function draw() {
   b6Draw(); // pumpkins (part-67)
   b7Draw(); // capsules, fishing spots, race checkpoints (part-68)
   b8Draw(); // villain cells, rescues (part-69)
+  b9Draw(); // night market stall (part-70)
   f4Draw(); // part-48
   const actors = (
     started
@@ -5630,7 +5638,7 @@ function draw() {
           (player.leap ? Math.sin((1 - player.leap.t) * Math.PI) * 140 : 0),
         (vp ? 104 : player.alien ? alienHeight(player.activeAlien) : 98) * ultScale(),
         player.face,
-        player.downed ? 0.5 : player.travel ? travelAlpha() : player.inv > 0 && Math.floor(clock * 12) % 2 === 0 ? 0.45 : 1,
+        specOn() ? 0 : player.downed ? 0.5 : player.travel ? travelAlpha() : player.inv > 0 && Math.floor(clock * 12) % 2 === 0 ? 0.45 : 1,
       );
       wristFor = null;
       ctx.filter = 'none';
@@ -5908,6 +5916,7 @@ function draw() {
   }
   drawSensory();
   b6DrawTop(); // lock-on, aura (part-67)
+  b9DrawTop(); // pet sniff line, co-op cheers (part-70)
   ctx.restore();
   weatherDraw(); // part-47
   b6Hud(); // Halloween light, mission arrow, boss timer (part-67)
@@ -14876,6 +14885,7 @@ function moreSettings(back) {
 const watchVolume = () => lsGet('omni-volume-watch', 100) / 100;
 // ---------------- patch notes ----------------
 const CHANGELOG = [
+  ['0.35', 'Trucos de Chispa · amistad con los vecinos · reglas de Nueva Partida+ · mercado nocturno · personalizar reloj · modo espectador'],
   ['0.34', 'Modo villano · rescates · ola de calor y nieve · rival Dax · reto del fallo · reto personalizado · créditos y epílogo'],
   ['0.33', 'Base Fontanera · jefe mundial · carreras · pesca · cápsulas de ADN y logros secretos · intercambio · héroe de la semana · repeticiones'],
   ['0.32', 'Halloween · registro de misiones con flecha · recompensas de maestría · fijar objetivo · mejoras y jefes en la arena · medallas de tiempo · estadísticas · vibración'],
@@ -17815,7 +17825,7 @@ function baseMenu(back) {
   const trophies = RM_BOSSES.filter((B) => { try { return B[2](); } catch (e) { return false; } });
   showDialog('BASE FONTANERA', 'Tu cuartel secreto',
     '<div class="basegrid">' +
-      '<div class="basecard"><h4>🏆 TROFEOS</h4><p>' + trophies.length + ' jefes derrotados · ' + medalCount() + ' medallas de oro · ' + b.titans + ' titanes</p><button class="pbtn" data-b="trophy">VER VITRINA</button></div>' +
+      '<div class="basecard"><h4>🏆 TROFEOS</h4><p>Jefes derrotados: <b>' + trophies.length + '</b> · Medallas de oro: <b>' + medalCount() + '</b> · Titanes: <b>' + b.titans + '</b></p><button class="pbtn" data-b="trophy">VER VITRINA</button></div>' +
       '<div class="basecard"><h4>🎵 TOCADISCOS</h4><p>Suena: <b>' + (jukebox == null ? 'automático (la música de la zona)' : jukebox === 'title' ? 'Menú' : REGIONS[jukebox].name) + '</b></p><button class="pbtn" data-b="juke">ELEGIR CANCIÓN</button></div>' +
       '<div class="basecard"><h4>🥊 SALA DE ENTRENAMIENTO</h4><p>Un muñeco para probar el daño de cada alien.</p><button class="pbtn" data-b="train">' + (enemies.some((e) => e.dummy) ? 'QUITAR MUÑECO' : 'PONER MUÑECO') + '</button></div>' +
       '<div class="basecard"><h4>🧬 LABORATORIO DE ADN</h4><p>Fusiona dos aliens en uno con poderes de ambos.</p><button class="pbtn" data-b="lab">ENTRAR</button></div>' +
@@ -18404,6 +18414,336 @@ function b8DrawEnemy(e, f) {
 function b8Draw() { vilDraw(); rescDraw(); }
 function b8Hud2() { wxDraw(); wxHud(); rescHud(); }
 function b8Kill(e) { glitchKill(); }
+// ============================================================================================
+// OMNI 0.35 · BATCH 9
+//  PET TRICKS  teach Chispa four tricks with coins: fetch (finds coins), sniff (points to capsules and pumpkins),
+//              shield (blocks a hit every 30 s) and supercharge (a big zap every 12 s).
+//  FRIENDS     the neighbours from citizen jobs remember you: friendship levels give gifts, a daily present, hints
+//              to hidden capsules and night-market discounts.
+//  NG+ RULES   choose extra rules for each New Game+ round for more EXP (fast enemies, no map, half health, glass).
+//  MARKET      at night a stall opens in the Mercado de Bahía with rare items that change every night.
+//  CUSTOMISER  pick any owned watch's colour, dial style, transformation effect and sounds for the watch you wear.
+//  SPECTATOR   in co-op, a guest can just watch: invisible, follows the host and cheers (cheers give a short boost).
+// ============================================================================================
+function B9() {
+  const b = (player.b9 = player.b9 && typeof player.b9 === 'object' ? player.b9 : {});
+  for (const k of ['tricks', 'friends', 'wc', 'mk', 'ngpMods']) if (!b[k] || typeof b[k] !== 'object') b[k] = {};
+  b.bait = b.bait || 0;
+  return b;
+}
+// ---------------- pet tricks ----------------
+const TRICKS = {
+  fetch: ['BUSCAR', 'Chispa encuentra monedas por el suelo de vez en cuando', 300],
+  sniff: ['OLFATO', 'Chispa señala cápsulas de ADN y calabazas cercanas', 500],
+  shield: ['ESCUDO', 'Chispa bloquea un golpe cada 30 segundos', 700],
+  zap: ['SUPERCARGA', 'Cada 12 s Chispa lanza un rayo enorme que aturde', 900],
+};
+const pt = { fetch: 20, shield: 0, zap: 6, sniff: null };
+const trickOn = (k) => !!B9().tricks[k] && F1().pet && started;
+function trickMenu(back) {
+  const T = B9().tricks;
+  showDialog('TRUCOS DE CHISPA', (player.coins || 0) + ' monedas',
+    (F1().pet ? '' : '<p><b>Chispa está desactivado.</b> Actívalo en pausa → PERSONAJE → MASCOTA.</p>') +
+      Object.entries(TRICKS).map(([k, [n, d, c]]) => '<div class="xrow"><b>' + n + (T[k] ? ' ✔' : '') + '</b><small>' + d + '</small><span class="lbtns">' + (T[k] ? '<button class="pbtn" disabled>APRENDIDO</button>' : '<button class="pbtn main" data-tk="' + k + '">ENSEÑAR · ' + c + '</button>') + '</span></div>').join(''),
+    [['VOLVER', back || pauseMenu]]);
+  for (const b of document.querySelectorAll('[data-tk]')) b.onclick = () => {
+    const k = b.dataset.tk, c = TRICKS[k][2];
+    if ((player.coins || 0) < c) return toast('Te faltan monedas');
+    player.coins -= c; B9().tricks[k] = 1;
+    toast('¡Chispa ha aprendido ' + TRICKS[k][0] + '!'); playWatchSFX('recharged'); save(); hud(); trickMenu(back);
+  };
+}
+function trickTick(dt) {
+  if (!F1().pet || !started || !pet.ok) return;
+  if (trickOn('fetch') && (pt.fetch -= dt) <= 0) {
+    pt.fetch = 25 + Math.random() * 20;
+    const n = 5 + Math.floor(Math.random() * 11);
+    player.coins = (player.coins || 0) + n;
+    popup(pet.x, pet.y - 30, '+' + n + ' 🪙', '#ffe27a'); burst(pet.x, pet.y, 12, '#ffe27a');
+    toast('Chispa ha encontrado ' + n + ' monedas');
+  }
+  if (trickOn('zap') && (pt.zap -= dt) <= 0 && !paused) {
+    let best = null, bd = 420;
+    for (const e of enemies) if (e.alive && !e.intangible) { const d = Math.hypot(e.x - pet.x, e.y - 40 - pet.y); if (d < bd) { bd = d; best = e; } }
+    if (best) { pt.zap = 12; pet.zap = { x: best.x, y: best.y - 50, t: 0.35 }; damageTarget(best, 30 * multiplier()); best.stun = Math.max(best.stun || 0, 1.2); popup(best.x, best.y - 140, '¡SUPERCARGA!', '#8dff5a'); flash = Math.max(flash || 0, 0.08); }
+  }
+  if (pt.shield > 0) pt.shield -= dt;
+  pt.sniff = null;
+  if (trickOn('sniff')) {
+    let best = null, bd = 700;
+    const consider = (x, y) => { const d = Math.hypot(x - player.x, y - player.y); if (d < bd) { bd = d; best = { x, y }; } };
+    for (const c of capSpots()) if (c.z === zone && !B7().caps[c.k]) consider(c.x, c.y);
+    if (hwOn() && HW_ZONES.includes(zone)) { const d = hwDay(); hwSpots(zone).forEach(([x, y], i) => { if (!d.got[zone + ':' + i]) consider(x, y); }); }
+    pt.sniff = best;
+  }
+}
+function trickShield(amount) {
+  if (amount > 0 && trickOn('shield') && pt.shield <= 0) { pt.shield = 30; popup(player.x, player.y - 140, 'CHISPA TE PROTEGE', '#8dff5a'); burst(player.x, player.y - 60, 14, '#8dff5a'); return 0; }
+  return amount;
+}
+function trickDraw() {
+  if (!pt.sniff || !pet.ok) return;
+  ctx.save(); ctx.strokeStyle = '#8dff5a'; ctx.globalAlpha = 0.45 + 0.25 * Math.sin(clock * 6); ctx.setLineDash([6, 8]); ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(pet.x, pet.y); ctx.lineTo(pt.sniff.x, pt.sniff.y - 10); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+  if (trickOn('shield') && pt.shield <= 0) { ctx.save(); ctx.strokeStyle = '#8dff5a'; ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(pet.x, pet.y, 16, 0, 7); ctx.stroke(); ctx.restore(); }
+}
+// ---------------- neighbour friendships ----------------
+const FR_LV = [[1, 'Conocido'], [3, 'Amigo'], [6, 'Buen amigo'], [10, 'Mejor amigo']];
+const frLevel = (pts) => FR_LV.filter(([n]) => pts >= n).length;
+function frAdd(name, n) {
+  if (!name) return;
+  const F = B9().friends, f = (F[name] = F[name] || { pts: 0, lv: 0 });
+  f.pts += n;
+  const lv = frLevel(f.pts);
+  if (lv > f.lv) {
+    f.lv = lv;
+    const gift = [0, 50, 150, 300, 600][lv];
+    player.coins = (player.coins || 0) + gift;
+    toast('💚 ' + name + ' ahora es tu ' + FR_LV[lv - 1][1].toLowerCase() + ' · regalo: ' + gift + ' monedas' + (lv >= 3 ? ' · te dará pistas' : ''));
+    playWatchSFX('recharged');
+  }
+  save();
+}
+const bestFriends = () => Object.values(B9().friends).filter((f) => f.lv >= 4).length;
+function frDaily() {
+  const b = B9(), d = dayKey();
+  if (b.frDay === d) return;
+  b.frDay = d;
+  const close = Object.entries(b.friends).filter(([, f]) => f.lv >= 3);
+  if (!close.length) return;
+  const gift = close.reduce((a, [, f]) => a + (f.lv >= 4 ? 60 : 25), 0);
+  player.coins = (player.coins || 0) + gift;
+  setTimeout(() => toast('💚 Tus amigos del barrio te han dejado un regalo: ' + gift + ' monedas'), 12000);
+  save();
+}
+function frHint() { // a capsule hint from a good friend
+  const left = capSpots().filter((c) => !B7().caps[c.k]);
+  if (!left.length) return null;
+  const c = left[(dayKey().length + left.length) % left.length];
+  return c;
+}
+function friendsMenu(back) {
+  const F = B9().friends, names = SJ_NAMES.filter((n) => F[n]).concat(SJ_NAMES.filter((n) => !F[n]));
+  const hint = Object.values(F).some((f) => f.lv >= 3) ? frHint() : null;
+  showDialog('VECINOS', Object.keys(F).length + ' / ' + SJ_NAMES.length + ' conocidos',
+    '<p>Haz encargos a los vecinos (y rescátalos) para hacerte su amigo. Los amigos te hacen regalos, te dan pistas y te consiguen descuentos en el mercado nocturno.</p><div class="mtlist">' +
+      names.map((n) => { const f = F[n] || { pts: 0, lv: 0 }, next = FR_LV[f.lv] ? FR_LV[f.lv][0] : null; return '<div><span>' + (f.lv ? n : '???') + '</span><i class="mtdots">' + FR_LV.map((l, i) => '<u class="' + (i < f.lv ? 'on' : '') + '"></u>').join('') + '</i><b>' + (f.lv ? FR_LV[f.lv - 1][1] : '—') + '</b><div class="b5bar"><i style="width:' + (next ? Math.min(100, (f.pts / next) * 100) : 100) + '%;background:#7dff9a"></i></div></div>'; }).join('') + '</div>' +
+      (hint ? '<p class="reward">💡 Pista de un amigo: hay una cápsula de ADN escondida en <b>' + REGIONS[hint.z].name + '</b>, cerca de ' + (hint.x < (REGIONS[hint.z].minX + REGIONS[hint.z].maxX) / 2 ? 'la parte izquierda' : 'la parte derecha') + '.</p>' : '') +
+      '<p>Mejores amigos: <b>' + bestFriends() + '</b> · descuento en el mercado nocturno: <b>' + Math.min(30, bestFriends() * 10) + ' %</b></p>',
+    [['VOLVER', back || pauseMenu]]);
+}
+{
+  const done0 = sjDone;
+  sjDone = function () { const name = sj.job && sj.job.name; const r = done0.apply(this, arguments); frAdd(name, 1); return r; };
+  const resc0 = rescDone;
+  rescDone = function (ok) { const r = resc0.apply(this, arguments); if (ok) frAdd(SJ_NAMES[Math.floor(Math.random() * SJ_NAMES.length)], 1); return r; };
+}
+// ---------------- New Game+ rules ----------------
+const NGP_MODS = { fast: ['Enemigos rápidos', 'todos corren más', 0.25], nomap: ['Sin mapa', 'el mapa no se abre', 0.15], half: ['Media vida', 'tu vida máxima es la mitad', 0.35], glass: ['Cristal', 'recibes un 50 % más de daño', 0.25] };
+const ngpMods = () => (ngp() ? B9().ngpMods : {});
+const ngpModXp = () => 1 + Object.keys(NGP_MODS).reduce((a, k) => a + (ngpMods()[k] ? NGP_MODS[k][2] : 0), 0);
+let ngpDraft = {};
+{
+  const menu0 = ngpMenu;
+  ngpMenu = function (back) {
+    menu0(back);
+    const body = $('#dialogbody');
+    if (!body) return;
+    const cur = B9().ngpMods;
+    body.insertAdjacentHTML('beforeend', '<h4 class="shoph">Reglas extra de la próxima ronda (más EXP)</h4><div class="codex">' + Object.entries(NGP_MODS).map(([k, [n, d, x]]) => '<button class="cx' + (ngpDraft[k] ? ' sel' : '') + '" data-ngm="' + k + '" style="--c:' + (ngpDraft[k] ? '#ffd84a' : '#6a8382') + '"><b>' + (ngpDraft[k] ? '✔ ' : '') + n + '</b><small>' + d + ' · +' + Math.round(x * 100) + ' % EXP</small></button>').join('') + '</div>' +
+      (ngp() && Object.keys(cur).some((k) => cur[k]) ? '<p>Ronda actual: <b>' + Object.keys(cur).filter((k) => cur[k]).map((k) => NGP_MODS[k][0]).join(' · ') + '</b> · EXP ×' + ngpModXp().toFixed(2) + '</p>' : ''));
+    for (const b of document.querySelectorAll('[data-ngm]')) b.onclick = () => { ngpDraft[b.dataset.ngm] = !ngpDraft[b.dataset.ngm]; ngpMenu(back); };
+    const startBtn = [...document.querySelectorAll('#dialogbuttons button')].find((b) => /RONDA/.test(b.textContent));
+    if (startBtn) { const go = startBtn.onclick; startBtn.onclick = () => { B9().ngpMods = { ...ngpDraft }; go(); }; }
+  };
+  const xpm0 = dailyXpMult;
+  dailyXpMult = function () { return xpm0() * ngpModXp(); };
+  const hp0 = maxHP;
+  maxHP = function () { const v = hp0(); return ngpMods().half ? Math.round(v / 2) : v; };
+  const map0 = showWorldMap;
+  showWorldMap = function () { if (ngpMods().nomap && started) return toast('Regla de Nueva Partida+: sin mapa'); return map0.apply(this, arguments); };
+  const taken0 = b6Taken;
+  b6Taken = function (a) { a = trickShield(a); if (ngpMods().glass) a *= 1.5; return taken0(a); };
+}
+function ngpModTick() {
+  if (!ngpMods().fast || net.role === 'guest') return;
+  for (const e of enemies) if (!e.ngpFast) { e.ngpFast = true; if (!isBossE(e) && !e.mod) { e.mod = 'fast'; e.modRolled = true; } }
+}
+// ---------------- night market ----------------
+const MK_SPOT = { z: 4, x: 1180, y: 700 };
+const MK_ITEMS = [
+  ['elixir', 'Elixir de maestría', '+5 % de maestría al alien elegido', 350],
+  ['battery', 'Batería de reserva', 'Recarga el reloj al 100 % ahora mismo', 120],
+  ['bait', 'Cebo dorado', 'Tus próximas 3 capturas serán más raras', 250],
+  ['core', 'Núcleo de Titán', 'Para mejorar la Base Fontanera', 1500],
+  ['midnight', 'Color «Medianoche» para el reloj', 'Un color nuevo en el personalizador', 600],
+  ['pumpkins', 'Saco de calabazas', '+5 calabazas (Halloween)', 400],
+  ['map', 'Mapa del tesoro', 'Marca 3 cápsulas de ADN en tu registro de misiones', 300],
+  ['xp', 'Tónico de experiencia', '+600 EXP', 450],
+];
+const mkOpen = () => (isNight() || dayMode === 'noche') && zone === MK_SPOT.z;
+function mkStock() {
+  const d = dayKey(); let h = 0; for (const c of d) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const R = seeded(h % 100000), pool = MK_ITEMS.filter((it) => it[0] !== 'pumpkins' || hwOn()), out = [];
+  while (out.length < 4 && pool.length) out.push(pool.splice(Math.floor(R() * pool.length), 1)[0]);
+  return out;
+}
+const mkPrice = (p) => Math.round(p * (1 - Math.min(0.3, bestFriends() * 0.1)));
+function mkMenu() {
+  const b = B9(), d = dayKey();
+  if (b.mk.day !== d) b.mk = { day: d, sold: {} };
+  showDialog('MERCADO NOCTURNO', 'Solo de noche · cambia cada día', '<p>«Psst… cosas raras, solo esta noche. Una de cada.»</p>' + (bestFriends() ? '<p class="reward">Descuento de amigo: −' + Math.min(30, bestFriends() * 10) + ' %</p>' : '') +
+    mkStock().map(([k, n, desc, p]) => '<div class="xrow"><b>' + n + '</b><small>' + desc + '</small><span class="lbtns">' + (b.mk.sold[k] ? '<button class="pbtn" disabled>VENDIDO</button>' : '<button class="pbtn main" data-mk="' + k + '">' + mkPrice(p) + ' monedas</button>') + '</span></div>').join(''),
+    [['VOLVER', closeDialog]]);
+  for (const x of document.querySelectorAll('[data-mk]')) x.onclick = () => {
+    const it = MK_ITEMS.find((i) => i[0] === x.dataset.mk), price = mkPrice(it[3]);
+    if ((player.coins || 0) < price) return toast('Te faltan monedas');
+    player.coins -= price; b.mk.sold[it[0]] = 1;
+    mkApply(it[0]);
+    toast('Comprado: ' + it[1]); playWatchSFX('dna_added'); save(); hud(); mkMenu();
+  };
+}
+function mkApply(k) {
+  const b = B9();
+  if (k === 'elixir') { const id = player.alien ? player.activeAlien : player.selected; if (id) { player.masteries[id] = Math.min(100, (player.masteries[id] || 0) + 5); toast(ALIENS[id].name + ' +5 % de maestría'); } }
+  if (k === 'battery') player.battery = 100;
+  if (k === 'bait') b.bait += 3;
+  if (k === 'core') B7().cores++;
+  if (k === 'midnight') b.midnight = true;
+  if (k === 'pumpkins') { B6().pump += 5; B6().pumpTot += 5; }
+  if (k === 'map') b.mapUntil = Date.now() + 30 * 60 * 1000;
+  if (k === 'xp') xp(600);
+}
+function mkNear() { return mkOpen() && dist(player, MK_SPOT) < 110 ? ['🏮 MERCADO NOCTURNO', mkMenu] : null; }
+function mkDraw() {
+  if (!mkOpen()) return;
+  const { x, y } = MK_SPOT;
+  ctx.save();
+  ctx.fillStyle = '#3a1f4a'; ctx.fillRect(x - 60, y - 90, 120, 12);
+  ctx.fillStyle = '#5a2f6a'; for (let k = 0; k < 6; k++) ctx.fillRect(x - 60 + k * 20, y - 90, 10, 12);
+  ctx.fillStyle = '#2a1a20'; ctx.fillRect(x - 56, y - 78, 6, 78); ctx.fillRect(x + 50, y - 78, 6, 78);
+  ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - 54, y - 34, 108, 30);
+  ctx.fillStyle = '#ffb347'; ctx.shadowColor = '#ffb347'; ctx.shadowBlur = 16; ctx.beginPath(); ctx.arc(x - 40, y - 70 + Math.sin(clock * 2) * 2, 7, 0, 7); ctx.arc(x + 40, y - 70 + Math.cos(clock * 2) * 2, 7, 0, 7); ctx.fill();
+  ctx.restore();
+  txt('MERCADO NOCTURNO', x, y - 100, 9, '#ffcf8a');
+}
+{
+  const pick0 = fishPick; // golden bait: rarer catches
+  fishPick = function (water, bonus) { const b = B9(); if (b.bait > 0) { b.bait--; return pick0(water, (bonus || 1) * 2.5); } return pick0(water, bonus); };
+  const ml0 = mlEntries; // treasure map: capsules in the mission log
+  mlEntries = function () {
+    const L = ml0();
+    try {
+      if ((B9().mapUntil || 0) > Date.now()) capSpots().filter((c) => !B7().caps[c.k]).slice(0, 3).forEach((c, i) => L.push({ key: 'map' + i, cat: 'MAPA DEL TESORO', title: 'Cápsula de ADN', text: REGIONS[c.z].name, z: c.z, pts: [c] }));
+      const h = Object.values(B9().friends).some((f) => f.lv >= 3) ? frHint() : null;
+      if (h) L.push({ key: 'frhint', cat: 'PISTA DE UN AMIGO', title: 'Cápsula de ADN', text: REGIONS[h.z].name, z: h.z, pts: [h] });
+    } catch (e) {}
+    return L;
+  };
+}
+// ---------------- watch customiser ----------------
+const WC_COLORS = [['#7dff9a', 'Verde'], ['#3dff6a', 'Esmeralda'], ['#ff4d4d', 'Rojo'], ['#ffd84a', 'Oro'], ['#8de5f3', 'Cian'], ['#c084ff', 'Morado'], ['#ff8a2a', 'Naranja'], ['#eef4ff', 'Blanco']];
+const WC_DIALS = { ring: 'Dial mecánico', strip: 'Hologramas', slider: 'Deslizador', wheel: 'Rueda holográfica' };
+function wcOwned() { return Object.keys(WATCHES).filter((id) => watchUnlocked(id)); }
+function wcApply() {
+  for (const [id, w] of Object.entries(WATCHES)) {
+    if (!w._orig) w._orig = { color: w.color, selector: w.selector, fx: w.fx, sfxProfile: w.sfxProfile };
+    const c = B9().wc[id] || {};
+    w.color = c.color || w._orig.color;
+    w.selector = c.dial ? { ...w._orig.selector, type: c.dial } : w._orig.selector;
+    w.fx = c.fx || w._orig.fx;
+    w.sfxProfile = c.sound || w._orig.sfxProfile;
+  }
+}
+function wcMenu(back) {
+  wcApply();
+  const id = getWatch().id, w = WATCHES[id], c = (B9().wc[id] = B9().wc[id] || {}), owned = wcOwned().map((i) => WATCHES[i]);
+  const colors = WC_COLORS.concat(B9().midnight ? [['#3b4cff', 'Medianoche']] : []).concat(hwOn() || (B6().pumpTot || 0) >= 25 ? [['#ff7a1a', 'Calabaza']] : []);
+  const dials = [...new Set(owned.map((o) => o._orig.selector && o._orig.selector.type))].filter((t) => WC_DIALS[t]);
+  const fxs = [...new Set(owned.map((o) => o._orig.fx))].filter(Boolean), sounds = [...new Set(owned.map((o) => o._orig.sfxProfile))].filter(Boolean);
+  const nameOf = (key, val) => (owned.find((o) => o._orig[key] === val) || { name: val }).name;
+  const row = (title, key, opts, label) => '<h4 class="shoph">' + title + '</h4><div class="codex">' + ['', ...opts].map((v) => '<button class="cx' + ((c[key] || '') === (Array.isArray(v) ? v[0] : v) ? ' sel' : '') + '" data-wc="' + key + '|' + (Array.isArray(v) ? v[0] : v) + '" style="--c:' + (key === 'color' && v ? v[0] : '#7dff9a') + '"><b>' + (v === '' ? 'Original' : label(v)) + '</b></button>').join('') + '</div>';
+  showDialog('PERSONALIZAR RELOJ', w.name,
+    '<p>Cambia el aspecto del reloj que llevas usando piezas de los relojes que ya tienes. Las mecánicas (energía, aliens) no cambian.</p>' +
+      row('Color', 'color', colors, (v) => v[1]) +
+      row('Estilo del dial', 'dial', dials, (v) => WC_DIALS[v]) +
+      row('Efecto de transformación', 'fx', fxs, (v) => 'Como el ' + nameOf('fx', v)) +
+      row('Sonidos', 'sound', sounds, (v) => 'Como el ' + nameOf('sfxProfile', v)),
+    [['PROBAR', () => { closeDialog(); setTimeout(() => { playWatchSFX('transform'); toast('Así suena tu reloj'); }, 200); }], ['VOLVER', back || pauseMenu]]);
+  for (const b of document.querySelectorAll('[data-wc]')) b.onclick = () => { const [k, v] = b.dataset.wc.split('|'); if (v) c[k] = v; else delete c[k]; wcApply(); save(); hud(); playWatchSFX('select'); wcMenu(back); };
+}
+// ---------------- spectator mode (co-op guest) ----------------
+const spec = { on: false, boostT: 0, cheerCd: 0 };
+const specOn = () => spec.on && net.role === 'guest' && !!net.peer;
+function specToggle() {
+  if (net.role !== 'guest' || !net.peer) return toast('El modo espectador es para invitados de una sala');
+  spec.on = !spec.on;
+  if (spec.on && player.alien) revert(false);
+  closeDialog();
+  toast(spec.on ? 'MODO ESPECTADOR · sigues al anfitrión y puedes animarle (botones de ánimo)' : 'Has vuelto a jugar');
+  specBar();
+}
+function specTick(dt) {
+  if (spec.boostT > 0) spec.boostT -= dt;
+  if (spec.cheerCd > 0) spec.cheerCd -= dt;
+  if (!specOn()) { if (spec.on && !net.peer) { spec.on = false; specBar(); } return; }
+  const h = net.remote;
+  if (!h) return;
+  if (h.zone != null && h.zone !== zone) enterZone(h.zone, 'center');
+  player.x = h.x; player.y = h.y; player.inv = 2; player.alien = false;
+}
+const CHEERS = ['👏', '🔥', '💚', '⭐', '😮'];
+function specCheer(c) {
+  if (!specOn() || spec.cheerCd > 0) return;
+  spec.cheerCd = 1.2;
+  lanSend({ type: 'b9', k: 'cheer', c });
+  toast('Has animado ' + c);
+}
+function b9Receive(m) {
+  if (m.k === 'cheer' && CHEERS.includes(m.c)) {
+    spec.boostT = 10;
+    cheers.push({ c: m.c, x: player.x + (Math.random() - 0.5) * 120, y: player.y - 120, t: 1.6 });
+    popup(player.x, player.y - 160, '¡ÁNIMO! +10 % daño', '#ffd84a');
+  }
+}
+const cheers = [];
+function specBar() {
+  let el = document.getElementById('specbar');
+  if (!specOn()) { if (el) el.classList.add('hidden'); return; }
+  if (!el) { el = document.createElement('div'); el.id = 'specbar'; $('#game').append(el); }
+  el.innerHTML = '<span>ESPECTADOR</span>' + CHEERS.map((c) => '<button data-ch="' + c + '">' + c + '</button>').join('') + '<button data-chx>JUGAR</button>';
+  el.classList.remove('hidden');
+  for (const b of el.querySelectorAll('[data-ch]')) b.onclick = () => specCheer(b.dataset.ch);
+  el.querySelector('[data-chx]').onclick = specToggle;
+}
+function cheerDraw(dt) {
+  for (const ch of cheers) { ch.t -= 0.016; ch.y -= 0.8; ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(1, ch.t)); ctx.font = '28px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(ch.c, ch.x, ch.y); ctx.restore(); }
+  while (cheers.length && cheers[0].t <= 0) cheers.shift();
+}
+{
+  const rt0 = remoteTargets; // spectators are neither drawn nor targeted on the host
+  remoteTargets = function () { return rt0.apply(this, arguments).filter((o) => !o.spec); };
+  const pk0 = avatarPacket;
+  avatarPacket = function () { const p = pk0.apply(this, arguments); p.spec = specOn(); return p; };
+  const dm0 = b6Dmg;
+  b6Dmg = function (e, d) { return dm0(e, spec.boostT > 0 ? d * 1.1 : d); };
+  const at0 = attack;
+  attack = function () { if (specOn()) return; return at0.apply(this, arguments); };
+}
+// ---------------- near / tick / draw ----------------
+function b9Near() { return mkNear(); }
+function b9Interact() { const n = b9Near(); if (!n) return false; n[1](); return true; }
+function b9Hud() { const n = b9Near(); if (n) { $('#talk').classList.remove('hidden'); $('#talk').textContent = n[0]; } }
+let b9LastNear = '';
+setInterval(() => { try { if (!started) return; const n = b9Near(), l = n ? n[0] : ''; if (l !== b9LastNear) { b9LastNear = l; hud(); } } catch (e) {} }, 300);
+let b9Init = false;
+function b9Tick(dt) {
+  if (!started) return;
+  if (!b9Init) { b9Init = true; wcApply(); frDaily(); }
+  trickTick(dt); ngpModTick(); specTick(dt);
+}
+function b9Draw() { mkDraw(); }
+function b9DrawTop() { trickDraw(); cheerDraw(); }
 applyWatchTheme();
 resize();
 boot();
@@ -18414,7 +18754,7 @@ if (window.__game)
     missionBoard, missionAccept, activeMission, MS, MISSIONS, coopOn, coopState, coopShare, coopTickMissions, COOP_SITES,
     arenaStart, arenaEnd, arena, arenaBest, statEvent, stats, daily, dailyMenu, achMenu, achCheck, ACHS, codexMenu, codexCard, codexIds, extrasMenu, difficultyMenu, diffCfg, diffKey, DIFFS, PAD, padPoll, padHelp,
     watchAnim, WATCH_ERAS, eraPlaylist, eraOf, storyPlay, storyFor, storyDraw, storyFit, storyPreload, BOARDS, SHEET_ROWS, SKIN_ART, boardId,
-    B8, vil, vilStart, vilEnd, vilAttack, vilMenu, get resc() { return resc; }, rescStart, rescWork, rescDone, get riv() { return riv; }, rivalTick, rivalWin, glitchChallenge, glitchKill, get gl() { return gl; }, custMenu, custStart, custParse, custCode, get cust() { return cust; }, creditsRoll, epilogue, get wx() { return wx; }, weatherDmg, B7, fishOpen, fishClose, fishAct, get fishG() { return fishG; }, fishLand, fishSellMenu, fishBook, FISH, FISH_SPOTS, capSpots, capGot, wbWindow, wbMenu, raceStart, raceEnd, raceMenu, get rc() { return rc; }, trackPts, raceTargets, tradeMenu, tradeReceive, HERO, heroMenu, heroEvent, heroBadge, RP, replaySave, replayMenu, replayPlay, baseMenu, baseUpgrades, baseJuke, baseTrophies, get jukebox() { return jukebox; }, isSolidQA: (x, y) => isSolid(x, y), achMenu, ACHS, B6, mlEntries, mlTracked, mlTarget, missionLogMenu, zoneHop, statsMenu, masteryMenu, halloweenMenu, hwOn, hwSpots, hwDay, lockAt, lockCycle, get lockT() { return lockT; }, ap, rmTargets, medalFor, b6Dmg, b6Taken, mTier, get arena() { return arena; }, arenaStart, arenaWaveClear, arenaSpawnWave, rematchEnd, get rmQA() { return rm; }, toTitle, toTitleAsk, whatsNewMenu, get startedQA() { return started; }, hud, phaseTick, isBossE, b5Tick, get pausedQA() { return paused; }, get dialogQA() { return dialogOpen; }, comboCheck, dailyAlienId, DA, B5, ngpMenu, progressMenu, dailyAlienMenu, behTick, photoDeco: () => photoDeco, beastType, wristInfo, setWrist: (w) => (wristFor = w), wristDet, wristScan, spriteInfoQA: (r) => spriteInfo(r), galleryMenu, galOpen, feedbackMenu, fbSnapshot, art, bakWrite, bakList, bakMenu, S5, s5Go, s5StartSeal, story5Talk, citizensQA: () => citizens, get sj() { return sj; }, sjOffer, sjDone, rematchStart, rematchMenu, get rm() { return rm; }, RMX, tutEnd, get tutState() { return tutState; }, remoteTargets, hurtTeam, partyOthers, partySize, get netq() { return net; }, musStepQA: (t) => musStep(t), MUS, musBuild, MUS_SONGS, S4, s4Go, story4Talk, s4Near, s4Fx, ULTIMATES, ultOn, ultForm, ALIEN_SCALE, alienHeight, sizeGuard, alienPower, tierDrain, scaleLine, codexCard, ALIENS, F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
+    B9, trickMenu, trickTick, get pt() { return pt; }, friendsMenu, frAdd, ngpModXp, NGP_MODS, mkMenu, mkStock, mkApply, MK_SPOT, wcMenu, wcApply, WATCHES, spec, specToggle, specOn, b9Receive, sjDone, maxHP, B8, vil, vilStart, vilEnd, vilAttack, vilMenu, get resc() { return resc; }, rescStart, rescWork, rescDone, get riv() { return riv; }, rivalTick, rivalWin, glitchChallenge, glitchKill, get gl() { return gl; }, custMenu, custStart, custParse, custCode, get cust() { return cust; }, creditsRoll, epilogue, get wx() { return wx; }, weatherDmg, B7, fishOpen, fishClose, fishAct, get fishG() { return fishG; }, fishLand, fishSellMenu, fishBook, FISH, FISH_SPOTS, capSpots, capGot, wbWindow, wbMenu, raceStart, raceEnd, raceMenu, get rc() { return rc; }, trackPts, raceTargets, tradeMenu, tradeReceive, HERO, heroMenu, heroEvent, heroBadge, RP, replaySave, replayMenu, replayPlay, baseMenu, baseUpgrades, baseJuke, baseTrophies, get jukebox() { return jukebox; }, isSolidQA: (x, y) => isSolid(x, y), achMenu, ACHS, B6, mlEntries, mlTracked, mlTarget, missionLogMenu, zoneHop, statsMenu, masteryMenu, halloweenMenu, hwOn, hwSpots, hwDay, lockAt, lockCycle, get lockT() { return lockT; }, ap, rmTargets, medalFor, b6Dmg, b6Taken, mTier, get arena() { return arena; }, arenaStart, arenaWaveClear, arenaSpawnWave, rematchEnd, get rmQA() { return rm; }, toTitle, toTitleAsk, whatsNewMenu, get startedQA() { return started; }, hud, phaseTick, isBossE, b5Tick, get pausedQA() { return paused; }, get dialogQA() { return dialogOpen; }, comboCheck, dailyAlienId, DA, B5, ngpMenu, progressMenu, dailyAlienMenu, behTick, photoDeco: () => photoDeco, beastType, wristInfo, setWrist: (w) => (wristFor = w), wristDet, wristScan, spriteInfoQA: (r) => spriteInfo(r), galleryMenu, galOpen, feedbackMenu, fbSnapshot, art, bakWrite, bakList, bakMenu, S5, s5Go, s5StartSeal, story5Talk, citizensQA: () => citizens, get sj() { return sj; }, sjOffer, sjDone, rematchStart, rematchMenu, get rm() { return rm; }, RMX, tutEnd, get tutState() { return tutState; }, remoteTargets, hurtTeam, partyOthers, partySize, get netq() { return net; }, musStepQA: (t) => musStep(t), MUS, musBuild, MUS_SONGS, S4, s4Go, story4Talk, s4Near, s4Fx, ULTIMATES, ultOn, ultForm, ALIEN_SCALE, alienHeight, sizeGuard, alienPower, tierDrain, scaleLine, codexCard, ALIENS, F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
     get enemies() { return enemies; },
     get sagaCineOn() { return sagaCineOn; },
     get scan() { return scan; },
