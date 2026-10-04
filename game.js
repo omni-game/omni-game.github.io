@@ -1,4 +1,4 @@
-window.OMNI_BUILD=54;
+window.OMNI_BUILD=55;
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -12359,7 +12359,21 @@ function seeded(seed) {
   let s = seed >>> 0;
   return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
 }
+// painted backgrounds from the master pack (assets/bg-*.webp): used as soon as they have loaded
+const BG_ART = {};
+for (const [k, f] of [['plantn', 'bg-plant-night'], ['plantd', 'bg-plant-day'], ['voidn', 'bg-void'], ['voidd', 'bg-void']]) { const im = new Image(); im.src = 'assets/' + f + '.webp'; BG_ART[k] = im; }
 function paintedScene(kind, day) {
+  const art2 = BG_ART[kind + (day ? 'd' : 'n')];
+  if (art2 && art2.complete && art2.naturalWidth) {
+    const key2 = 'img' + kind + (day ? 'd' : 'n');
+    if (PAINTED[key2]) return PAINTED[key2];
+    const c = document.createElement('canvas');
+    c.width = 1600; c.height = 1040;
+    const g = c.getContext('2d');
+    g.drawImage(art2, 0, 0, 1600, 900);
+    g.drawImage(art2, 0, 810, art2.naturalWidth, art2.naturalHeight * 0.1, 0, 900, 1600, 140); // the strip under the floor
+    return (PAINTED[key2] = c);
+  }
   const key = kind + (day ? 'd' : 'n');
   if (PAINTED[key]) return PAINTED[key];
   const c = document.createElement('canvas');
@@ -12834,10 +12848,21 @@ function sagaMenu() {
   );
 }
 // ---------------- drawing ----------------
+// master pack sprites (assets/npc-*.webp); the old stand-ins are used until they load
+const NPC_ART = {};
+for (const k of ['vega0', 'vega1', 'draven0', 'spectre0', 'spectre1', 'spectre2', 'spectre3']) { const im = new Image(); im.src = 'assets/npc-' + k + '.webp'; NPC_ART[k] = im; }
+function npcArt(k, x, y, h, face, alpha = 1) {
+  const im = NPC_ART[k];
+  if (!im || !im.complete || !im.naturalWidth) return false;
+  const w = (im.naturalWidth * h) / im.naturalHeight;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(Math.round(x), Math.round(y)); ctx.scale(face, 1);
+  ctx.imageSmoothingEnabled = true; ctx.drawImage(im, -w / 2, -h, w, h); ctx.restore();
+  return true;
+}
 function sagaDraw() { // ground objects + story NPCs (before the actors)
   const s = SG();
   if (zone === SAGA_ZONE_DOCKS) {
-    sprite(22, Math.floor(clock) % 6 === 0 ? 3 : 0, VERA.x, VERA.y, 104, player.x >= VERA.x ? 1 : -1);
+    if (!npcArt(dist(player, VERA) < 160 ? 'vega1' : 'vega0', VERA.x, VERA.y, 112, player.x >= VERA.x ? 1 : -1)) sprite(22, Math.floor(clock) % 6 === 0 ? 3 : 0, VERA.x, VERA.y, 104, player.x >= VERA.x ? 1 : -1);
     txt(VERA.name, VERA.x, VERA.y - 120, 10, '#8de5f3');
     if (s.step === 0 || s.step === 7 || (s.step >= 8 && [0, 4].includes(F1().s3.step))) txt('!', VERA.x, VERA.y - 138, 18, '#ffcf76');
   }
@@ -12863,9 +12888,10 @@ function sagaDraw() { // ground objects + story NPCs (before the actors)
     }
   }
   if (zone === SAGA_ZONE_VOID && s.step <= 5) { // Draven in chains
-    sprite(14, 0, DRAVEN.x, DRAVEN.y, 100, -1);
+    const drew = npcArt('draven0', DRAVEN.x, DRAVEN.y, 108, -1);
+    if (!drew) sprite(14, 0, DRAVEN.x, DRAVEN.y, 100, -1);
     ctx.strokeStyle = '#8b7fa6'; ctx.lineWidth = 3;
-    for (const sx of [-1, 1]) { ctx.beginPath(); ctx.moveTo(DRAVEN.x + sx * 22, DRAVEN.y - 60); ctx.lineTo(DRAVEN.x + sx * 70, DRAVEN.y - 150); ctx.stroke(); }
+    if (!drew) for (const sx of [-1, 1]) { ctx.beginPath(); ctx.moveTo(DRAVEN.x + sx * 22, DRAVEN.y - 60); ctx.lineTo(DRAVEN.x + sx * 70, DRAVEN.y - 150); ctx.stroke(); }
     txt(DRAVEN.name + ' · OSMOSIANO', DRAVEN.x, DRAVEN.y - 116, 9, '#d7b762');
     if (s.step === 5 && s.wardens >= 4) txt('!', DRAVEN.x, DRAVEN.y - 134, 18, '#ffcf76');
   }
@@ -12880,7 +12906,9 @@ function sagaDrawEnemy(e, f) {
     gr.addColorStop(0, '#b98cff'); gr.addColorStop(1, 'rgba(120,60,220,0)');
     ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(e.x, e.y - 80, 110, 0, 7); ctx.fill();
     ctx.restore();
-    sprite(row, f, e.x, e.y - 10 - Math.sin(clock * 2) * 8, 168, e.face, e.intangible > 0 ? 0.3 : e.hit > 0 ? 0.55 : 0.85);
+    const sk = e.hit > 0 ? 'spectre3' : e.wind > 0 || e.cast > 0 ? 'spectre2' : Math.floor(clock * 3) % 2 ? 'spectre1' : 'spectre0';
+    if (!npcArt(sk, e.x, e.y - 6 - Math.sin(clock * 2) * 8, 190, e.face, e.intangible > 0 ? 0.3 : 0.92))
+      sprite(row, f, e.x, e.y - 10 - Math.sin(clock * 2) * 8, 168, e.face, e.intangible > 0 ? 0.3 : e.hit > 0 ? 0.55 : 0.85);
     const by = e.y - 200;
     txt('EL ESPECTRO', e.x, by - 8, 10, '#d9c2ff');
     ctx.fillStyle = '#101522'; ctx.fillRect(e.x - 60, by, 120, 7);
