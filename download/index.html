@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>OMNI · Descargar</title><meta name="theme-color" content="#0c1421">
+<link rel="icon" type="image/png" href="../assets/logo-classic.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Share+Tech+Mono&display=swap">
+<style>
+:root{--bg:#0a111c;--panel:#0f1b2a;--line:#1f3a3a;--fg:#e7ffe9;--dim:#8fb3a4;--acc:#7dff9a;--acc2:#3dd06a;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1200px 500px at 50% -10%,#123a2a55,transparent),var(--bg);color:var(--fg);font:15px/1.55 "Share Tech Mono",ui-monospace,monospace;padding:28px 16px 48px}
+main{max-width:860px;margin:0 auto;display:grid;gap:22px}
+header{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+header img{width:72px;height:72px;image-rendering:pixelated}
+h1{font:400 56px/1 Bangers,Impact,sans-serif;letter-spacing:3px;margin:0;color:var(--acc);text-shadow:0 0 18px #7dff9a55}
+.sub{color:var(--dim);margin:2px 0 0}
+.play{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;border:1px solid var(--acc2);background:linear-gradient(90deg,#123a2acc,#0f1b2a);padding:16px 18px;clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px)}
+.play p{margin:0}
+.btn{display:inline-block;background:var(--acc);color:#06120b;text-decoration:none;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:12px 18px;clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px)}
+.btn.ghost{background:transparent;color:var(--acc);outline:1px solid var(--acc)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:18px}
+.card{background:var(--panel);border:1px solid var(--line);padding:18px;display:grid;gap:12px;align-content:start;min-width:0}
+.card h2{font:400 30px/1 Bangers,Impact,sans-serif;letter-spacing:2px;margin:0;color:var(--acc)}
+.meta{color:var(--dim);font-size:13px;letter-spacing:1px;text-transform:uppercase}
+ol{margin:0;padding-left:22px;display:grid;gap:6px}
+.en{color:var(--dim);font-size:13px}
+.note{border-left:3px solid var(--acc);padding:4px 0 4px 14px;color:var(--dim)}
+.note b{color:var(--fg)}
+footer{color:#5d7a6e;font-size:12px;text-align:center}
+</style></head><body><main>
+<header><img src="../assets/logo-classic.png" alt=""><div><h1>OMNI</h1><p class="sub">Descargas · Downloads</p></div></header>
+<section class="play"><p><b>¿Solo quieres jugar?</b> Ábrelo en el navegador, sin instalar nada.<br><span class="en">Just want to play? Open it in your browser, nothing to install.</span></p><a class="btn" href="../">Jugar ahora</a></section>
+<section class="grid">
+<article class="card"><h2>Android</h2><p class="meta">OMNI.apk · <span id="apksz">~28 MB</span></p>
+<ol><li>Pulsa DESCARGAR y abre el archivo.</li><li>Si el móvil lo pide, permite «instalar apps desconocidas» para tu navegador.</li><li>Instala y abre OMNI.</li></ol>
+<p class="en">Tap download, open the file, allow "install unknown apps" if asked, then install.</p>
+<a class="btn" href="OMNI.apk" download>Descargar APK</a></article>
+<article class="card"><h2>PC (Windows)</h2><p class="meta">OMNI-PC.zip · <span id="pcsz">~28 MB</span></p>
+<ol><li>Descarga el ZIP y extráelo (clic derecho → Extraer todo).</li><li>Abre la carpeta OMNI y haz doble clic en <b>OMNI.bat</b>.</li><li>Se abre en su propia ventana (Chrome o Edge).</li></ol>
+<p class="en">Download, extract, open the OMNI folder and double-click OMNI.bat.</p>
+<a class="btn" href="OMNI-PC.zip" download>Descargar PC</a></article>
+</section>
+<p class="note"><b>Se actualiza solo.</b> La app y la versión de PC descargan las novedades al abrirse con internet; sin internet usan la última copia. Solo hace falta descargar una vez.<br><span class="en">Updates itself: installed copies fetch new builds when opened online. You only download once.</span></p>
+<p class="meta" id="ver"></p>
+<footer>OMNI es un proyecto de fans privado y sin ánimo de lucro.</footer>
+</main>
+<script>
+fetch('../version.json',{cache:'no-store'}).then(function(r){return r.json()}).then(function(v){document.getElementById('ver').textContent='Versión actual · current version: '+v.version+' (build '+v.build+')'}).catch(function(){});
+['OMNI.apk','OMNI-PC.zip'].forEach(function(f,i){fetch(f,{method:'HEAD'}).then(function(r){var n=+r.headers.get('content-length');if(n)document.getElementById(i?'pcsz':'apksz').textContent=(n/1048576).toFixed(0)+' MB'}).catch(function(){})});
+</script>
+</body></html>
