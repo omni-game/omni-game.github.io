@@ -823,5 +823,6 @@ window.OMNI_EN = Object.assign(window.OMNI_EN || {}, {
 "Arte nuevo para 18 aliens y 6 formas Ultimate · Escenas de transformación nuevas · Omnitrix Recalibrado y recargas del Ultimatrix":"New art for 18 aliens and 6 Ultimate forms · New transformation scenes · Recalibrated Omnitrix and Ultimatrix recharges",
 "Arreglada la escena de transformación de Ultimate Big Chill":"Fixed the Ultimate Big Chill transformation scene",
 "Nueva escena de transformación de Bloxx":"New Bloxx transformation scene",
-"Escenas de transformación cambiadas: Astrodactyl, Toepick, Bloxx, Crashhopper, Gravattack, Mole-Stache, Ball Weevil, Pesky Dust, The Worst, Spitter y Buzzshock":"Transformation scenes switched: Astrodactyl, Toepick, Bloxx, Crashhopper, Gravattack, Mole-Stache, Ball Weevil, Pesky Dust, The Worst, Spitter and Buzzshock"
+"Escenas de transformación cambiadas: Astrodactyl, Toepick, Bloxx, Crashhopper, Gravattack, Mole-Stache, Ball Weevil, Pesky Dust, The Worst, Spitter y Buzzshock":"Transformation scenes switched: Astrodactyl, Toepick, Bloxx, Crashhopper, Gravattack, Mole-Stache, Ball Weevil, Pesky Dust, The Worst, Spitter and Buzzshock",
+"Nueva escena de transformación de Buzzshock":"New Buzzshock transformation scene"
 });
