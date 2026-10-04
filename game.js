@@ -1,4 +1,4 @@
-window.OMNI_BUILD=65;
+window.OMNI_BUILD=66;
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -3438,7 +3438,7 @@ function xp(amount) {
     lanSend({ type: 'reward', xp: amount });
     return;
   }
-  amount = Math.round(amount * diffCfg().xp); // difficulty bonus (part-32)
+  amount = Math.round(amount * diffCfg().xp * dailyXpMult() * (1 + ngp() * 0.5)); // difficulty (part-32) · daily alien, New Game+ (part-65)
   if (player.level === LEVEL_CAP) return;
   player.xp += amount;
   let up = false;
@@ -3664,6 +3664,7 @@ function damageEnemy(e, dmg) {
   }
   e.hp -= Math.round(dmg);
   e.hit = 0.16;
+  masterFinisher(e); // 100 % mastery (part-65)
   feelHit(e, dmg, e.hp <= 0); // knock-back, flinch, hit-stop (part-63)
   sagaAcid(e);
   featHit(e, dmg); // combo + Ultra meter (part-45)
@@ -4294,7 +4295,7 @@ function pauseMenu() {
     eras = w && w.eras ? w.eras.map((e) => ERA_NAMES[e]).join(' + ') : '',
     mc = w && player.masterControl && w.masterControl;
   const groups = [
-    ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['MISIONES', missionBoard], ['HISTORIA · ECOS DEL VACÍO', sagaMenu], ['HISTORIA 03 · CAZADOR', s3Menu], ['HISTORIA 04 · SOBRECARGA', s4Menu], ['HISTORIA 05 · ECO DEL ESPECTRO', s5Menu], ['BOSS RUSH', bossRushMenu], ['GALERÍA DE JEFES', () => rematchMenu()], ['EXTRAS · ARENA · RETOS · LOGROS', extrasMenu], ['MAPA', () => showWorldMap()], ['VIAJE RÁPIDO', () => travelMenu()], ['FAVORES', () => favoursMenu()], ['ARCADE', () => arcadeMenu()], ...(net.peer ? [['REGALAR MONEDAS', giftMenu]] : []), ['MINIJUEGOS / TRABAJOS', jobsMenu], ['MULTIJUGADOR · CROSSPLAY', lanMenu]]],
+    ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['MISIONES', missionBoard], ['HISTORIA · ECOS DEL VACÍO', sagaMenu], ['HISTORIA 03 · CAZADOR', s3Menu], ['HISTORIA 04 · SOBRECARGA', s4Menu], ['HISTORIA 05 · ECO DEL ESPECTRO', s5Menu], ['NUEVA PARTIDA+', () => ngpMenu()], ['BOSS RUSH', bossRushMenu], ['GALERÍA DE JEFES', () => rematchMenu()], ['EXTRAS · ARENA · RETOS · LOGROS', extrasMenu], ['MAPA', () => showWorldMap()], ['VIAJE RÁPIDO', () => travelMenu()], ['FAVORES', () => favoursMenu()], ['ARCADE', () => arcadeMenu()], ...(net.peer ? [['REGALAR MONEDAS', giftMenu]] : []), ['MINIJUEGOS / TRABAJOS', jobsMenu], ['MULTIJUGADOR · CROSSPLAY', lanMenu]]],
     ['RELOJ Y ALIENS', [['RELOJ / OMNITRIX', () => watchMenu()], ['MEJORAS DE ALIENS', () => upgradeMenu()], ['EQUIPOS DE ALIENS', () => loadoutMenu()], ['MEJORAS DEL RELOJ', () => watchUpgMenu()], ['LABORATORIO DE ADN', () => labMenu()], ['VARIANTES', () => variantMenu()], ['SKINS DE ALIENS', alienSkinMenu], ['ÁRBOL', skillTree], ['GUÍA / ATAQUES', guide]]],
     ['PERSONAJE', [['PERSONAJE / SKIN', skinMenu], ['RAZAS', raceMenu], ['MODO FOTO', photoMode], ['TÍTULOS', () => titlesMenu(pauseMenu)], ['PRESTIGIO', prestigeMenu], ['MODO STREAMER: ' + (stream.on ? 'SÍ' : 'NO'), streamToggle], ...(stream.on ? [['RULETA DEL CHAT', chatRoulette]] : []), ['MASCOTA: ' + (F1().pet ? 'SÍ' : 'NO'), () => { F1().pet = !F1().pet; save(); pauseMenu(); }], ['RECOMPENSA DIARIA', dailyCalendar]]],
     [
@@ -4403,7 +4404,7 @@ function hitPlayer(amount) {
   if (player.downed) return;
   amount = sizeGuard(amount); // tiny aliens dodge, giants shrug (part-49)
   if (!amount) return;
-  amount = amount * diffCfg().dmg * lvDmg() * rmDmg(); // difficulty (part-32) · level (part-49)
+  amount = amount * diffCfg().dmg * lvDmg() * rmDmg() * ngpDmg(); // difficulty (part-32) · level (part-49)
   player.regenWait = 20;
   if (player.shield > 0 && player.alien) { // any alien's shield move (Diamante, kit 'shield' moves)
     const absorbed = Math.min(player.shield, amount);
@@ -4426,7 +4427,7 @@ function hitPlayer(amount) {
   player.hurtT = 0.3;
   player.inv = 0.65;
   shake = 0.17;
-  popup(player.x, player.y - 110, '−' + amount, '#ff9c91');
+  popup(player.x, player.y - 110, '−' + Math.round(amount), '#ff9c91');
   tone(75, 0.16, 'square', 0.025);
   if (player.hp <= 0 && !coopDown()) defeat();
 }
@@ -4972,6 +4973,7 @@ function update(dt) {
   sjTick(dt); // citizen jobs (part-57)
   s5Tick(dt); // part-58
   bakTick(dt); // save copies (part-59)
+  b5Tick(dt); // batch 5 (part-65)
   eliteTick();
   sigTick(dt);
   anoditeTick(dt);
@@ -5592,7 +5594,7 @@ function draw() {
         ctx.restore();
       }
       scaleDrawMarker(o); // tiny aliens (part-49)
-      ctx.filter = (!lowGfx() && variantFilter()) || 'none'; // mastery colour variants (part-47)
+      ctx.filter = [(!lowGfx() && variantFilter()) || '', ultLookFilter()].join(' ').trim() || 'none'; // mastery colour variants (part-47) + stand-in Ultimate look (part-64)
       wristFor = race === 'omni' && !player.alien ? player.watch : null;
       sprite(
         pose.row,
@@ -5883,6 +5885,7 @@ function draw() {
   drawSensory();
   ctx.restore();
   weatherDraw(); // part-47
+  photoDecoDraw(); // photo stickers (part-65)
   if (flash > 0) {
     ctx.fillStyle = 'rgba(178,255,122,' + flash * 0.8 + ')';
     ctx.fillRect(0, 0, W, H);
@@ -11707,6 +11710,8 @@ function extrasMenu() {
       ['LOGROS', () => achMenu(extrasMenu)],
       ['CÓDICE ALIEN', () => codexMenu(extrasMenu)],
       ['GALERÍA DE ESCENAS', () => galleryMenu(extrasMenu)],
+      ['ALIEN DEL DÍA', () => dailyAlienMenu(extrasMenu)],
+      ['PROGRESO', () => progressMenu(extrasMenu)],
       ['BOSS RUSH', bossRushMenu],
       ['JEFE DE INCURSIÓN (CO-OP)', raidMenu],
       ['DUELO (CO-OP)', duelAsk],
@@ -13130,6 +13135,7 @@ function scanTick(dt) {
 function scanDrawMark(e) { // over each enemy: progress ring while scanning, a small "?" if never scanned
   modDraw(e); // elite labels (part-46)
   f3DrawEnemyLabel(e); // zone bosses (part-47)
+  behDraw(e); // enemy types (part-65)
   if (scan && scan.e === e) {
     const p = Math.min(1, scan.t / 1.5), y = e.y - 60;
     ctx.save();
@@ -13432,6 +13438,7 @@ function featKill(e) {
   }
   if (e.hunter && !e.rematch) s3HunterDown();
   rematchKill(e); // part-56
+  b5Kill(e); // part-65
   s5Kill(e); // part-58
   s4Kill(e); // part-50
   if (zone === 6 && F1().s3.step === 2) { F1().s3.kills++; if (F1().s3.kills >= 6) s3Go(3); else hud(); }
@@ -13937,6 +13944,7 @@ function dmgMod(e, dmg) {
   if (e.mod === 'shield' && e.shield > 0) { const a = Math.min(e.shield, dmg * 0.7); e.shield -= a; dmg -= a; if (e.shield <= 0) { burst(e.x, e.y - 60, 20, '#8de5f3'); popup(e.x, e.y - 140, 'ESCUDO ROTO', '#8de5f3'); } }
   dmg *= weatherDmg(); // part-47
   dmg *= s4DmgMod(e); // Robot Mk II armour (part-50)
+  dmg = comboCheck(e, dmg); // alien swap combos (part-65)
   if (e.dummy) dummyHit(dmg);
   return dmg;
 }
@@ -14817,6 +14825,7 @@ function moreSettings(back) {
 const watchVolume = () => lsGet('omni-volume-watch', 100) / 100;
 // ---------------- patch notes ----------------
 const CHANGELOG = [
+  ['0.31', 'Forma Ultimate para todos los aliens · combos · jefes con fase 2 · alien del día · Nueva Partida+ · tipos de enemigo · progreso · pegatinas de foto'],
   ['0.30', 'Reloj de la muñeca según el que lleves · Galería de escenas · Finales de escena arreglados · Omnitrix de Omniverse nuevo'],
   ['0.29', 'Arte nuevo para 18 aliens y 6 formas Ultimate · Escenas de transformación nuevas · Omnitrix Recalibrado y recargas del Ultimatrix'],
   ['0.28', 'Botón «!» para informar de fallos con un código'],
@@ -16393,6 +16402,258 @@ document.addEventListener('keydown', (e) => {
   if (i >= 0 && player.cool[i] > 0 && player.cool[i] < 0.25) { tapBuf = i; tapT = 0.25; } // remember a slightly early tap
 });
 (function slowAliensFaster() { for (const id of Object.keys(SPEEDS)) if (id !== 'human' && SPEEDS[id] < 185) SPEEDS[id] = 185; })();
+// ============================================================================================
+// OMNI 0.31 · AN ULTIMATE FORM FOR EVERY ALIEN. On the Ultimatrix (and Albedo's), every alien can now evolve.
+// Aliens with a series Ultimate keep theirs; every other alien gets a game-original Ultimate (canon 'game').
+// Until an alien's own Ultimate art arrives (tools/sheets_incoming/ultimate_<name>.png → import_sheets.py) the form
+// is shown as the alien itself, bigger, with a stronger, darker look and the evolved aura. Stats follow the
+// alien's power tier: weaker aliens gain more from evolving, cosmic ones gain the least (they're already huge).
+// ============================================================================================
+const ULT_TIER_BOOST = { 1: [1.6, 1.5], 2: [1.5, 1.42], 3: [1.38, 1.32], 4: [1.3, 1.26], 5: [1.15, 1.12] }; // [hp, damage]
+(function ultimatesForAll() {
+  for (const id of CORE_ALIENS) {
+    if (ULTIMATES[id] || !ALIENS[id] || id === 'osmo' || id === 'anodite' || (typeof isFusionId === 'function' && isFusionId(id))) continue;
+    const tier = (typeof ALIEN_SCALE !== 'undefined' && ALIEN_SCALE[id] && ALIEN_SCALE[id][1]) || 3, b = ULT_TIER_BOOST[tier];
+    registerUltimate({ base: id, name: 'Ultimate ' + ALIENS[id].name, canon: 'game', status: 'ready', hpMult: b[0], damageMult: b[1], scale: tier >= 5 ? 1.05 : 1.12 });
+  }
+})();
+// stand-in look while an Ultimate has no art of its own
+function ultLookFilter() {
+  return ultOn() && !ultForm().art && !lowGfx() ? 'saturate(1.45) contrast(1.18) brightness(0.92)' : '';
+}
+// ============================================================================================
+// OMNI 0.31 · BATCH 5
+//  COMBOS     hit an enemy with one alien, swap (quick swap / dial) and hit it again within 3 s with another:
+//             fire+ice "CHOQUE TÉRMICO" ×2.2 + stun · water/electric "ELECTROCUCIÓN" ×1.8 + jumps to 2 more ·
+//             plant+fire "INCENDIO" ×1.6 + burning · Fuerza "IMPACTO" ×1.5 + stun · any other pair "RELEVO" ×1.3
+//  BOSS PHASES every boss turns furious at half life (attacks faster, shockwave). Kraal, the Mk II and the zone
+//             bosses now have codex entries and weak points like the others (scan them with B).
+//  DAILY ALIEN one unlocked alien per day: double EXP while you use it, and 15 defeats with it pay 200 coins + 300 EXP.
+//  MASTER FINISHER aliens at 100 % mastery finish off ordinary enemies below 25 % life in one hit (+2 coins).
+//  ENEMY TYPES from level 4 some ordinary enemies are CARGADOR (charges in a line after a red warning), BOMBA (runs at
+//             you and explodes — hit it first), INVOCADOR (calls little drones) or TIRADOR (keeps its distance and shoots).
+//  NEW GAME+  after Story 05: replay every story keeping aliens, levels, watches and coins; enemies get tougher (+50 %
+//             life and +30 % damage per round) and all EXP grows by half per round.
+//  PHOTO      stickers, frame and caption in photo mode, saved into the picture.
+//  PROGRESS   Extras → PROGRESO: everything you can complete, with progress bars.
+// ============================================================================================
+// ---------------- combos ----------------
+let comboLast = null; // { alien, elems, eid, t }
+const COMBO_RULES = [
+  [['fire', 'ice'], 'CHOQUE TÉRMICO', 2.2, '#9fe8ff', 'stun'],
+  [['water', 'electric'], 'ELECTROCUCIÓN', 1.8, '#ffe94f', 'chain'],
+  [['plant', 'fire'], 'INCENDIO', 1.6, '#ff8a3c', 'burn'],
+];
+function comboCheck(e, dmg) { // dmgMod (part-46)
+  if (!player.alien || race !== 'omni' || (net.role === 'guest' && !net.applying && false)) return dmg;
+  const now = performance.now(), me = player.activeAlien, el = myElems(), L = comboLast;
+  comboLast = { alien: me, elems: el, eid: e.id, t: now };
+  if (!L || L.alien === me || now - L.t > 3000 || !e.alive) return dmg;
+  let rule = COMBO_RULES.find(([pair]) => (L.elems.includes(pair[0]) && el.includes(pair[1])) || (L.elems.includes(pair[1]) && el.includes(pair[0])));
+  if (!rule && (el.includes('heavy') || L.elems.includes('heavy'))) rule = [null, 'IMPACTO', 1.5, '#ffb35a', 'stun'];
+  if (!rule) rule = [null, 'RELEVO', 1.3, '#bdfcff', ''];
+  const [, name, mult, col, fx] = rule;
+  comboLast = null; // one combo per swap
+  popup(e.x, e.y - 175, '¡' + name + '! ×' + mult, col);
+  flash = Math.max(flash || 0, 0.18); shake = Math.max(shake || 0, 0.15); sfx('bolt');
+  if (fx === 'stun') e.stun = Math.max(e.stun || 0, 1);
+  if (fx === 'burn') applyStatus(e, 'poison', 3, 4 * multiplier());
+  if (fx === 'chain') setTimeout(() => { for (const o of enemies.filter((o) => o.alive && o !== e && dist(o, e) < 260).slice(0, 2)) { damageEnemy(o, dmg * 0.8); burst(o.x, o.y - 40, 10, col); } }, 120);
+  B5().combos = (B5().combos || 0) + 1;
+  return dmg * mult;
+}
+// ---------------- boss phases + new codex entries ----------------
+Object.assign(BEASTS, {
+  kraal: ['Kraal', 'Cazador de ADN. Lanza redes que frenan y embiste sin avisar.', 'No te quedes quieto; la fuerza bruta rompe su armadura.', 'Ruinas del pinar'],
+  mk2: ['Robot Mk II', 'El robot de Vilgax reconstruido. Blindado hasta que suelta vapor.', 'Golpea cuando se recalienta; la electricidad le afecta mucho.', 'Zona devastada'],
+  zona: ['Jefe de zona', 'Criaturas enormes que aparecen de vez en cuando en cada zona.', 'Los ataques de agua y fuerza les hacen más daño.', 'Varias zonas'],
+});
+Object.assign(WEAK, { kraal: ['heavy', 'fire'], mk2: ['electric', 'water'], zona: ['water', 'heavy'] });
+{
+  const bt = beastType;
+  beastType = function (e) { // eslint-disable-line no-func-assign
+    if (e && e.mech) return 'mk2';
+    if (e && e.hunter) return 'kraal';
+    if (e && e.zboss) return 'zona';
+    return bt(e);
+  };
+}
+const isBossE = (e) => e.boss || e.majorBoss || e.robotBoss || e.mech || e.hunter || e.zboss || e.sagaKind === 'specter';
+function phaseTick(dt) {
+  if (net.role === 'guest') return;
+  if (ngp()) for (const e of enemies) if (!e.ngpScaled) { e.ngpScaled = true; e.max = Math.round(e.max * ngpHp()); e.hp = Math.round(e.hp * ngpHp()); } // New Game+
+  for (const e of enemies) {
+    if (!e.alive || !isBossE(e) || e.phase2 || e.decoy || e.mini || !(e.hp < e.max * 0.5)) continue;
+    e.phase2 = true;
+    e.furyT = 0;
+    effects.push({ type: 'ring', x: e.x, y: e.y - 20, t: 0.7, max: 0.7, r: 220 });
+    if (dist(player, e) < 200) hitPlayer(12);
+    popup(e.x, e.y - 230, '¡FASE 2 · FURIA!', '#ff5a3a');
+    shake = 0.35; flash = 0.2; sfx('steam');
+  }
+  for (const e of enemies) if (e.alive && e.phase2) { // furious: cooldowns tick faster
+    e.cd = Math.max(0, (e.cd || 0) - dt * 0.6); e.rcd = Math.max(0, (e.rcd || 0) - dt * 0.6);
+    if (e.laserCd != null) e.laserCd -= dt * 0.4;
+    if (e.tp != null) e.tp -= dt * 0.3;
+  }
+}
+// ---------------- daily alien ----------------
+function B5() { return (player.b5 = player.b5 && typeof player.b5 === 'object' ? player.b5 : {}); }
+function dailyAlienId() {
+  const pool = CORE_ALIENS.filter((id) => ALIENS[id] && alienInfo(id).implemented && alienUnlocked(id));
+  if (!pool.length) return null;
+  let h = 0; for (const c of dayKey() + (player.level > 0 ? '' : '')) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return pool[h % pool.length];
+}
+function DA() { const b = B5(), d = dayKey(); if (!b.da || b.da.day !== d) b.da = { day: d, kills: 0, done: false, told: false }; return b.da; }
+function dailyXpMult() { return race === 'omni' && player.alien && player.activeAlien === dailyAlienId() ? 2 : 1; }
+function dailyAlienKill() {
+  const da = DA();
+  if (da.done || !player.alien || player.activeAlien !== dailyAlienId()) return;
+  da.kills++;
+  if (da.kills >= 15) { da.done = true; player.coins = (player.coins || 0) + 200; xp(300); toast('¡ALIEN DEL DÍA completado! +200 monedas · +300 EXP'); playWatchSFX('recharged'); save(); }
+}
+function dailyAlienMenu(back) {
+  const id = dailyAlienId(), da = DA();
+  showDialog('ALIEN DEL DÍA', id ? ALIENS[id].name : 'Desbloquea aliens primero',
+    id ? '<p>Hoy, usando a <b>' + ALIENS[id].name + '</b> ganas <b>el doble de EXP</b>.</p><p>Reto: derrota 15 enemigos con él · <b>' + Math.min(15, da.kills) + ' / 15</b>' + (da.done ? ' ✔' : '') + '</p><div class="b5bar"><i style="width:' + Math.min(100, (da.kills / 15) * 100) + '%"></i></div><p class="reward">Recompensa: 200 monedas · 300 EXP</p><p>Cambia cada día.</p>' : '',
+    [['VOLVER', back || extrasMenu]]);
+}
+// ---------------- master finisher ----------------
+function masterFinisher(e) { // feelHit (part-63) before the kill check
+  if (!player.alien || isBossE(e) || e.dummy || e.hp <= 0 || !(e.hp < e.max * 0.25)) return;
+  if (((player.masteries && player.masteries[player.activeAlien]) || 0) < 100) return;
+  e.hp = 0;
+  popup(e.x, e.y - 150, '¡REMATE MAESTRO!', '#ffd84a');
+  player.coins = (player.coins || 0) + 2;
+  flash = Math.max(flash || 0, 0.12);
+}
+// ---------------- enemy behaviours ----------------
+const BEH = { charger: ['CARGADOR', '#ff7a5a'], bomber: ['BOMBA', '#ffd84a'], summoner: ['INVOCADOR', '#c084ff'], sniper: ['TIRADOR', '#8de5f3'] };
+function behRoll() {
+  if (net.role === 'guest' || player.level < 4) return;
+  for (const e of enemies) {
+    if (e.behRolled) continue;
+    e.behRolled = true;
+    if (isBossE(e) || e.knight || e.elite || e.mod || e.temp || e.dummy || e.rush || e.rematch || e.sidejob || e.dun || Math.random() > 0.2) continue;
+    e.beh = Object.keys(BEH)[Math.floor(Math.random() * 4)];
+    e.behT = 2 + Math.random() * 2;
+    if (e.beh === 'bomber') { e.max = e.hp = Math.round(e.max * 0.6); }
+  }
+}
+function behTick(dt) {
+  if (net.role === 'guest') return;
+  behRoll();
+  for (const e of enemies) {
+    if (!e.alive || !e.beh || e.stun > 0) continue;
+    const d = dist(player, e), ang = Math.atan2(player.y - e.y, player.x - e.x);
+    e.behT -= dt;
+    if (e.beh === 'charger') {
+      if (e.chargeWind > 0) { e.chargeWind -= dt; if (e.chargeWind <= 0) e.charging = 0.45; continue; }
+      if (e.charging > 0) {
+        e.charging -= dt; moveActor(e, Math.cos(e.chAng) * 620 * dt, Math.sin(e.chAng) * 380 * dt);
+        if (!e.chHit && dist(player, e) < 60) { e.chHit = true; hitPlayer(Math.round(16 * lvDmg())); }
+        continue;
+      }
+      if (e.behT <= 0 && d < 420 && d > 90) { e.behT = 4.5; e.chargeWind = 0.7; e.chAng = ang; e.chHit = false; e.cd = Math.max(e.cd || 0, 1.5); }
+    } else if (e.beh === 'bomber') {
+      if (e.fuse > 0) { e.fuse -= dt; if (e.fuse <= 0) { effects.push({ type: 'ring', x: e.x, y: e.y - 20, t: 0.5, max: 0.5, r: 110 }); burst(e.x, e.y - 30, 30, '#ffd84a'); shake = 0.25; sfx('bolt'); if (dist(player, e) < 110) hitPlayer(Math.round(22 * lvDmg())); e.alive = false; e.respawn = 40; } continue; }
+      moveActor(e, Math.cos(ang) * 95 * dt, Math.sin(ang) * 70 * dt);
+      if (d < 70) e.fuse = 0.8;
+    } else if (e.beh === 'summoner') {
+      if (e.behT <= 0 && d < 600 && enemies.filter((o) => o.alive && o.mini && o.summonedBy === e.id).length < 3) {
+        e.behT = 8;
+        for (const k of [-1, 1]) {
+          const x = clamp(e.x + k * 60, region().minX + 40, region().maxX - 40), hp = lvHp(30);
+          enemies.push({ id: 950 + Math.floor(Math.random() * 49), x, y: e.y + 20, homeX: x, homeY: e.y, face: -1, hp, max: hp, kind: 'enemy', rcd: 3, cast: 0, stun: 0.6, alive: true, respawn: 1e9, cd: 1.5, wind: 0, anim: 0, hit: 0, moving: false, temp: true, mini: true, summonedBy: e.id, modRolled: true, behRolled: true });
+        }
+        burst(e.x, e.y - 50, 18, '#c084ff');
+      }
+    } else if (e.beh === 'sniper') {
+      if (d < 260) moveActor(e, -Math.cos(ang) * 80 * dt, -Math.sin(ang) * 60 * dt); // keeps its distance
+      e.cd = Math.max(e.cd || 0, 0.5); // never comes in to punch
+      if (e.behT <= 0 && d < 560) {
+        e.behT = 2.6;
+        hostileShots.push({ type: 'green', x: e.x, y: e.y - 50, dx: Math.cos(ang) * 330, dy: Math.sin(ang) * 330, t: 2, damage: Math.round(9 * lvDmg()), r: 9 });
+      }
+    }
+  }
+}
+function behDraw(e) { // over each enemy (part-43 scanDrawMark)
+  if (!e.alive || !e.beh) return;
+  const B = BEH[e.beh];
+  txt(B[0], e.x, e.y - 118, 7, B[1]);
+  if (e.chargeWind > 0) { ctx.save(); ctx.strokeStyle = '#ff4d4d'; ctx.globalAlpha = 0.7; ctx.lineWidth = 10; ctx.beginPath(); ctx.moveTo(e.x, e.y - 20); ctx.lineTo(e.x + Math.cos(e.chAng) * 300, e.y - 20 + Math.sin(e.chAng) * 180); ctx.stroke(); ctx.restore(); }
+  if (e.fuse > 0 && Math.floor(clock * 12) % 2) { ctx.save(); ctx.fillStyle = '#ff3a3a'; ctx.globalAlpha = 0.45; ctx.beginPath(); ctx.ellipse(e.x, e.y - 40, 46, 56, 0, 0, 7); ctx.fill(); ctx.restore(); }
+}
+// ---------------- New Game+ ----------------
+function ngp() { return B5().ngp | 0; }
+const ngpHp = () => 1 + ngp() * 0.5, ngpDmg = () => 1 + ngp() * 0.3;
+function ngpMenu(back) {
+  const ready = S5().step >= 5;
+  showDialog('NUEVA PARTIDA+', ngp() ? 'Ronda ' + (ngp() + 1) + ' en curso' : 'Vuelve a vivir las historias',
+    '<p>Rejuega las 5 historias desde el principio <b>conservando</b> aliens, nivel, relojes, mejoras y monedas.</p><p>Cada ronda: enemigos con <b>+50 % de vida</b> y <b>+30 % de daño</b>, y ganas <b>+50 % de EXP</b>.</p>' + (ready ? '' : '<p><b>Termina antes la Historia 05.</b></p>'),
+    ready ? [['¡EMPEZAR RONDA ' + (ngp() + 2) + '!', () => {
+      B5().ngp = ngp() + 1;
+      player.saga = {}; const f = F1(); f.s3 = { step: 0, found: [false, false, false], kills: 0 }; f.s4 = null; f.s5 = null;
+      save(); closeDialog(); toast('NUEVA PARTIDA+ · ronda ' + (ngp() + 1) + ' · habla con el Agente Vega en los Muelles'); playWatchSFX('recharged'); hud();
+    }], ['VOLVER', back || pauseMenu]] : [['VOLVER', back || pauseMenu]]);
+}
+// ---------------- photo stickers ----------------
+const STICKERS = ['⚡', '🔥', '❄', '💥', '★', '👊', '🛸', '💚'];
+let photoDeco = { frame: false, caption: '', stickers: [] };
+function photoDecoBar() {
+  const bar = document.getElementById('photobar');
+  if (!bar || bar.querySelector('[data-stk]')) return;
+  const box = document.createElement('span');
+  box.className = 'stkbox';
+  box.innerHTML = STICKERS.map((s, i) => '<button data-stk="' + i + '">' + s + '</button>').join('') + '<button data-frame>MARCO</button><button data-cap>TEXTO</button><button data-clr>BORRAR</button>';
+  bar.insertBefore(box, bar.querySelector('[data-shot]'));
+  box.querySelectorAll('[data-stk]').forEach((b) => (b.onclick = () => { photoDeco.stickers.push({ s: STICKERS[+b.dataset.stk], x: 0.15 + Math.random() * 0.7, y: 0.15 + Math.random() * 0.55, r: (Math.random() - 0.5) * 0.6 }); }));
+  box.querySelector('[data-frame]').onclick = () => (photoDeco.frame = !photoDeco.frame);
+  box.querySelector('[data-cap]').onclick = () => { const t = window.prompt ? window.prompt('Texto de la foto') : null; photoDeco.caption = (t || ['¡HÉROE DE BAHÍA!', '¡ES HORA DE SER HÉROE!', 'OMNI · ' + (ALIENS[player.activeAlien] || { name: '' }).name][Math.floor(Math.random() * 3)]).slice(0, 40); };
+  box.querySelector('[data-clr]').onclick = () => (photoDeco = { frame: false, caption: '', stickers: [] });
+}
+function photoDecoDraw() { // drawn on top of the world while photo mode is on (so it's in the saved picture)
+  if (typeof photoOn === 'undefined' || !photoOn) return;
+  photoDecoBar();
+  const c = $('#world'), g = c.getContext('2d'), W = c.width, H = c.height;
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
+  if (photoDeco.frame) { g.strokeStyle = (omniActive() && getWatch().color) || '#7dff9a'; g.lineWidth = H * 0.025; g.strokeRect(H * 0.02, H * 0.02, W - H * 0.04, H - H * 0.04); g.fillStyle = g.strokeStyle; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.font = 'bold ' + Math.round(H * 0.035) + 'px Arial'; g.fillText('OMNI', H * 0.05, H - H * 0.05); }
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (const s of photoDeco.stickers) { g.save(); g.translate(s.x * W, s.y * H); g.rotate(s.r); g.font = Math.round(H * 0.11) + 'px sans-serif'; g.fillText(s.s, 0, 0); g.restore(); }
+  if (photoDeco.caption) { g.font = 'bold ' + Math.round(H * 0.07) + 'px Arial'; g.lineWidth = H * 0.012; g.strokeStyle = '#061008'; g.strokeText(photoDeco.caption, W / 2, H * 0.12); g.fillStyle = '#ffffff'; g.fillText(photoDeco.caption, W / 2, H * 0.12); }
+  g.restore();
+}
+// ---------------- progress screen ----------------
+function progressMenu(back) {
+  const al = CORE_ALIENS.filter((id) => ALIENS[id] && alienInfo(id).implemented), m = player.masteries || {}, bx = BX(), bk = Object.keys(BEASTS);
+  const rows = [
+    ['Aliens desbloqueados', al.filter((id) => alienUnlocked(id)).length, al.length],
+    ['Aliens dominados (100 %)', al.filter((id) => (m[id] || 0) >= 100).length, al.length],
+    ['Historias completadas', [quest.state === 'done', SG().step >= 8, F1().s3.step >= 5, S4().step >= 6, S5().step >= 5].filter(Boolean).length, 5],
+    ['Bestiario escaneado', bk.filter((k) => bx[k] && bx[k].scanned).length, bk.length],
+    ['Logros', ACHS.filter((a) => (player.ach || {})[a[0]]).length, ACHS.length],
+    ['Títulos', TITLES.filter((t) => { try { return t[3](); } catch (e) { return false; } }).length, TITLES.length],
+    ['Insignias Fontanero', badgeCount(), REGIONS.reduce((n, r, z) => n + badgeSpots(z).length, 0)],
+    ['Revanchas ★★★', Object.values(RMX()).filter((r) => r[3]).length, RM_BOSSES.length],
+    ['Encargos de vecinos', Math.min(10, SJX().done || 0), 10],
+    ['Combos de aliens', Math.min(50, B5().combos || 0), 50],
+  ];
+  const tot = rows.reduce((a, r) => a + r[1] / r[2], 0) / rows.length;
+  showDialog('PROGRESO', Math.round(tot * 100) + ' % completado' + (ngp() ? ' · Partida+ ronda ' + (ngp() + 1) : ''),
+    '<div class="b5prog">' + rows.map(([n, a, b]) => '<div><span>' + n + '</span><b>' + a + ' / ' + b + '</b><div class="b5bar"><i style="width:' + Math.round((a / Math.max(1, b)) * 100) + '%"></i></div></div>').join('') + '</div>',
+    [['VOLVER', back || extrasMenu]]);
+}
+// ---------------- shared tick / kill hook ----------------
+let b5Told = false;
+function b5Tick(dt) {
+  if (!started) return;
+  phaseTick(dt);
+  behTick(dt);
+  if (!b5Told && race === 'omni' && dailyAlienId()) { b5Told = true; const da = DA(); if (!da.told) { da.told = true; setTimeout(() => toast('ALIEN DEL DÍA: ' + ALIENS[dailyAlienId()].name + ' · doble EXP hoy (Extras)'), 6000); } }
+}
+function b5Kill(e) { dailyAlienKill(); }
 applyWatchTheme();
 resize();
 boot();
@@ -16403,7 +16664,7 @@ if (window.__game)
     missionBoard, missionAccept, activeMission, MS, MISSIONS, coopOn, coopState, coopShare, coopTickMissions, COOP_SITES,
     arenaStart, arenaEnd, arena, arenaBest, statEvent, stats, daily, dailyMenu, achMenu, achCheck, ACHS, codexMenu, codexCard, codexIds, extrasMenu, difficultyMenu, diffCfg, diffKey, DIFFS, PAD, padPoll, padHelp,
     watchAnim, WATCH_ERAS, eraPlaylist, eraOf, storyPlay, storyFor, storyDraw, storyFit, storyPreload, BOARDS, SHEET_ROWS, SKIN_ART, boardId,
-    wristInfo, setWrist: (w) => (wristFor = w), wristDet, wristScan, spriteInfoQA: (r) => spriteInfo(r), galleryMenu, galOpen, feedbackMenu, fbSnapshot, art, bakWrite, bakList, bakMenu, S5, s5Go, s5StartSeal, story5Talk, citizensQA: () => citizens, get sj() { return sj; }, sjOffer, sjDone, rematchStart, rematchMenu, get rm() { return rm; }, RMX, tutEnd, get tutState() { return tutState; }, remoteTargets, hurtTeam, partyOthers, partySize, get netq() { return net; }, musStepQA: (t) => musStep(t), MUS, musBuild, MUS_SONGS, S4, s4Go, story4Talk, s4Near, s4Fx, ULTIMATES, ultOn, ultForm, ALIEN_SCALE, alienHeight, sizeGuard, alienPower, tierDrain, scaleLine, codexCard, ALIENS, F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
+    phaseTick, isBossE, b5Tick, get pausedQA() { return paused; }, get dialogQA() { return dialogOpen; }, comboCheck, dailyAlienId, DA, B5, ngpMenu, progressMenu, dailyAlienMenu, behTick, photoDeco: () => photoDeco, beastType, wristInfo, setWrist: (w) => (wristFor = w), wristDet, wristScan, spriteInfoQA: (r) => spriteInfo(r), galleryMenu, galOpen, feedbackMenu, fbSnapshot, art, bakWrite, bakList, bakMenu, S5, s5Go, s5StartSeal, story5Talk, citizensQA: () => citizens, get sj() { return sj; }, sjOffer, sjDone, rematchStart, rematchMenu, get rm() { return rm; }, RMX, tutEnd, get tutState() { return tutState; }, remoteTargets, hurtTeam, partyOthers, partySize, get netq() { return net; }, musStepQA: (t) => musStep(t), MUS, musBuild, MUS_SONGS, S4, s4Go, story4Talk, s4Near, s4Fx, ULTIMATES, ultOn, ultForm, ALIEN_SCALE, alienHeight, sizeGuard, alienPower, tierDrain, scaleLine, codexCard, ALIENS, F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
     get enemies() { return enemies; },
     get sagaCineOn() { return sagaCineOn; },
     get scan() { return scan; },

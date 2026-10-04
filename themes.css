@@ -337,3 +337,10 @@
 .fbkinds { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 #game[data-ui="comic"] #fbbtn { background: var(--paper) !important; color: var(--ink) !important; border: 2px solid var(--ink) !important; }
 #dailycard { z-index: 12 !important; } /* under menus and dialogs (#modal is 30) */
+/* 0.31 · batch 5 */
+.b5bar { height: 8px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); margin-top: 4px; }
+.b5bar i { display: block; height: 100%; background: var(--ox, #7dff9a); }
+.b5prog { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; }
+.b5prog > div span { font-size: 11px; color: #c9d8cf; } .b5prog > div b { float: right; font-size: 11px; }
+#photobar .stkbox { display: inline-flex; gap: 4px; flex-wrap: wrap; margin: 0 8px; }
+#photobar .stkbox button { min-width: 32px; padding: 4px 6px; font-size: 14px; }
