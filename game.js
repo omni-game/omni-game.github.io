@@ -1,4 +1,4 @@
-window.OMNI_BUILD=57;
+window.OMNI_BUILD=58;
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -4296,6 +4296,7 @@ function pauseMenu() {
       [
         ['MÚSICA', () => window.OmniMusic.open()],
         ['TUTORIAL', () => { closeDialog(); tutStart(true); }],
+        ['INFORMAR DE UN FALLO', () => feedbackMenu(pauseMenu)],
         ['SONIDO: ' + (sound ? 'SÍ' : 'NO'), () => { sound = !sound; pauseMenu(); }],
         ['DÍA / NOCHE: ' + String(dayMode).toUpperCase(), () => { dayMode = dayMode === 'noche' ? 'día' : dayMode === 'día' ? 'ciclo' : 'noche'; pauseMenu(); }],
         ['DIFICULTAD: ' + diffCfg().name, () => difficultyMenu(pauseMenu)],
@@ -14801,6 +14802,7 @@ function moreSettings(back) {
 const watchVolume = () => lsGet('omni-volume-watch', 100) / 100;
 // ---------------- patch notes ----------------
 const CHANGELOG = [
+  ['0.28', 'Botón «!» para informar de fallos con un código'],
   ['0.27', 'Música propia por zona · Co-op de hasta 4 · Tutorial guiado · Galería de jefes · Encargos de vecinos · Historia 05 · Copias automáticas · Carga más rápida'],
   ['0.26', 'HUD limpio · Aliens a escala y con su poder · Historia 04 · Sobrecarga · Descargas en la web · Juego sin internet en la web'],
   ['0.25', 'Relojes, poses de activación, Vega, Draven, el Espectro y fondos nuevos'],
@@ -16142,6 +16144,61 @@ function bakMenu(back) {
   setTimeout(() => showDialog('PARTIDA DAÑADA', 'No se pudo leer tu partida', '<p>Hay una copia automática del ' + newest.date + ' (nivel ' + newest.level + ').</p>',
     [['RESTAURAR COPIA', () => { const err = restoreCode(newest.code); if (err) return toast(err); location.reload(); }], ['NO', closeDialog]]), 1500);
 })();
+// ============================================================================================
+// OMNI 0.28 · FEEDBACK REPORTS. Pause → INFORMAR DE UN FALLO (and the "!" button next to pause). The player picks
+// what kind of report it is, writes what happened, and gets a short code to copy and send. The code carries the
+// details needed to find the problem: build, device, screen, race/level/zone/alien/watch, story steps, what is on
+// screen right now, and the last errors the game hit. No personal data, nothing is sent anywhere automatically.
+// Decode with: python3 tools/decode_report.py <code>
+// ============================================================================================
+const fbErrors = [];
+window.addEventListener('error', (e) => { fbErrors.push([Date.now(), String((e && e.message) || e).slice(0, 160), e && e.filename ? String(e.filename).split('/').pop() + ':' + e.lineno : '']); if (fbErrors.length > 8) fbErrors.shift(); });
+window.addEventListener('unhandledrejection', (e) => { fbErrors.push([Date.now(), 'promise: ' + String(e && e.reason && (e.reason.message || e.reason)).slice(0, 160), '']); if (fbErrors.length > 8) fbErrors.shift(); });
+const FB_KINDS = [['bug', 'FALLO'], ['hard', 'MUY DIFÍCIL'], ['easy', 'MUY FÁCIL'], ['confuse', 'NO SE ENTIENDE'], ['idea', 'IDEA']];
+let fbKind = 'bug';
+function fbSnapshot(text) {
+  const g = $('#game'), safe = (f) => { try { return f(); } catch (e) { return null; } };
+  return {
+    v: 1, at: new Date().toISOString(), kind: fbKind, text: String(text || '').slice(0, 600),
+    build: window.OMNI_BUILD, ver: safe(() => document.querySelector('.eyebrow').textContent.match(/[0-9.]+$/)[0]),
+    dev: { ua: navigator.userAgent.slice(0, 160), w: innerWidth, h: innerHeight, dpr: devicePixelRatio, touch: safe(() => matchMedia('(pointer: coarse)').matches), lang: safe(() => OmniI18n.lang), app: location.protocol === 'file:' ? 'apk/pc' : 'web' },
+    ui: { theme: safe(uiTheme), lite: safe(hudLite), gfx: safe(gfxMode), low: safe(lowGfx), dial: safe(dialDocked) },
+    p: { race, lvl: player.level, hp: Math.round(player.hp), max: safe(maxHP), x: Math.round(player.x), y: Math.round(player.y), zone, alien: player.alien ? player.activeAlien : null, watch: player.watch, bat: Math.round(player.battery || 0), coins: player.coins, diff: player.diff || 'normal', prestige: safe(() => F2().prestige) },
+    story: { m1: quest.state, s2: safe(() => SG().step), s3: safe(() => F1().s3.step), s4: safe(() => S4().step), s5: safe(() => S5().step), mission: safe(() => activeMission() && (activeMission().key || activeMission().type)), job: safe(() => sj.job && sj.job.type), rematch: safe(() => rm.on && rm.id), rush: safe(() => rush.on), tut: player.tut || null },
+    net: { role: net.role, mode: net.mode, players: safe(partySize), pid: net.myPid || null },
+    scene: { paused, dialog: dialogOpen, sel: !!sel, cine: safe(() => sagaCineOn), enemies: enemies.filter((e) => e.alive).length, bosses: enemies.filter((e) => e.alive && e.boss).map((e) => e.zboss || e.label || (e.mech && 'mk2') || (e.hunter && 'kraal') || e.sagaKind || 'boss').slice(0, 4), quest: safe(() => $('#questtext').textContent) },
+    err: fbErrors.map((x) => [Math.round((Date.now() - x[0]) / 1000) + 's', x[1], x[2]]),
+  };
+}
+function fbCode(o) { return 'OMNI-INFORME:' + btoa(unescape(encodeURIComponent(JSON.stringify(o)))); }
+function feedbackMenu(back) {
+  const box = 'width:100%;font-size:11px;background:#071923;color:#e7ffe7;border:1px solid #749286;user-select:text;-webkit-user-select:text;touch-action:auto;padding:6px';
+  showDialog('INFORMAR DE UN FALLO', 'Cuéntanos qué ha pasado',
+    '<div class="fbkinds">' + FB_KINDS.map(([k, n]) => '<button class="pbtn' + (k === fbKind ? ' main' : '') + '" data-fb="' + k + '">' + n + '</button>').join('') + '</div>' +
+      '<textarea id="fbtext" rows="3" maxlength="600" placeholder="¿Qué estabas haciendo y qué pasó? (p. ej. «me transformé en Rath y el juego se quedó quieto»)" style="' + box + '"></textarea>' +
+      '<p>Pulsa <b>CREAR CÓDIGO</b>, cópialo y envíaselo a quien te pasó el juego. Lleva los detalles de la partida para encontrar el fallo (sin datos personales).</p>' +
+      '<textarea id="fbout" readonly rows="2" style="' + box + ';font-size:8px" placeholder="Aquí aparecerá el código"></textarea><p id="fbmsg" style="min-height:14px"></p>',
+    [['CREAR CÓDIGO', () => {
+      const t = $('#fbtext').value.trim(), code = fbCode(fbSnapshot(t)), out = $('#fbout');
+      out.value = code;
+      try { const L = JSON.parse(localStorage.getItem('OMNIFB') || '[]'); L.unshift({ at: Date.now(), code }); localStorage.setItem('OMNIFB', JSON.stringify(L.slice(0, 5))); } catch (e) {}
+      const done = (m) => { $('#fbmsg').textContent = m; };
+      try { navigator.clipboard.writeText(code).then(() => done('Código copiado ✔ · pégalo en WhatsApp, Discord…'), () => { out.select(); done('Mantén pulsado el código para copiarlo'); }); } catch (e) { out.select(); done('Mantén pulsado el código para copiarlo'); }
+      sfx('click');
+    }], ['VOLVER', back || pauseMenu]]);
+  for (const b of document.querySelectorAll('[data-fb]')) b.onclick = () => { fbKind = b.dataset.fb; for (const x of document.querySelectorAll('[data-fb]')) x.classList.toggle('main', x === b); };
+  // typing must not move the hero or open the watch
+  for (const id of ['#fbtext', '#fbout']) { const el = $(id); if (el) for (const ev of ['keydown', 'keyup', 'keypress']) el.addEventListener(ev, (e) => e.stopPropagation()); }
+}
+// a small "!" button next to pause, so a problem can be reported the moment it happens
+{
+  const b = document.createElement('button');
+  b.id = 'fbbtn';
+  b.textContent = '!';
+  b.setAttribute('aria-label', 'Informar de un fallo');
+  b.onclick = () => { if (started) { if (!paused && typeof pauseMenu === 'function') pauseMenu(); feedbackMenu(pauseMenu); } };
+  $('#game').append(b);
+}
 applyWatchTheme();
 resize();
 boot();
@@ -16152,7 +16209,7 @@ if (window.__game)
     missionBoard, missionAccept, activeMission, MS, MISSIONS, coopOn, coopState, coopShare, coopTickMissions, COOP_SITES,
     arenaStart, arenaEnd, arena, arenaBest, statEvent, stats, daily, dailyMenu, achMenu, achCheck, ACHS, codexMenu, codexCard, codexIds, extrasMenu, difficultyMenu, diffCfg, diffKey, DIFFS, PAD, padPoll, padHelp,
     watchAnim, WATCH_ERAS, eraPlaylist, eraOf, storyPlay, storyFor, storyDraw, storyFit, storyPreload, BOARDS, SHEET_ROWS, SKIN_ART, boardId,
-    art, bakWrite, bakList, bakMenu, S5, s5Go, s5StartSeal, story5Talk, citizensQA: () => citizens, get sj() { return sj; }, sjOffer, sjDone, rematchStart, rematchMenu, get rm() { return rm; }, RMX, tutEnd, get tutState() { return tutState; }, remoteTargets, hurtTeam, partyOthers, partySize, get netq() { return net; }, musStepQA: (t) => musStep(t), MUS, musBuild, MUS_SONGS, S4, s4Go, story4Talk, s4Near, s4Fx, ULTIMATES, ultOn, ultForm, ALIEN_SCALE, alienHeight, sizeGuard, alienPower, tierDrain, scaleLine, codexCard, ALIENS, F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
+    feedbackMenu, fbSnapshot, art, bakWrite, bakList, bakMenu, S5, s5Go, s5StartSeal, story5Talk, citizensQA: () => citizens, get sj() { return sj; }, sjOffer, sjDone, rematchStart, rematchMenu, get rm() { return rm; }, RMX, tutEnd, get tutState() { return tutState; }, remoteTargets, hurtTeam, partyOthers, partySize, get netq() { return net; }, musStepQA: (t) => musStep(t), MUS, musBuild, MUS_SONGS, S4, s4Go, story4Talk, s4Near, s4Fx, ULTIMATES, ultOn, ultForm, ALIEN_SCALE, alienHeight, sizeGuard, alienPower, tierDrain, scaleLine, codexCard, ALIENS, F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
     get enemies() { return enemies; },
     get sagaCineOn() { return sagaCineOn; },
     get scan() { return scan; },

@@ -329,3 +329,11 @@
 #tutcard.tick b::before { content: '✔ '; color: #ffe27a; }
 #game[data-ui="comic"] #tutcard { background: var(--paper) !important; border: 3px solid var(--ink) !important; box-shadow: 4px 4px 0 var(--ink) !important; }
 #game[data-ui="comic"] #tutcard b, #game[data-ui="comic"] #tutcard small, #game[data-ui="comic"] #tutcard button { color: var(--ink) !important; }
+/* 0.28 · feedback reports */
+#fbbtn { position: absolute; right: 22px; top: 112px; width: 42px; height: 30px; z-index: 6; font-size: 16px; font-weight: 900; color: #ffe27a; background: rgba(6, 14, 10, .85); border: 1px solid #ffe27a66; }
+#game.hudlite #fbbtn { right: 56px !important; top: 58px !important; width: 42px !important; height: 30px !important; }
+#game.streammode #fbbtn { display: none !important; }
+#hud.hidden ~ #fbbtn { display: none; }
+.fbkinds { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+#game[data-ui="comic"] #fbbtn { background: var(--paper) !important; color: var(--ink) !important; border: 2px solid var(--ink) !important; }
+#dailycard { z-index: 12 !important; } /* under menus and dialogs (#modal is 30) */
