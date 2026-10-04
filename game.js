@@ -1,4 +1,4 @@
-window.OMNI_BUILD=64;
+window.OMNI_BUILD=65;
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -13646,7 +13646,7 @@ function rushTick(dt) {
 // ---------------- save transfer (device → device, 5-letter code) ----------------
 let xferPeer = null;
 function xferOpts() { // ?peerhost=host:port (QA / self-hosting), like room codes (room.js)
-  const o = { debug: 0 }, m = /[?&]peerhost=([^&]+)/.exec(location.search || '');
+  const o = { debug: 0, config: { iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }, { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' }] } }, m = /[?&]peerhost=([^&]+)/.exec(location.search || '');
   if (m) { const [h, p] = decodeURIComponent(m[1]).split(':'); Object.assign(o, { host: h, port: +(p || 9000), path: '/', secure: location.protocol === 'https:' }); }
   return o;
 }

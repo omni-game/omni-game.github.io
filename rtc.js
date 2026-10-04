@@ -3,7 +3,7 @@
 // Works between any two devices that run the game: Android APK <-> PC browser <-> iPhone Safari, etc.
 // It emits the same events as the native Wi-Fi bridge through window.omniLanEvent.
 window.OmniRTC = (() => {
-  const ICE = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }];
+  const ICE = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }, { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' }];
   let pc = null, dc = null, role = null, stopped = true, notified = false;
   const emit = (kind, data) => { try { if (window.omniLanEvent) window.omniLanEvent(kind, data || ''); } catch (e) { console.warn(e); } };
   const b64u = (u8) => { let s = ''; for (const b of u8) s += String.fromCharCode(b); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };

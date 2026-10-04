@@ -842,5 +842,7 @@ window.OMNI_EN = Object.assign(window.OMNI_EN || {}, {
 "12 escenas terminan ahora con el alien completo · Omnitrix de Omniverse con cuerpo nuevo":"12 scenes now end on the full alien · Omniverse Omnitrix with a new body",
 "Reloj de la muñeca según el que lleves · Galería de escenas · Finales de escena arreglados · Omnitrix de Omniverse nuevo":"Wrist watch matches the one you wear · Scene gallery · Scene endings fixed · New Omniverse Omnitrix",
 "Combate con más peso: los enemigos retroceden y se interrumpen al golpearlos, pausa breve en cada golpe":"Heavier combat: enemies get knocked back and interrupted when hit, a brief freeze on every hit",
-"Ataque básico más rápido y los drones aguantan menos · los aliens más lentos caminan un poco más rápido":"Faster basic attack and drones are less spongy · the slowest aliens walk a bit faster"
+"Ataque básico más rápido y los drones aguantan menos · los aliens más lentos caminan un poco más rápido":"Faster basic attack and drones are less spongy · the slowest aliens walk a bit faster",
+"La sala no responde · el anfitrión debe tener el juego abierto en pantalla. Comprueba el código y prueba otra vez":"The room isn't answering · the host must have the game open on screen. Check the code and try again",
+"Salas de co-op más fiables: conexión de respaldo para datos móviles y reintentos automáticos al unirse":"More reliable co-op rooms: a backup connection for mobile data and automatic retries when joining"
 });
