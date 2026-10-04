@@ -411,3 +411,31 @@
 #specbar span { font-size: 9px; letter-spacing: 2px; color: #7dff9a; font-weight: 800; margin-right: 4px; }
 #specbar button { font-size: 18px; padding: 4px 8px; background: #102133; border: 1px solid #6a838266; }
 #specbar button[data-chx] { font-size: 10px; font-weight: 800; padding: 8px 10px; }
+/* ===================== 0.36 · tidy-up: Extras hub, stories ===================== */
+.hubwide { width: min(760px, 94%) !important; }
+.hubtabs button { font-size: 9.5px !important; white-space: nowrap; }
+.hubgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; animation: uiRise .2s ease-out; }
+.hubcard { position: relative; display: grid; grid-template-columns: 34px 1fr; grid-template-rows: auto auto; gap: 1px 8px; align-items: center; text-align: left; padding: 10px 10px 9px; min-height: 58px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--hc) 14%, #07120d), #06100b) !important; border: 1px solid color-mix(in srgb, var(--hc) 35%, transparent) !important; border-left: 3px solid var(--hc) !important; transition: transform .12s, border-color .12s, background .12s; }
+.hubcard:hover, .hubcard:focus-visible { transform: translateY(-2px); border-color: var(--hc) !important; background: linear-gradient(135deg, color-mix(in srgb, var(--hc) 24%, #07120d), #08140e) !important; }
+.hubcard i { grid-row: 1 / span 2; font-style: normal; font-size: 22px; line-height: 1; text-align: center; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--hc) 50%, transparent)); }
+.hubcard b { font-size: 10.5px; letter-spacing: .8px; color: #f0ffe6; line-height: 1.2; }
+.hubcard small { font-size: 9.5px; color: color-mix(in srgb, var(--hc) 70%, #c8d4cc); line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.storygrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.storycard { display: grid; grid-template-columns: 52px 1fr; gap: 12px; align-items: center; text-align: left; padding: 12px; background: linear-gradient(135deg, color-mix(in srgb, var(--sc) 14%, #07120d), #06100b) !important; border: 1px solid color-mix(in srgb, var(--sc) 35%, transparent) !important; border-left: 4px solid var(--sc) !important; transition: transform .12s; }
+.storycard:hover:not([disabled]) { transform: translateY(-2px); }
+.storycard em { font-style: normal; font-size: 26px; font-weight: 900; color: var(--sc); text-align: center; font-variant-numeric: tabular-nums; }
+.storycard small { display: block; font-size: 8.5px; letter-spacing: 1.6px; font-weight: 800; color: var(--sc); }
+.storycard b { display: block; font-size: 14px; color: #f0ffe6; margin: 2px 0; }
+.storycard span { display: block; font-size: 10.5px; color: #b9c9c9; line-height: 1.35; }
+.storycard.st2 { opacity: .8; } .storycard.st2 small::after { content: ' ✔'; }
+.storycard.st1 { box-shadow: 0 0 18px color-mix(in srgb, var(--sc) 25%, transparent); }
+.storycard[disabled] { filter: grayscale(1); opacity: .45; }
+@media (max-width: 700px) { .storygrid { grid-template-columns: 1fr; } }
+#dailycard { top: 300px !important; }
+.hubgrid { grid-template-columns: repeat(auto-fill, minmax(172px, 1fr)); }
+.hubcard { min-height: 62px; }
+.hubcard b { font-size: 12px; }
+.hubcard small { font-size: 10.5px; }
+.hubcard i { font-size: 24px; }
+.hubtabs button { font-size: 10.5px !important; }

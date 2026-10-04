@@ -1,4 +1,4 @@
-window.OMNI_BUILD=71;window.OMNI_NOTES=["Trucos de Chispa: buscar monedas, olfatear cápsulas, escudo y supercarga (pausa → PERSONAJE)", "Vecinos: haz encargos y rescates para haceros amigos; regalos, pistas y descuentos", "Nueva Partida+: elige reglas extra (enemigos rápidos, sin mapa, media vida, cristal) para ganar más EXP", "Mercado nocturno en el Mercado de Bahía: objetos raros que cambian cada noche", "Personaliza tu reloj: color, estilo del dial, efecto de transformación y sonidos", "Modo espectador en co-op: mira la partida del anfitrión y anímale con emojis"];
+window.OMNI_BUILD=72;window.OMNI_NOTES=["Extras renovado: cinco pestañas con tarjetas (modos, colección, progreso, base y amigos, más) y lo que llevas en cada una", "Nueva pantalla de HISTORIAS con todas las historias y dónde vas en cada una", "Menú de pausa más limpio: lo esencial en JUGAR, todo lo demás en MODOS Y EXTRAS", "Los avisos ya no se pisan: si llegan varios a la vez salen uno detrás de otro", "Pantalla de cápsulas de ADN por zona"];
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -4305,7 +4305,7 @@ function pauseMenu() {
     eras = w && w.eras ? w.eras.map((e) => ERA_NAMES[e]).join(' + ') : '',
     mc = w && player.masterControl && w.masterControl;
   const groups = [
-    ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['REGISTRO DE MISIONES', () => missionLogMenu(pauseMenu)], ['BASE FONTANERA', () => baseMenu(pauseMenu)], ['MENÚ PRINCIPAL', toTitleAsk], ['NOVEDADES', () => whatsNewMenu(pauseMenu)], ['MISIONES', missionBoard], ['HISTORIA · ECOS DEL VACÍO', sagaMenu], ['HISTORIA 03 · CAZADOR', s3Menu], ['HISTORIA 04 · SOBRECARGA', s4Menu], ['HISTORIA 05 · ECO DEL ESPECTRO', s5Menu], ['NUEVA PARTIDA+', () => ngpMenu()], ['BOSS RUSH', bossRushMenu], ['GALERÍA DE JEFES', () => rematchMenu()], ['EXTRAS · ARENA · RETOS · LOGROS', extrasMenu], ['MAPA', () => showWorldMap()], ['VIAJE RÁPIDO', () => travelMenu()], ['FAVORES', () => favoursMenu()], ['ARCADE', () => arcadeMenu()], ...(net.peer ? [['REGALAR MONEDAS', giftMenu], ['INTERCAMBIO', () => tradeMenu(pauseMenu)], ...(net.role === 'guest' ? [[specOn() ? 'DEJAR DE MIRAR' : 'MODO ESPECTADOR', specToggle]] : [])] : []), ['MINIJUEGOS / TRABAJOS', jobsMenu], ['MULTIJUGADOR · CROSSPLAY', lanMenu]]],
+    ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['REGISTRO DE MISIONES', () => missionLogMenu(pauseMenu)], ['HISTORIAS', () => storiesMenu(pauseMenu)], ['MODOS Y EXTRAS', () => extrasMenu()], ['MAPA', () => showWorldMap()], ['VIAJE RÁPIDO', () => travelMenu()], ['BASE FONTANERA', () => baseMenu(pauseMenu)], ['MULTIJUGADOR · CROSSPLAY', lanMenu], ...(net.peer ? [['REGALAR MONEDAS', giftMenu], ['INTERCAMBIO', () => tradeMenu(pauseMenu)], ...(net.role === 'guest' ? [[specOn() ? 'DEJAR DE MIRAR' : 'MODO ESPECTADOR', specToggle]] : [])] : []), ['NOVEDADES', () => whatsNewMenu(pauseMenu)], ['MENÚ PRINCIPAL', toTitleAsk]]],
     ['RELOJ Y ALIENS', [['RELOJ / OMNITRIX', () => watchMenu()], ['MEJORAS DE ALIENS', () => upgradeMenu()], ['EQUIPOS DE ALIENS', () => loadoutMenu()], ['MEJORAS DEL RELOJ', () => watchUpgMenu()], ['LABORATORIO DE ADN', () => labMenu()], ['VARIANTES', () => variantMenu()], ['PERSONALIZAR RELOJ', () => wcMenu(pauseMenu)], ['SKINS DE ALIENS', alienSkinMenu], ['ÁRBOL', skillTree], ['GUÍA / ATAQUES', guide]]],
     ['PERSONAJE', [['PERSONAJE / SKIN', skinMenu], ['RAZAS', raceMenu], ['MODO FOTO', photoMode], ['TÍTULOS', () => titlesMenu(pauseMenu)], ['MAESTRÍA', () => masteryMenu(pauseMenu)], ['TRUCOS DE CHISPA', () => trickMenu(pauseMenu)], ['VECINOS', () => friendsMenu(pauseMenu)], ['ESTADÍSTICAS', () => statsMenu(pauseMenu)], ['PRESTIGIO', prestigeMenu], ['MODO STREAMER: ' + (stream.on ? 'SÍ' : 'NO'), streamToggle], ...(stream.on ? [['RULETA DEL CHAT', chatRoulette]] : []), ['MASCOTA: ' + (F1().pet ? 'SÍ' : 'NO'), () => { F1().pet = !F1().pet; save(); pauseMenu(); }], ['RECOMPENSA DIARIA', dailyCalendar]]],
     [
@@ -14885,6 +14885,7 @@ function moreSettings(back) {
 const watchVolume = () => lsGet('omni-volume-watch', 100) / 100;
 // ---------------- patch notes ----------------
 const CHANGELOG = [
+  ['0.36', 'Extras con pestañas y tarjetas · pantalla de historias · pausa más limpia · avisos en cola'],
   ['0.35', 'Trucos de Chispa · amistad con los vecinos · reglas de Nueva Partida+ · mercado nocturno · personalizar reloj · modo espectador'],
   ['0.34', 'Modo villano · rescates · ola de calor y nieve · rival Dax · reto del fallo · reto personalizado · créditos y epílogo'],
   ['0.33', 'Base Fontanera · jefe mundial · carreras · pesca · cápsulas de ADN y logros secretos · intercambio · héroe de la semana · repeticiones'],
@@ -18744,6 +18745,131 @@ function b9Tick(dt) {
 }
 function b9Draw() { mkDraw(); }
 function b9DrawTop() { trickDraw(); cheerDraw(); }
+// ============================================================================================
+// OMNI 0.36 · TIDY-UP
+//  EXTRAS HUB   the long Extras list becomes five tabs of cards (modes, collection, progress, base & friends, more),
+//               each card with an icon and a live status line (record, time left, what you have).
+//  STORIES      one HISTORIAS screen with every story as a card and where you are in it.
+//  PAUSE        the JUGAR tab keeps only the essentials; everything else lives in the Extras hub.
+// ============================================================================================
+const safeS = (f) => { try { const v = f(); return v == null ? '' : String(v); } catch (e) { return ''; } };
+const mmss = (s) => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+function hubTabs() {
+  const co = !!net.peer;
+  return [
+    ['modos', '⚔️ MODOS', '#ff9a6a', [
+      ['🌊', 'ARENA DE OLEADAS', () => (arenaOn() ? '¡En curso! · oleada ' + arena.wave : 'Récord: oleada ' + arenaBest()), () => (arenaOn() ? (arenaEnd('quit'), closeDialog()) : arenaStart())],
+      ['🏆', 'GALERÍA DE JEFES', () => 'Medallas de oro: ' + medalCount(), () => rematchMenu(() => extrasMenu('modos'))],
+      ['💀', 'BOSS RUSH', () => (F1().rushBest ? 'Récord: ' + rushFmt(F1().rushBest) : 'Todos los jefes seguidos'), bossRushMenu],
+      ['🏁', 'CARRERAS', () => Object.keys(B7().race).length + ' / 3 circuitos con tiempo', () => raceMenu(() => extrasMenu('modos'))],
+      ['🗿', 'JEFE MUNDIAL', () => { const w = wbWindow(); return w.on ? (B7().wb[w.key] ? 'Derrotado · vuelve pronto' : '¡AHORA! · ' + REGIONS[w.z].name) : 'Próximo en ' + mmss(w.left); }, () => wbMenu(() => extrasMenu('modos'))],
+      ['😈', 'MODO VILLANO', () => (B8().vil.step || 0) + ' / 3 misiones', () => vilMenu(() => extrasMenu('modos'))],
+      ['🧩', 'RETO PERSONALIZADO', () => 'Tus reglas, con código', () => custMenu(() => extrasMenu('modos'))],
+      ['🌀', 'TORRE DEL VACÍO', () => (F2().dunBest ? 'Récord: piso ' + F2().dunBest : 'Sube piso a piso'), towerMenu],
+      ['➕', 'NUEVA PARTIDA+', () => (ngp() ? 'Ronda ' + (ngp() + 1) : 'Tras la Historia 05'), () => ngpMenu(() => extrasMenu('modos'))],
+      ['📋', 'TABLÓN DE MISIONES', () => (activeMission() ? 'En curso: ' + activeMission().title : 'Misiones cortas'), missionBoard],
+      ['🤝', 'FAVORES', () => (favActive() ? 'En curso' : Object.keys(F3().fav.done || {}).length + ' completados'), () => favoursMenu(() => extrasMenu('modos'))],
+      ['🕹️', 'ARCADE', () => 'Minijuegos con récord', () => arcadeMenu(() => extrasMenu('modos'))],
+      ['🍜', 'MINIJUEGOS / TRABAJOS', () => 'Cocina, baile y más', jobsMenu],
+      ['🥊', 'ENTRENAMIENTO', () => (enemies.some((e) => e.dummy) ? 'Muñeco puesto' : 'Muñeco de prácticas'), trainingToggle],
+      ...(co ? [['👾', 'JEFE DE INCURSIÓN', () => 'Co-op', raidMenu], ['⚔️', 'DUELO', () => 'Co-op', duelAsk]] : []),
+    ]],
+    ['coleccion', '📚 COLECCIÓN', '#8de5f3', [
+      ['🧬', 'CÓDICE ALIEN', () => codexIds().filter((id) => alienUnlocked(id)).length + ' aliens', () => codexMenu(() => extrasMenu('coleccion'))],
+      ['🎬', 'GALERÍA DE ESCENAS', () => 'Transformaciones y Ultimates', () => galleryMenu(() => extrasMenu('coleccion'))],
+      ['🎣', 'PESCA', () => FISH.filter((f) => B7().fish[f[0]]).length + ' / ' + FISH.length + ' especies', () => fishBook(() => extrasMenu('coleccion'))],
+      ['🐟', 'VENDER PESCADO', () => invList().reduce((a, [, n]) => a + n, 0) + ' peces', () => fishSellMenu(() => extrasMenu('coleccion'))],
+      ['💊', 'CÁPSULAS DE ADN', () => capGot() + ' / ' + capSpots().length, () => capMenu(() => extrasMenu('coleccion'))],
+      ['🎞️', 'REPETICIONES', () => RP.moments.length + ' momentos', () => replayMenu(() => extrasMenu('coleccion'))],
+      ['🛒', 'TIENDA', () => (player.coins || 0) + ' monedas', () => shopMenu(() => extrasMenu('coleccion'))],
+      ['🎒', 'COLECCIÓN', () => 'Lo que has conseguido', () => collectionMenu(() => extrasMenu('coleccion'))],
+      ['🏷️', 'TÍTULOS', () => TITLES.filter((t) => titleOk(t[0])).length + ' / ' + TITLES.length, () => titlesMenu(() => extrasMenu('coleccion'))],
+    ]],
+    ['progreso', '📈 PROGRESO', '#c9ff89', [
+      ['📊', 'PROGRESO', () => 'Todo lo que puedes completar', () => progressMenu(() => extrasMenu('progreso'))],
+      ['🔢', 'ESTADÍSTICAS', () => fmtTime(B6().time) + ' jugados', () => statsMenu(() => extrasMenu('progreso'))],
+      ['⭐', 'MAESTRÍA', () => Object.values(player.masteries || {}).filter((v) => v >= 100).length + ' aliens al 100 %', () => masteryMenu(() => extrasMenu('progreso'))],
+      ['🏅', 'LOGROS', () => ACHS.filter((a) => (player.ach || {})[a[0]]).length + ' / ' + ACHS.length, () => achMenu(() => extrasMenu('progreso'))],
+      ['📅', 'RETOS DIARIOS', () => { const D = daily(); return D.ids.filter((i) => D.done[i]).length + ' / 3 hoy'; }, () => dailyMenu(() => extrasMenu('progreso'))],
+      ['🗓️', 'RETOS SEMANALES', () => 'Se renuevan cada lunes', () => weeklyMenu(() => extrasMenu('progreso'))],
+      ['👽', 'ALIEN DEL DÍA', () => { const id = dailyAlienId(); return id ? ALIENS[id].name + ' · doble EXP' : ''; }, () => dailyAlienMenu(() => extrasMenu('progreso'))],
+      ['🦸', 'HÉROE DE LA SEMANA', () => (HERO().done ? '⭐ conseguido' : Math.min(HERO().n, heroDef()[2]) + ' / ' + heroDef()[2]), () => heroMenu(() => extrasMenu('progreso'))],
+      ...(hwOn() ? [['🎃', 'HALLOWEEN', () => B6().pump + ' calabazas · ' + hwToday() + ' / ' + hwTotal() + ' hoy', () => halloweenMenu(() => extrasMenu('progreso'))]] : []),
+    ]],
+    ['base', '🏠 BASE Y AMIGOS', '#ffd84a', [
+      ['🏠', 'BASE FONTANERA', () => 'Núcleos de Titán: ' + B7().cores, () => baseMenu(() => extrasMenu('base'))],
+      ['🤖', 'TRUCOS DE CHISPA', () => Object.keys(B9().tricks).length + ' / 4 trucos', () => trickMenu(() => extrasMenu('base'))],
+      ['💚', 'VECINOS', () => Object.keys(B9().friends).length + ' / ' + SJ_NAMES.length + ' conocidos', () => friendsMenu(() => extrasMenu('base'))],
+      ['⌚', 'PERSONALIZAR RELOJ', () => getWatch().name, () => wcMenu(() => extrasMenu('base'))],
+      ['🧪', 'LABORATORIO DE ADN', () => F3().lab.length + ' fusiones', () => labMenu(() => extrasMenu('base'))],
+      ...(co ? [['🎁', 'REGALAR MONEDAS', () => 'A tu compañero', giftMenu], ['🔄', 'INTERCAMBIO', () => 'Pescado, calabazas, núcleos…', () => tradeMenu(() => extrasMenu('base'))]] : []),
+      ...(co && net.role === 'guest' ? [['👀', specOn() ? 'DEJAR DE MIRAR' : 'MODO ESPECTADOR', () => 'Mira y anima al anfitrión', specToggle]] : []),
+    ]],
+    ['mas', '⚙️ MÁS', '#b98cff', [
+      ['🎚️', 'DIFICULTAD', () => diffCfg().name, () => difficultyMenu(() => extrasMenu('mas'))],
+      ['🎮', 'MANDO', () => (PAD && PAD.name ? 'Conectado' : 'Teclado / táctil'), padHelp],
+      ['📰', 'NOVEDADES', () => 'Versión ' + gameVersion(), () => whatsNewMenu(() => extrasMenu('mas'))],
+      ['🎞', 'CRÉDITOS', () => 'Quién hizo OMNI', () => { closeDialog(); creditsRoll(); }],
+      ['❗', 'INFORMAR DE UN FALLO', () => 'Crea un código para enviar', () => feedbackMenu(() => extrasMenu('mas'))],
+    ]],
+  ];
+}
+let hubTab = lsGet('omni-hubtab', 'modos');
+extrasMenu = function (tab) {
+  const tabs = hubTabs();
+  if (typeof tab === 'string' && tabs.some((t) => t[0] === tab)) hubTab = tab;
+  if (!tabs.some((t) => t[0] === hubTab)) hubTab = tabs[0][0];
+  lsSet('omni-hubtab', hubTab);
+  const cur = tabs.find((t) => t[0] === hubTab), acts = [];
+  showDialog('EXTRAS', 'Modos, colección y progreso',
+    '<div class="ptabs hubtabs">' + tabs.map(([id, name]) => '<button data-hub="' + id + '" class="' + (id === hubTab ? 'on' : '') + '">' + name + '</button>').join('') + '</div>' +
+      '<div class="hubgrid" style="--hc:' + cur[2] + '">' + cur[3].map(([icon, name, status, fn]) => (acts.push(fn), '<button class="hubcard" data-hc="' + (acts.length - 1) + '"><i>' + icon + '</i><b>' + name + '</b><small>' + safeS(status) + '</small></button>')).join('') + '</div>',
+    [['VOLVER', pauseMenu]]);
+  $('#modal .dialog').classList.add('pausewide', 'hubwide');
+  for (const b of document.querySelectorAll('[data-hub]')) b.onclick = () => { playWatchSFX('select'); extrasMenu(b.dataset.hub); };
+  for (const b of document.querySelectorAll('[data-hc]')) b.onclick = () => { playWatchSFX('select'); acts[+b.dataset.hc](); };
+};
+// ---------------- capsules screen (collection tab) ----------------
+function capMenu(back) {
+  const byZone = {};
+  for (const c of capSpots()) { const z = (byZone[c.z] = byZone[c.z] || [0, 0]); z[1]++; if (B7().caps[c.k]) z[0]++; }
+  showDialog('CÁPSULAS DE ADN', capGot() + ' / ' + capSpots().length + ' encontradas',
+    '<p>Están escondidas en las esquinas de cada zona. Brillan cuando estás cerca (y desde más lejos con el RADAR de la base o el OLFATO de Chispa).</p><div class="mtlist">' +
+      Object.entries(byZone).map(([z, [a, n]]) => '<div><span>' + REGIONS[z].name + '</span><i></i><b>' + a + ' / ' + n + '</b><div class="b5bar"><i style="width:' + (a / n) * 100 + '%;background:#3ddc6a"></i></div></div>').join('') + '</div>',
+    [['VOLVER', back || extrasMenu]]);
+}
+// ---------------- stories screen ----------------
+function storiesMenu(back) {
+  const S = [
+    ['01', 'Sombras entre los pinos', () => (quest.state === 'done' ? 2 : quest.state === 'new' ? 0 : 1), () => (quest.state === 'done' ? 'Completada · repítela con Max' : $('#questtext').textContent), null, '#7dff9a'],
+    ['02', 'Ecos del Vacío', () => (SG().step >= 8 ? 2 : SG().step > 0 ? 1 : 0), () => (SG().step >= 8 ? 'Completada' : SG().step > 0 ? SAGA_STEPS[SG().step][0] + ' · ' + SAGA_STEPS[SG().step][1] : 'Habla con el Agente Vega en los Muelles (nivel 4)'), sagaMenu, '#8de5f3'],
+    ['03', 'El Cazador de ADN', () => (F1().s3.step >= 5 ? 2 : F1().s3.step > 0 ? 1 : SG().step >= 8 ? 0 : -1), () => (F1().s3.step >= 5 ? 'Completada' : F1().s3.step > 0 ? S3_STEPS[F1().s3.step] : 'Habla con el Agente Vega en los Muelles'), s3Menu, '#ff9a6a'],
+    ['04', 'Sobrecarga', () => (S4().step >= 6 ? 2 : S4().step > 0 ? 1 : F1().s3.step >= 5 ? 0 : -1), () => (S4().step >= 6 ? 'Completada' : S4().step > 0 ? S4_STEPS[S4().step] : 'Habla con el Agente Vega en los Muelles'), s4Menu, '#ffd84a'],
+    ['05', 'El Eco del Espectro', () => (S5().step >= 5 ? 2 : S5().step > 0 ? 1 : S4().step >= 6 ? 0 : -1), () => (S5().step >= 5 ? 'Completada' : S5().step > 0 ? S5_STEPS[S5().step] : 'Habla con el Agente Vega en los Muelles'), s5Menu, '#c084ff'],
+    ['V', 'Modo villano', () => ((B8().vil.step || 0) >= 3 ? 2 : (B8().vil.step || 0) > 0 ? 1 : 0), () => (B8().vil.step || 0) + ' / 3 misiones', () => vilMenu(() => storiesMenu(back)), '#ff5a7a'],
+  ];
+  const tag = ['DISPONIBLE', 'EN CURSO', 'COMPLETADA'], acts = [];
+  showDialog('HISTORIAS', S.filter((s) => s[2]() === 2).length + ' / ' + S.length + ' completadas',
+    '<div class="storygrid">' + S.map(([n, name, st, sub, fn, col]) => { const v = st(); acts.push(fn); return '<button class="storycard st' + v + '" style="--sc:' + col + '" data-st="' + (acts.length - 1) + '"' + (v < 0 ? ' disabled' : '') + '><em>' + (n === 'V' ? '😈' : n) + '</em><div><small>' + (v < 0 ? 'BLOQUEADA' : tag[v]) + '</small><b>' + (v < 0 ? '???' : name) + '</b><span>' + (v < 0 ? 'Termina la historia anterior' : safeS(sub)) + '</span></div></button>'; }).join('') + '</div>',
+    [['VOLVER', back || pauseMenu]]);
+  $('#modal .dialog').classList.add('pausewide');
+  for (const b of document.querySelectorAll('[data-st]')) b.onclick = () => { const f = acts[+b.dataset.st]; if (f) f(); else { closeDialog(); missionLogMenu(() => storiesMenu(back)); } };
+}
+// ---------------- toast queue: messages that arrive together are shown one after another ----------------
+const toastQ = [];
+let toastAt = 0, toastCur = '';
+const toastRaw = toast;
+toast = function (t) {
+  t = String(t);
+  if (t === toastCur && performance.now() - toastAt < 3000) return;
+  if (toastQ.includes(t)) return;
+  if (toastCur && performance.now() - toastAt < 900 && $('#toast').classList.contains('show')) { toastQ.push(t); if (toastQ.length > 4) toastQ.shift(); return; }
+  toastCur = t; toastAt = performance.now(); toastRaw(t);
+};
+setInterval(() => {
+  if (!toastQ.length || performance.now() - toastAt < 1700) return;
+  const t = toastQ.shift(); toastCur = t; toastAt = performance.now(); toastRaw(t);
+}, 150);
 applyWatchTheme();
 resize();
 boot();
@@ -18754,7 +18880,7 @@ if (window.__game)
     missionBoard, missionAccept, activeMission, MS, MISSIONS, coopOn, coopState, coopShare, coopTickMissions, COOP_SITES,
     arenaStart, arenaEnd, arena, arenaBest, statEvent, stats, daily, dailyMenu, achMenu, achCheck, ACHS, codexMenu, codexCard, codexIds, extrasMenu, difficultyMenu, diffCfg, diffKey, DIFFS, PAD, padPoll, padHelp,
     watchAnim, WATCH_ERAS, eraPlaylist, eraOf, storyPlay, storyFor, storyDraw, storyFit, storyPreload, BOARDS, SHEET_ROWS, SKIN_ART, boardId,
-    B9, trickMenu, trickTick, get pt() { return pt; }, friendsMenu, frAdd, ngpModXp, NGP_MODS, mkMenu, mkStock, mkApply, MK_SPOT, wcMenu, wcApply, WATCHES, spec, specToggle, specOn, b9Receive, sjDone, maxHP, B8, vil, vilStart, vilEnd, vilAttack, vilMenu, get resc() { return resc; }, rescStart, rescWork, rescDone, get riv() { return riv; }, rivalTick, rivalWin, glitchChallenge, glitchKill, get gl() { return gl; }, custMenu, custStart, custParse, custCode, get cust() { return cust; }, creditsRoll, epilogue, get wx() { return wx; }, weatherDmg, B7, fishOpen, fishClose, fishAct, get fishG() { return fishG; }, fishLand, fishSellMenu, fishBook, FISH, FISH_SPOTS, capSpots, capGot, wbWindow, wbMenu, raceStart, raceEnd, raceMenu, get rc() { return rc; }, trackPts, raceTargets, tradeMenu, tradeReceive, HERO, heroMenu, heroEvent, heroBadge, RP, replaySave, replayMenu, replayPlay, baseMenu, baseUpgrades, baseJuke, baseTrophies, get jukebox() { return jukebox; }, isSolidQA: (x, y) => isSolid(x, y), achMenu, ACHS, B6, mlEntries, mlTracked, mlTarget, missionLogMenu, zoneHop, statsMenu, masteryMenu, halloweenMenu, hwOn, hwSpots, hwDay, lockAt, lockCycle, get lockT() { return lockT; }, ap, rmTargets, medalFor, b6Dmg, b6Taken, mTier, get arena() { return arena; }, arenaStart, arenaWaveClear, arenaSpawnWave, rematchEnd, get rmQA() { return rm; }, toTitle, toTitleAsk, whatsNewMenu, get startedQA() { return started; }, hud, phaseTick, isBossE, b5Tick, get pausedQA() { return paused; }, get dialogQA() { return dialogOpen; }, comboCheck, dailyAlienId, DA, B5, ngpMenu, progressMenu, dailyAlienMenu, behTick, photoDeco: () => photoDeco, beastType, wristInfo, setWrist: (w) => (wristFor = w), wristDet, wristScan, spriteInfoQA: (r) => spriteInfo(r), galleryMenu, galOpen, feedbackMenu, fbSnapshot, art, bakWrite, bakList, bakMenu, S5, s5Go, s5StartSeal, story5Talk, citizensQA: () => citizens, get sj() { return sj; }, sjOffer, sjDone, rematchStart, rematchMenu, get rm() { return rm; }, RMX, tutEnd, get tutState() { return tutState; }, remoteTargets, hurtTeam, partyOthers, partySize, get netq() { return net; }, musStepQA: (t) => musStep(t), MUS, musBuild, MUS_SONGS, S4, s4Go, story4Talk, s4Near, s4Fx, ULTIMATES, ultOn, ultForm, ALIEN_SCALE, alienHeight, sizeGuard, alienPower, tierDrain, scaleLine, codexCard, ALIENS, F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
+    toast, storiesMenu, capMenu, hubTabs, get hubTab() { return hubTab; }, B9, trickMenu, trickTick, get pt() { return pt; }, friendsMenu, frAdd, ngpModXp, NGP_MODS, mkMenu, mkStock, mkApply, MK_SPOT, wcMenu, wcApply, WATCHES, spec, specToggle, specOn, b9Receive, sjDone, maxHP, B8, vil, vilStart, vilEnd, vilAttack, vilMenu, get resc() { return resc; }, rescStart, rescWork, rescDone, get riv() { return riv; }, rivalTick, rivalWin, glitchChallenge, glitchKill, get gl() { return gl; }, custMenu, custStart, custParse, custCode, get cust() { return cust; }, creditsRoll, epilogue, get wx() { return wx; }, weatherDmg, B7, fishOpen, fishClose, fishAct, get fishG() { return fishG; }, fishLand, fishSellMenu, fishBook, FISH, FISH_SPOTS, capSpots, capGot, wbWindow, wbMenu, raceStart, raceEnd, raceMenu, get rc() { return rc; }, trackPts, raceTargets, tradeMenu, tradeReceive, HERO, heroMenu, heroEvent, heroBadge, RP, replaySave, replayMenu, replayPlay, baseMenu, baseUpgrades, baseJuke, baseTrophies, get jukebox() { return jukebox; }, isSolidQA: (x, y) => isSolid(x, y), achMenu, ACHS, B6, mlEntries, mlTracked, mlTarget, missionLogMenu, zoneHop, statsMenu, masteryMenu, halloweenMenu, hwOn, hwSpots, hwDay, lockAt, lockCycle, get lockT() { return lockT; }, ap, rmTargets, medalFor, b6Dmg, b6Taken, mTier, get arena() { return arena; }, arenaStart, arenaWaveClear, arenaSpawnWave, rematchEnd, get rmQA() { return rm; }, toTitle, toTitleAsk, whatsNewMenu, get startedQA() { return started; }, hud, phaseTick, isBossE, b5Tick, get pausedQA() { return paused; }, get dialogQA() { return dialogOpen; }, comboCheck, dailyAlienId, DA, B5, ngpMenu, progressMenu, dailyAlienMenu, behTick, photoDeco: () => photoDeco, beastType, wristInfo, setWrist: (w) => (wristFor = w), wristDet, wristScan, spriteInfoQA: (r) => spriteInfo(r), galleryMenu, galOpen, feedbackMenu, fbSnapshot, art, bakWrite, bakList, bakMenu, S5, s5Go, s5StartSeal, story5Talk, citizensQA: () => citizens, get sj() { return sj; }, sjOffer, sjDone, rematchStart, rematchMenu, get rm() { return rm; }, RMX, tutEnd, get tutState() { return tutState; }, remoteTargets, hurtTeam, partyOthers, partySize, get netq() { return net; }, musStepQA: (t) => musStep(t), MUS, musBuild, MUS_SONGS, S4, s4Go, story4Talk, s4Near, s4Fx, ULTIMATES, ultOn, ultForm, ALIEN_SCALE, alienHeight, sizeGuard, alienPower, tierDrain, scaleLine, codexCard, ALIENS, F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
     get enemies() { return enemies; },
     get sagaCineOn() { return sagaCineOn; },
     get scan() { return scan; },
