@@ -1,4 +1,4 @@
-window.OMNI_BUILD=63;
+window.OMNI_BUILD=64;
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -2221,7 +2221,9 @@ function drawRemote(single) {
     if (o.race === 'osmo') drawOsmo(f, o.x, o.y - lift, o.face, o);
     else {
       const pose = combatPose(o, row, f);
+      wristFor = !o.alien ? o.watch : null; // partner's own watch on their wrist (part-62)
       sprite(pose.row, pose.f, o.x, o.y - lift - pose.lift - travelLift(o), h, o.face, o.downed ? 0.5 : travelAlpha(o));
+      wristFor = null;
     }
     if (o.downed) drawDowned(o, o.downed);
     txt((o.pid ? 'JUGADOR ' + ({ P: 2, X1: 3, X2: 4 }[o.pid] || 2) : net.role === 'guest' ? 'ANFITRIÓN' : 'JUGADOR 2') + ' · NV. ' + o.level, o.x, o.y - h - 22, 9, '#92eaff');
@@ -3548,8 +3550,8 @@ function spawnEnemies() {
     homeX: p[0],
     homeY: p[1],
     face: -1,
-    hp: zone === 1 && i === 5 ? 190 : 100,
-    max: zone === 1 && i === 5 ? 190 : 100,
+    hp: zone === 1 && i === 5 ? 190 : 75, // 0.30: drones 100 -> 75 (part-63)
+    max: zone === 1 && i === 5 ? 190 : 75,
     boss: zone === 1 && i === 5,
     knight: zone === 6 || zone === 8 ? (i % 2 ? 'ranged' : 'melee') : null,
     kind: 'enemy',
@@ -3662,6 +3664,7 @@ function damageEnemy(e, dmg) {
   }
   e.hp -= Math.round(dmg);
   e.hit = 0.16;
+  feelHit(e, dmg, e.hp <= 0); // knock-back, flinch, hit-stop (part-63)
   sagaAcid(e);
   featHit(e, dmg); // combo + Ultra meter (part-45)
   popup(e.x, e.y - 95, '' + Math.round(dmg));
@@ -3931,6 +3934,7 @@ function attack(i) {
   }
   const before = player.cool[i] || 0;
   attackCore(i);
+  feelCooldown(i); // part-63
   if (cost > 0 && (player.cool[i] || 0) > before) player.battery = Math.max(1, player.battery - cost);
   if ((player.cool[i] || 0) > before) puzzleHit(); // boulders / ice nearby (part-26)
   if (i > 0 && player.alien && (player.cool[i] || 0) > before) statEvent('power', { i });
@@ -3982,7 +3986,7 @@ function attackCore(i) {
       max: 0.18,
       r: 28,
     });
-    if (target) damageTarget(target, 10 * multiplier());
+    if (target) damageTarget(target, 15 * multiplier()); // 0.30: 10 -> 15 (part-63)
     return;
   }
   if (player.activeAlien === 'bestia') {
@@ -5277,7 +5281,7 @@ function spriteInfo(row) {
   return { table: frames[row], sheet: art.characters };
 }
 function sprite(row, frame, x, y, height, face = 1, alpha = 1) {
-  const { table, sheet, anchors, base } = spriteInfo(row),
+  const { table, sheet, anchors, base } = wristInfo(row, spriteInfo(row)), // equipped watch on the wrist (part-62)
     f = table[frame] || table[0],
     anchor = anchors?.[frame],
     scale = height / (base || (row === 20 ? table[1][3] : row === 12 ? table[3][3] : table[0][3])),
@@ -5589,6 +5593,7 @@ function draw() {
       }
       scaleDrawMarker(o); // tiny aliens (part-49)
       ctx.filter = (!lowGfx() && variantFilter()) || 'none'; // mastery colour variants (part-47)
+      wristFor = race === 'omni' && !player.alien ? player.watch : null;
       sprite(
         pose.row,
         pose.f,
@@ -5603,6 +5608,7 @@ function draw() {
         player.face,
         player.downed ? 0.5 : player.travel ? travelAlpha() : player.inv > 0 && Math.floor(clock * 12) % 2 === 0 ? 0.45 : 1,
       );
+      wristFor = null;
       ctx.filter = 'none';
       if (player.downed) drawDowned(player, player.downed);
       if (player.shield > 0) {
@@ -5900,7 +5906,7 @@ function loop(now) {
     netUpdate(dt);
     watchTick(dt);
     if (started && !paused) coopTick(dt);
-    if (started && !paused && !net.remoteAway && !net.waiting) update(dt * timeScale() * featSlow());
+    if (started && !paused && !net.remoteAway && !net.waiting) { feelTick(dt); update(dt * timeScale() * featSlow() * feelScale()); }
     else if (!started) clock += dt;
     if (drawThisFrame()) draw(); // low graphics: 30 fps drawing (part-43)
   }
@@ -11684,7 +11690,7 @@ function codexCard(id, back) {
     '<div class="cxcard" style="--c:' + (A.color || '#7dff9a') + '"><p><b>Vida</b> ' + A.hp + ' · <b>Velocidad</b> ' + (SPEEDS[id] || '—') + '</p>' +
       '<p><b>Viaje rápido (SHIFT)</b> ' + (tv && TRAVEL_TYPES[tv] ? TRAVEL_TYPES[tv].name : '—') + (sig ? ' · <b>Movimiento firma</b> ' + sig[1] : '') + '</p>' +
       scaleLine(id) + '<p><b>Maestría</b> ' + Math.floor((player.masteries && player.masteries[id]) || 0) + '%</p><ul class="cxskills">' + skills + '</ul></div>',
-    [['CÓDICE', () => codexMenu(back)], ['VOLVER', back || closeDialog]],
+    [['CÓDICE', () => codexMenu(back)], ...(BOARDS[boardId(id)] ? [['▶ TRANSFORMACIÓN', () => { closeDialog(); storyPreload(id); const go = (n) => storyPlay(boardId(id)) || (n < 40 && setTimeout(() => go(n + 1), 150)); go(0); }]] : []), ...(BOARDS['ult_' + id] && galOpen('ult_' + id) ? [['▶ ULTIMATE', () => { closeDialog(); storyPreload('ult_' + id); const go = (n) => storyPlay('ult_' + id) || (n < 40 && setTimeout(() => go(n + 1), 150)); go(0); }]] : []), ['VOLVER', back || closeDialog]],
   );
 }
 // ---------------- hub ----------------
@@ -11700,6 +11706,7 @@ function extrasMenu() {
       ['RETOS DIARIOS', () => dailyMenu(extrasMenu)],
       ['LOGROS', () => achMenu(extrasMenu)],
       ['CÓDICE ALIEN', () => codexMenu(extrasMenu)],
+      ['GALERÍA DE ESCENAS', () => galleryMenu(extrasMenu)],
       ['BOSS RUSH', bossRushMenu],
       ['JEFE DE INCURSIÓN (CO-OP)', raidMenu],
       ['DUELO (CO-OP)', duelAsk],
@@ -13427,7 +13434,6 @@ function featKill(e) {
   rematchKill(e); // part-56
   s5Kill(e); // part-58
   s4Kill(e); // part-50
-  sfx('kill'); // part-52
   if (zone === 6 && F1().s3.step === 2) { F1().s3.kills++; if (F1().s3.kills >= 6) s3Go(3); else hud(); }
 }
 // ---------------- daily reward ----------------
@@ -14811,6 +14817,7 @@ function moreSettings(back) {
 const watchVolume = () => lsGet('omni-volume-watch', 100) / 100;
 // ---------------- patch notes ----------------
 const CHANGELOG = [
+  ['0.30', 'Reloj de la muñeca según el que lleves · Galería de escenas · Finales de escena arreglados · Omnitrix de Omniverse nuevo'],
   ['0.29', 'Arte nuevo para 18 aliens y 6 formas Ultimate · Escenas de transformación nuevas · Omnitrix Recalibrado y recargas del Ultimatrix'],
   ['0.28', 'Botón «!» para informar de fallos con un código'],
   ['0.27', 'Música propia por zona · Co-op de hasta 4 · Tutorial guiado · Galería de jefes · Encargos de vecinos · Historia 05 · Copias automáticas · Carga más rápida'],
@@ -16209,6 +16216,183 @@ function feedbackMenu(back) {
   b.onclick = () => { if (started) { if (!paused && typeof pauseMenu === 'function') pauseMenu(); feedbackMenu(pauseMenu); } };
   $('#game').append(b);
 }
+// ============================================================================================
+// OMNI 0.30 · CUTSCENE GALLERY. Extras → GALERÍA DE ESCENAS: every transformation scene of an alien you have
+// unlocked (and the Ultimate scenes once that Ultimate form is available to you) can be replayed whenever you like.
+// Locked ones show as ???. Tap a card to watch; double tap / any key skips as usual.
+// ============================================================================================
+const GAL_ERA = [['classic', 'Clásico'], ['alien_force', 'Alien Force'], ['ultimate_alien', 'Ultimate Alien'], ['omniverse', 'Omniverse'], ['ultimate', 'Formas Ultimate']];
+let galEra = 'classic';
+function galName(id) {
+  if (id.startsWith('ult_')) { const b = id.slice(4); return 'Ultimate ' + (ALIENS[b] ? ALIENS[b].name : b); }
+  if (id === 'upchuck_murk') return 'Upchuck (Murk)';
+  return ALIENS[id] ? ALIENS[id].name : id;
+}
+function galOpen(id) {
+  if (watchFree) return true;
+  if (id.startsWith('ult_')) { const b = id.slice(4); return alienUnlocked(b) && !!ULTIMATES[b] && ULTIMATES[b].status === 'ready'; }
+  if (id === 'upchuck_murk') return alienUnlocked('upchuck');
+  return ALIENS[id] ? alienUnlocked(id) : false;
+}
+function galleryMenu(back) {
+  const ids = Object.keys(BOARDS).filter((k) => BOARDS[k].era === galEra), have = ids.filter(galOpen).length;
+  showDialog('GALERÍA DE ESCENAS', have + ' / ' + ids.length + ' desbloqueadas',
+    '<div class="fbkinds">' + GAL_ERA.map(([k, n]) => '<button class="pbtn' + (k === galEra ? ' main' : '') + '" data-gera="' + k + '">' + n + '</button>').join('') + '</div>' +
+      '<div class="codex">' + ids.map((k) => { const u = galOpen(k); return '<button class="cx' + (u ? '' : ' locked') + '" data-gal="' + k + '" style="--c:' + ((ALIENS[k.replace(/^ult_/, '')] || {}).color || '#7dff9a') + '"><b>' + (u ? galName(k) : '???') + '</b><small>' + (u ? '▶ VER ESCENA' : k.startsWith('ult_') ? 'Forma Ultimate bloqueada' : 'Alien bloqueado') + '</small></button>'; }).join('') + '</div>',
+    [['VOLVER', back || extrasMenu]]);
+  for (const b of document.querySelectorAll('[data-gera]')) b.onclick = () => { galEra = b.dataset.gera; galleryMenu(back); };
+  for (const b of document.querySelectorAll('[data-gal]'))
+    b.onclick = () => {
+      const k = b.dataset.gal;
+      if (!galOpen(k)) return toast('Desbloquea antes a este alien');
+      storyPreload(k);
+      closeDialog();
+      let tries = 0;
+      const go = () => { if (storyPlay(k)) return; if (++tries > 40) return toast('La escena aún se está descargando · prueba otra vez'); setTimeout(go, 150); };
+      go();
+    };
+}
+// ============================================================================================
+// OMNI 0.30 · THE WATCH ON THE WRIST MATCHES THE ONE YOU WEAR. The human sprites were drawn with the Prototype on
+// the wrist. For every human frame (3 outfits: walk, attack, jump, priming) the watch is found automatically
+// (its glowing face plus the dark strap joined to it) and recoloured to the equipped watch: Alien Force black and
+// bright green, Ultimatrix black with a lime ring, Albedo red, Omniverse black/green with a white rim, Biomnitrix
+// orange. Recoloured sheets are made once per watch and cached; the Prototype keeps the original pixels.
+// ============================================================================================
+const WRIST_ROWS = [0, 9, 10, 20, 30, 31, 32];
+// strap tone, face colour, rim colour (null = keep)
+const WRIST_LOOK = {
+  recalibrated: { strap: [20, 22, 24], face: [96, 255, 70], rim: [235, 240, 238] },
+  ultimatrix: { strap: [24, 24, 26], face: [182, 255, 60], rim: [90, 200, 40] },
+  albedo: { strap: [28, 16, 16], face: [255, 48, 48], rim: [150, 30, 30] },
+  completed: { strap: [14, 16, 15], face: [70, 255, 110], rim: [245, 248, 246] },
+  biomnitrix: { strap: [40, 24, 14], face: [255, 150, 40], rim: [90, 255, 140] },
+};
+let wristFor = null; // set around the player's (and partners') sprite draw
+const wristDet = new Map(); // "row:frame" -> { face:[idx], strap:[idx], rim:[idx], x, y, w, h }
+const wristSheets = new Map(); // watch -> Map(sheet -> canvas)
+let wristWatch = null;
+function wristScan(row) {
+  const I = spriteInfo(row);
+  if (!I || !I.sheet || I.sheet._ph || !(I.sheet.naturalWidth || I.sheet.width)) return false;
+  I.table.forEach((f, fi) => {
+    const key = row + ':' + fi;
+    if (wristDet.has(key)) return;
+    const [x, y, w, h] = f.map(Math.round), c = cv(w, h), g = c.getContext('2d', { willReadFrequently: true });
+    g.drawImage(I.sheet, x, y, w, h, 0, 0, w, h);
+    let d;
+    try { d = g.getImageData(0, 0, w, h).data; } catch (e) { wristDet.set(key, null); return; }
+    const N = w * h, isFace = new Uint8Array(N), top = Math.floor(h * 0.36);
+    for (let i = 0; i < N; i++) {
+      const r = d[i * 4], gg = d[i * 4 + 1], b = d[i * 4 + 2], a = d[i * 4 + 3];
+      if (a < 160 || (i / w) < top) continue;
+      if ((gg > 120 && gg > r * 1.35 && gg > b * 1.25) || (r > 200 && gg > 190 && b < 130)) isFace[i] = 1;
+    }
+    // largest connected glowing blob = the watch face
+    const seen = new Uint8Array(N), prime = row >= 30; let best = [], bestX = -1;
+    for (let i = 0; i < N; i++) {
+      if (!isFace[i] || seen[i]) continue;
+      const st = [i], comp = []; seen[i] = 1;
+      while (st.length) { const p = st.pop(); comp.push(p); const px = p % w, py = (p / w) | 0;
+        for (const q of [px > 0 ? p - 1 : -1, px < w - 1 ? p + 1 : -1, p - w, p + w]) if (q >= 0 && q < N && isFace[q] && !seen[q]) { seen[q] = 1; st.push(q); } }
+      if (prime) { // priming: the arm is held out, the watch is the blob furthest along it (not the eyes)
+        if (comp.length < 6) continue;
+        let mx = 0; for (const p of comp) mx += p % w; mx /= comp.length;
+        if (mx > bestX) { bestX = mx; best = comp; }
+      } else if (comp.length > best.length) best = comp;
+    }
+    if (best.length < 6) { wristDet.set(key, null); return; }
+    let cx = 0, cy = 0; for (const p of best) { cx += p % w; cy += (p / w) | 0; } cx /= best.length; cy /= best.length;
+    const rad = Math.sqrt(best.length / Math.PI), R = rad * 2.3, R2 = R * R;
+    // strap: dark, low-colour pixels joined to the face, within reach of it
+    const lum = (p) => (d[p * 4] + d[p * 4 + 1] + d[p * 4 + 2]) / 3;
+    const dark = (p) => d[p * 4 + 3] > 160 && lum(p) < 105 && Math.max(d[p * 4], d[p * 4 + 1], d[p * 4 + 2]) - Math.min(d[p * 4], d[p * 4 + 1], d[p * 4 + 2]) < 60;
+    const inR = (p) => { const dx = (p % w) - cx, dy = ((p / w) | 0) - cy; return dx * dx + dy * dy <= R2; };
+    const strap = [], rim = [], vis = new Uint8Array(N), st = [...best];
+    for (const p of best) vis[p] = 1;
+    while (st.length) { const p = st.pop(); const px = p % w;
+      for (const q of [px > 0 ? p - 1 : -1, px < w - 1 ? p + 1 : -1, p - w, p + w]) {
+        if (q < 0 || q >= N || vis[q] || !inR(q)) continue; vis[q] = 1;
+        if (dark(q)) { strap.push(q); st.push(q); }
+        else if (d[q * 4 + 3] > 160 && lum(q) >= 105 && !isFace[q]) { const dx = (q % w) - cx, dy = ((q / w) | 0) - cy; if (dx * dx + dy * dy < rad * rad * 2.6) rim.push(q); }
+      } }
+    wristDet.set(key, { face: best, strap, rim, x, y, w, h });
+  });
+  return true;
+}
+function wristSheet(sheet, wid) {
+  if (!WRIST_LOOK[wid]) return null;
+  if (wristWatch !== wid) { wristSheets.clear(); wristWatch = wid; } // one watch cached at a time (phones)
+  if (!wristSheets.has(sheet)) {
+    const W = sheet.naturalWidth || sheet.width, H = sheet.naturalHeight || sheet.height, c = cv(W, H), g = c.getContext('2d');
+    g.drawImage(sheet, 0, 0);
+    const L = WRIST_LOOK[wid];
+    for (const row of WRIST_ROWS) {
+      const I = spriteInfo(row);
+      if (!I || I.sheet !== sheet) continue;
+      wristScan(row);
+      I.table.forEach((f, fi) => {
+        const D = wristDet.get(row + ':' + fi);
+        if (!D) return;
+        const im = g.getImageData(D.x, D.y, D.w, D.h), d = im.data;
+        const paint = (list, col, keepLum) => { for (const p of list) { const l = keepLum === 'max' ? Math.max(d[p * 4], d[p * 4 + 1], d[p * 4 + 2]) / 235 : (d[p * 4] + d[p * 4 + 1] + d[p * 4 + 2]) / 3 / keepLum;
+          d[p * 4] = Math.min(255, col[0] * l); d[p * 4 + 1] = Math.min(255, col[1] * l); d[p * 4 + 2] = Math.min(255, col[2] * l); } };
+        paint(D.strap, L.strap.map((v) => v * 2.4), 128);
+        paint(D.face, L.face, 'max');
+        if (L.rim) paint(D.rim, L.rim, 200);
+        g.putImageData(im, D.x, D.y);
+      });
+    }
+    wristSheets.set(sheet, c);
+  }
+  return wristSheets.get(sheet);
+}
+// spriteInfo wrapper (part-11 asks here first)
+function wristInfo(row, info) {
+  if (!wristFor || !WRIST_LOOK[wristFor] || !WRIST_ROWS.includes(row) || !info || !info.sheet || info.sheet._ph) return info;
+  if (!wristScan(row)) return info;
+  const s = wristSheet(info.sheet, wristFor);
+  return s ? { ...info, sheet: s } : info;
+}
+// ============================================================================================
+// OMNI 0.30 · GAME FEEL. Hits now land with weight:
+//  · ordinary enemies flinch and get knocked back when hit (a hit cancels the attack they were winding up)
+//  · a tiny freeze on each hit (hit-stop), a longer one and a shake on a kill
+//  · basic attack (J / button Ⅰ) chains faster: never slower than 0.4 s, and a tap during the cooldown is remembered
+//  · ordinary drones are a bit less spongy (≈3 alien hits instead of 5–8) · the slowest aliens walk a little faster
+// Bosses keep their own rules (no knock-back, no flinch).
+// ============================================================================================
+let hitstopT = 0, tapBuf = -1, tapT = 0;
+const isRegular = (e) => !(e.boss || e.majorBoss || e.robotBoss || e.mech || e.hunter || e.zboss || e.rematch || e.knight || e.dummy || e.sagaKind === 'specter' || e.raid);
+function feelHit(e, dmg, killed) {
+  if (net.role === 'guest' && !net.applying) return;
+  hitstopT = Math.max(hitstopT, killed ? 0.085 : 0.045);
+  if (killed) { shake = Math.max(shake || 0, 0.12); sfx('kill'); return; }
+  if (!isRegular(e)) return;
+  const d = Math.max(1, dist(player, e)), k = Math.min(26, 8 + dmg * 0.35);
+  moveActor(e, ((e.x - player.x) / d) * k, ((e.y - player.y) / d) * k * 0.6);
+  if (e.wind > 0) { e.wind = 0; e.cd = Math.max(e.cd || 0, 0.7); } // flinch: the swing is interrupted
+  e.stun = Math.max(e.stun || 0, 0.12);
+}
+function feelScale() { return hitstopT > 0 ? 0.05 : 1; }
+function feelTick(rawDt) {
+  if (hitstopT > 0) hitstopT -= rawDt;
+  if (tapBuf >= 0) {
+    tapT -= rawDt;
+    if (tapT <= 0) tapBuf = -1;
+    else if (!(player.cool[tapBuf] > 0) && !player.leap && !player.motion) { const i = tapBuf; tapBuf = -1; attack(i); }
+  }
+}
+function feelCooldown(i) { // after any attack: basic attack is never slower than 0.4 s (human 0.42)
+  if (i === 0 && player.cool[0] > 0.4) player.cool[0] = player.alien ? 0.4 : 0.42;
+}
+document.addEventListener('keydown', (e) => {
+  if (e.repeat || !started || paused || dialogOpen || sel) return;
+  const k = (e.key || '').toLowerCase();
+  const i = k === 'j' ? 0 : '123456'.includes(k) && k ? +k - 1 : -1;
+  if (i >= 0 && player.cool[i] > 0 && player.cool[i] < 0.25) { tapBuf = i; tapT = 0.25; } // remember a slightly early tap
+});
+(function slowAliensFaster() { for (const id of Object.keys(SPEEDS)) if (id !== 'human' && SPEEDS[id] < 185) SPEEDS[id] = 185; })();
 applyWatchTheme();
 resize();
 boot();
@@ -16219,7 +16403,7 @@ if (window.__game)
     missionBoard, missionAccept, activeMission, MS, MISSIONS, coopOn, coopState, coopShare, coopTickMissions, COOP_SITES,
     arenaStart, arenaEnd, arena, arenaBest, statEvent, stats, daily, dailyMenu, achMenu, achCheck, ACHS, codexMenu, codexCard, codexIds, extrasMenu, difficultyMenu, diffCfg, diffKey, DIFFS, PAD, padPoll, padHelp,
     watchAnim, WATCH_ERAS, eraPlaylist, eraOf, storyPlay, storyFor, storyDraw, storyFit, storyPreload, BOARDS, SHEET_ROWS, SKIN_ART, boardId,
-    feedbackMenu, fbSnapshot, art, bakWrite, bakList, bakMenu, S5, s5Go, s5StartSeal, story5Talk, citizensQA: () => citizens, get sj() { return sj; }, sjOffer, sjDone, rematchStart, rematchMenu, get rm() { return rm; }, RMX, tutEnd, get tutState() { return tutState; }, remoteTargets, hurtTeam, partyOthers, partySize, get netq() { return net; }, musStepQA: (t) => musStep(t), MUS, musBuild, MUS_SONGS, S4, s4Go, story4Talk, s4Near, s4Fx, ULTIMATES, ultOn, ultForm, ALIEN_SCALE, alienHeight, sizeGuard, alienPower, tierDrain, scaleLine, codexCard, ALIENS, F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
+    wristInfo, setWrist: (w) => (wristFor = w), wristDet, wristScan, spriteInfoQA: (r) => spriteInfo(r), galleryMenu, galOpen, feedbackMenu, fbSnapshot, art, bakWrite, bakList, bakMenu, S5, s5Go, s5StartSeal, story5Talk, citizensQA: () => citizens, get sj() { return sj; }, sjOffer, sjDone, rematchStart, rematchMenu, get rm() { return rm; }, RMX, tutEnd, get tutState() { return tutState; }, remoteTargets, hurtTeam, partyOthers, partySize, get netq() { return net; }, musStepQA: (t) => musStep(t), MUS, musBuild, MUS_SONGS, S4, s4Go, story4Talk, s4Near, s4Fx, ULTIMATES, ultOn, ultForm, ALIEN_SCALE, alienHeight, sizeGuard, alienPower, tierDrain, scaleLine, codexCard, ALIENS, F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
     get enemies() { return enemies; },
     get sagaCineOn() { return sagaCineOn; },
     get scan() { return scan; },
