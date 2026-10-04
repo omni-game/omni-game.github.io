@@ -7,7 +7,7 @@ window.OmniRoom = (() => {
   const ALPHA = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789',
     PREFIX = 'omni-forest-',
     ICE = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }];
-  let peer = null, conn = null, role = null, code = '', stopped = true, timer = 0;
+  let peer = null, conn = null, role = null, code = '', stopped = true, timer = 0, extras = []; // extras: players 3 and 4 (host only)
   const emit = (kind, data) => { try { if (window.omniLanEvent) window.omniLanEvent(kind, data || ''); } catch (e) { console.warn(e); } };
   const newCode = () => Array.from({ length: 5 }, () => ALPHA[Math.floor(Math.random() * ALPHA.length)]).join('');
   const clean = (c) => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^OMNI/, '');
@@ -23,20 +23,45 @@ window.OmniRoom = (() => {
   }
   function wire(c) {
     conn = c;
+    c._pid = 'P';
     c.on('open', () => { clearTimeout(timer); emit(role === 'host' ? 'peer' : 'connected', ''); });
-    c.on('data', (d) => emit('data', typeof d === 'string' ? d : JSON.stringify(d)));
+    listen(c);
+  }
+  // one listener per link; whether it is the main partner or player 3/4 is decided when each message arrives
+  function listen(c) {
+    c.on('data', (d) => {
+      const text = typeof d === 'string' ? d : JSON.stringify(d);
+      if (conn === c) emit('data', text);
+      else if (extras.includes(c)) emit('xdata', JSON.stringify({ pid: c._pid, d: text }));
+    });
     const lost = () => {
+      if (extras.includes(c)) { extras = extras.filter((x) => x !== c); if (!stopped) emit('xleave', c._pid); return; }
       if (conn !== c) return;
       conn = null;
-      if (!stopped) emit('disconnected', '');
+      if (stopped) return;
+      emit('disconnected', '');
+      promote();
     };
     c.on('close', lost);
     c.on('error', lost);
+  }
+  function promote() { // player 3 takes the partner's empty seat so the room keeps going
+    const next = extras.shift();
+    if (next) { const old = next._pid; conn = next; next._pid = 'P'; emit('xpromote', old); emit('peer', ''); }
+  }
+  function wireExtra(c) {
+    const used = extras.map((x) => x._pid);
+    c._pid = ['X1', 'X2'].find((p) => !used.includes(p));
+    extras.push(c);
+    c.on('open', () => emit('xjoin', c._pid));
+    listen(c);
   }
   function stop() {
     stopped = true;
     clearTimeout(timer);
     try { if (conn) conn.close(); } catch (e) {}
+    for (const x of extras) try { x.close(); } catch (e) {}
+    extras = [];
     try { if (peer) peer.destroy(); } catch (e) {}
     conn = peer = null;
   }
@@ -63,8 +88,9 @@ window.OmniRoom = (() => {
       peer = new window.Peer(PREFIX + code.toLowerCase(), opts());
       peer.on('open', () => onCode && onCode(code));
       peer.on('connection', (c) => {
-        if (conn && conn.open) { try { c.close(); } catch (e) {} return; } // room is full
-        wire(c);
+        if (!(conn && conn.open)) return wire(c);
+        if (extras.length < 2) return wireExtra(c); // up to 4 players
+        try { c.close(); } catch (e) {} // room is full
       });
       peer.on('disconnected', () => { try { if (!stopped && peer && !peer.destroyed) peer.reconnect(); } catch (e) {} });
       peer.on('error', (e) => {
@@ -84,8 +110,10 @@ window.OmniRoom = (() => {
       peer.on('error', (e) => { if (!(conn && conn.open)) fail(ERR[e.type] || 'No se pudo unir a la sala'); });
       timer = setTimeout(() => { if (!(conn && conn.open)) fail('La sala no responde · comprueba el código'); }, 20000);
     },
-    send(text) { if (conn && conn.open) conn.send(text); },
-    drop() { const c = conn; conn = null; try { if (c) c.close(); } catch (e) {} }, // host: free the slot, keep the room
+    send(text) { if (conn && conn.open) conn.send(text); for (const x of extras) if (x.open) x.send(text); },
+    sendTo(pid, text) { const c = pid === 'P' ? conn : extras.find((x) => x._pid === pid); if (c && c.open) c.send(text); },
+    get players() { return 1 + (conn && conn.open ? 1 : 0) + extras.filter((x) => x.open).length; },
+    drop() { const c = conn; conn = null; try { if (c) c.close(); } catch (e) {} setTimeout(promote, 0); }, // host: free the slot, keep the room
     stop,
     address() { return ''; },
   };

@@ -1,4 +1,4 @@
-window.OMNI_BUILD=56;
+window.OMNI_BUILD=57;
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -1277,7 +1277,7 @@ function hudV6() {
     $('#lanstatus').textContent = net.remoteAway
       ? 'OTRO JUGADOR EN MENÚ · PARTIDA PAUSADA'
       : net.peer
-        ? (net.role === 'host' ? 'ANFITRIÓN' : 'INVITADO') + ' · 2 JUGADORES' + (net.ff ? ' · FUEGO AMIGO' : ' · CO-OP')
+        ? (net.role === 'host' ? 'ANFITRIÓN' : 'INVITADO') + ' · ' + partySize() + ' JUGADORES' + (net.ff ? ' · FUEGO AMIGO' : ' · CO-OP')
         : net.info || 'CONECTANDO…';
 }
 function bestiaAttack(i, prepared = false) {
@@ -1596,7 +1596,9 @@ const net = {
   remoteAway: false,
 };
 function remoteTargets() {
-  return net.peer && net.remote && net.remote.zone === zone && net.remote.alive !== false ? [net.remote] : [];
+  const out = net.peer && net.remote && net.remote.zone === zone && net.remote.alive !== false ? [net.remote] : [];
+  for (const o of partyOthers()) if (o.zone === zone && o.alive !== false) out.push(o); // players 3-4 (part-54)
+  return out;
 }
 function teamTargets() {
   return [player, ...remoteTargets()].filter((t) => !t.downed); // enemies ignore downed players
@@ -1605,7 +1607,7 @@ function combatants() {
   return [...enemies, ...citizens, ...officers, ...(net.ff ? remoteTargets() : [])]; // friendly fire is a host option
 }
 function hurtTeam(t, d) {
-  if (t.kind === 'remote') lanSend({ type: 'hurt', damage: d, zone });
+  if (t.kind === 'remote') { if (net.role === 'guest' && t.pid) return; lanSend({ type: 'hurt', damage: d, zone, to: t.pid || 'P' }); }
   else hitPlayer(d);
 }
 function xport() {
@@ -1689,6 +1691,7 @@ function worldPacket() {
 function lanReceive(m) {
   if (!m || m.v !== 9 || !net.role) return;
   net.last = performance.now();
+  if (m.type === 'you' || m.type === 'party') return partyReceive(m); // 4 players (part-54)
   if (m.type === 'robotKill' && net.role === 'guest' && m.zone === 11 && zone === 11) {
     robotQuestKill();
     return;
@@ -1725,6 +1728,7 @@ function lanReceive(m) {
     net.remote = { ...m.avatar, kind: 'remote', id: 'remote' };
     net.info = 'DOS JUGADORES';
     if (net.role === 'host') {
+      xSendTo('P', { type: 'you', pid: 'P' });
       lanSend(worldPacket());
       toast('Jugador conectado · Fuego amigo ' + (net.ff ? 'activo' : 'desactivado'));
     }
@@ -1786,6 +1790,7 @@ function lanReceive(m) {
     lanSend(worldPacket());
     return;
   }
+  if (m.type === 'hurt' && m.to && net.myPid && m.to !== net.myPid) return; // meant for another guest
   if (m.type === 'hurt' && m.zone === zone && Number.isFinite(m.damage) && m.damage > 0 && m.damage <= 150) {
     hitPlayer(m.damage);
     return;
@@ -1840,6 +1845,7 @@ function lanReceive(m) {
   }
 }
 window.omniLanEvent = function (kind, data) {
+  if (partyEvent(kind, data)) return; // players 3-4 (part-54)
   if (kind === 'data') {
     try {
       lanReceive(JSON.parse(data));
@@ -2217,7 +2223,7 @@ function drawRemote(single) {
       sprite(pose.row, pose.f, o.x, o.y - lift - pose.lift - travelLift(o), h, o.face, o.downed ? 0.5 : travelAlpha(o));
     }
     if (o.downed) drawDowned(o, o.downed);
-    txt('JUGADOR 2 · NV. ' + o.level, o.x, o.y - h - 22, 9, '#92eaff');
+    txt((o.pid ? 'JUGADOR ' + ({ P: 2, X1: 3, X2: 4 }[o.pid] || 2) : net.role === 'guest' ? 'ANFITRIÓN' : 'JUGADOR 2') + ' · NV. ' + o.level, o.x, o.y - h - 22, 9, '#92eaff');
     ctx.fillStyle = '#102b3a';
     ctx.fillRect(o.x - 35, o.y - h - 14, 70, 5);
     ctx.fillStyle = '#89ddec';
@@ -3328,7 +3334,7 @@ function load() {
     player.activeAlien = ensureFusion(player.activeAlien) || 'heatblast'; // fusions are rebuilt from their id
     player.masteries = Object.assign(defaults.masteries, s.player.masteries || {});
     player.cooldowns = Object.assign(defaults.cooldowns, s.player.cooldowns || {});
-    player.level = clamp(player.level || 1, 1, 20);
+    player.level = clamp(player.level || 1, 1, 30); // level cap is 30 since 0.22 (it was 20)
     player.shield = 0;
     player.shieldTime = 0;
     player.leap = null;
@@ -3717,7 +3723,8 @@ function damageTarget(t, dmg, stun = 0) {
   if (dmg > 0) window.OmniSound?.play('hit');
   if (dmg >= 30 && t.kind !== 'remote') shake = Math.max(shake || 0, 0.09);
   if (t.kind === 'remote') {
-    lanSend({ type: 'hurt', damage: Math.round(dmg), zone });
+    if (net.role === 'guest' && t.pid) return; // no friendly fire between guests
+    lanSend({ type: 'hurt', damage: Math.round(dmg), zone, to: t.pid || 'P' });
     popup(t.x, t.y - 120, '−' + Math.round(dmg), '#9ddfff');
     return;
   }
@@ -4281,13 +4288,14 @@ function pauseMenu() {
     eras = w && w.eras ? w.eras.map((e) => ERA_NAMES[e]).join(' + ') : '',
     mc = w && player.masterControl && w.masterControl;
   const groups = [
-    ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['MISIONES', missionBoard], ['HISTORIA · ECOS DEL VACÍO', sagaMenu], ['HISTORIA 03 · CAZADOR', s3Menu], ['HISTORIA 04 · SOBRECARGA', s4Menu], ['BOSS RUSH', bossRushMenu], ['EXTRAS · ARENA · RETOS · LOGROS', extrasMenu], ['MAPA', () => showWorldMap()], ['VIAJE RÁPIDO', () => travelMenu()], ['FAVORES', () => favoursMenu()], ['ARCADE', () => arcadeMenu()], ...(net.peer ? [['REGALAR MONEDAS', giftMenu]] : []), ['MINIJUEGOS / TRABAJOS', jobsMenu], ['MULTIJUGADOR · CROSSPLAY', lanMenu]]],
+    ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['MISIONES', missionBoard], ['HISTORIA · ECOS DEL VACÍO', sagaMenu], ['HISTORIA 03 · CAZADOR', s3Menu], ['HISTORIA 04 · SOBRECARGA', s4Menu], ['HISTORIA 05 · ECO DEL ESPECTRO', s5Menu], ['BOSS RUSH', bossRushMenu], ['GALERÍA DE JEFES', () => rematchMenu()], ['EXTRAS · ARENA · RETOS · LOGROS', extrasMenu], ['MAPA', () => showWorldMap()], ['VIAJE RÁPIDO', () => travelMenu()], ['FAVORES', () => favoursMenu()], ['ARCADE', () => arcadeMenu()], ...(net.peer ? [['REGALAR MONEDAS', giftMenu]] : []), ['MINIJUEGOS / TRABAJOS', jobsMenu], ['MULTIJUGADOR · CROSSPLAY', lanMenu]]],
     ['RELOJ Y ALIENS', [['RELOJ / OMNITRIX', () => watchMenu()], ['MEJORAS DE ALIENS', () => upgradeMenu()], ['EQUIPOS DE ALIENS', () => loadoutMenu()], ['MEJORAS DEL RELOJ', () => watchUpgMenu()], ['LABORATORIO DE ADN', () => labMenu()], ['VARIANTES', () => variantMenu()], ['SKINS DE ALIENS', alienSkinMenu], ['ÁRBOL', skillTree], ['GUÍA / ATAQUES', guide]]],
     ['PERSONAJE', [['PERSONAJE / SKIN', skinMenu], ['RAZAS', raceMenu], ['MODO FOTO', photoMode], ['TÍTULOS', () => titlesMenu(pauseMenu)], ['PRESTIGIO', prestigeMenu], ['MODO STREAMER: ' + (stream.on ? 'SÍ' : 'NO'), streamToggle], ...(stream.on ? [['RULETA DEL CHAT', chatRoulette]] : []), ['MASCOTA: ' + (F1().pet ? 'SÍ' : 'NO'), () => { F1().pet = !F1().pet; save(); pauseMenu(); }], ['RECOMPENSA DIARIA', dailyCalendar]]],
     [
       'AJUSTES',
       [
         ['MÚSICA', () => window.OmniMusic.open()],
+        ['TUTORIAL', () => { closeDialog(); tutStart(true); }],
         ['SONIDO: ' + (sound ? 'SÍ' : 'NO'), () => { sound = !sound; pauseMenu(); }],
         ['DÍA / NOCHE: ' + String(dayMode).toUpperCase(), () => { dayMode = dayMode === 'noche' ? 'día' : dayMode === 'día' ? 'ciclo' : 'noche'; pauseMenu(); }],
         ['DIFICULTAD: ' + diffCfg().name, () => difficultyMenu(pauseMenu)],
@@ -4297,6 +4305,7 @@ function pauseMenu() {
         ['MANDO', padHelp],
         ['MÁS AJUSTES', () => moreSettings(pauseMenu)],
         ['TRANSFERIR PARTIDA', () => transferMenu(pauseMenu)],
+        ['COPIAS AUTOMÁTICAS', () => bakMenu(pauseMenu)],
         ['FALLOS DEL RELOJ: ' + (F3().glitch ? 'SÍ' : 'NO'), () => { F3().glitch = !F3().glitch; save(); pauseMenu(); }],
         ['NUEVA PARTIDA', newGameConfirm, 'danger'],
       ],
@@ -4335,6 +4344,7 @@ function newGameConfirm() {
 function defeat() {
   if (arenaOn()) arenaEnd('defeat'); // part-33
   bossRushEnd('defeat'); // part-45
+  rematchEnd('defeat'); // part-56
   towerEnd('defeat'); // part-46
   if (race === 'osmo') {
     player.form = 'human';
@@ -4386,7 +4396,7 @@ function hitPlayer(amount) {
   if (player.downed) return;
   amount = sizeGuard(amount); // tiny aliens dodge, giants shrug (part-49)
   if (!amount) return;
-  amount = amount * diffCfg().dmg * lvDmg(); // difficulty (part-32) · level (part-49)
+  amount = amount * diffCfg().dmg * lvDmg() * rmDmg(); // difficulty (part-32) · level (part-49)
   player.regenWait = 20;
   if (player.shield > 0 && player.alien) { // any alien's shield move (Diamante, kit 'shield' moves)
     const absorbed = Math.min(player.shield, amount);
@@ -4949,6 +4959,12 @@ function update(dt) {
   f3Tick(dt); // batch 3 (part-47)
   f4Tick(dt); // batch 4 (part-48)
   scaleTick(dt); // sizes / power (part-49)
+  partyTick(dt); // 4 players (part-54)
+  tutTick(dt); // first minutes (part-55)
+  rematchTick(dt); // boss gallery (part-56)
+  sjTick(dt); // citizen jobs (part-57)
+  s5Tick(dt); // part-58
+  bakTick(dt); // save copies (part-59)
   eliteTick();
   sigTick(dt);
   anoditeTick(dt);
@@ -5209,6 +5225,8 @@ function hud() {
   sagaHud(); // part-42
   f1Hud(); // part-45
   s4Hud(); // part-50
+  s5Hud(); // part-58
+  sjHud(); // part-57
   f2Hud(); // part-46
   f3Hud(); // part-47
   f4Hud(); // part-48
@@ -6084,10 +6102,20 @@ window.backFromAndroid = () => {
   if (dialogOpen) closeDialog();
   else pauseMenu();
 };
+// 0.27: only the art for the first screens loads before the title; the rest (kitchen, concert, fortress, city,
+// other races…) streams in the background. Until a picture arrives its slot holds an empty placeholder.
+const LAZY_ART = { bellwood9: [12], neko9: [12], food9: [12], fourconcert8: [10], kim8: [9, 10], robot8: [11], knights6: [6, 8], city: [3], districts: [4, 5], places7: [8, 9], places8: [10, 11, 12, 13, 14], npcs7: [5, 13, 14], bestia6: [], insect7: [], osmo: [], osmo7: [], full6: [] };
+function artPlaceholder() { const c = document.createElement('canvas'); c.width = c.height = 2; c._ph = true; return c; }
+const artLoad = ([name, url]) =>
+  new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => { art[name] = im; resolve(); };
+    im.onerror = () => reject(new Error(url));
+    im.src = url;
+  });
 async function boot() {
   try {
-    await Promise.all(
-      [
+    const ART_LIST = [
         ['bellwood9', 'assets/bellwood-v9.webp'],
         ['neko9', 'assets/neko-v9.webp'],
         ['food9', 'assets/food-v9.webp'],
@@ -6122,23 +6150,16 @@ async function boot() {
         ['kim8', 'assets/kim-v8.webp'],
         ['robot8', 'assets/robot-v8.webp'],
         ['places8', 'assets/places-v8.webp'],
-      ].map(
-        ([name, url]) =>
-          new Promise((resolve, reject) => {
-            let im = new Image();
-            im.onload = () => {
-              art[name] = im;
-              resolve();
-            };
-            im.onerror = () => {
-              reject(new Error(url));
-            };
-            im.src = url;
-          }),
-      ),
-    );
-    ready = true;
+      ],
+      lazy = ART_LIST.filter(([n]) => n in LAZY_ART);
+    for (const [n] of lazy) art[n] = artPlaceholder();
+    await Promise.all(ART_LIST.filter(([n]) => !(n in LAZY_ART)).map(artLoad));
     load();
+    // what the saved game shows first (its zone, an Osmosian body) loads before PLAY appears
+    const need = (n) => LAZY_ART[n].includes(zone) || (race === 'osmo' && ['osmo', 'osmo7', 'full6'].includes(n)) || ((player.activeAlien === 'bestia' || player.selected === 'bestia') && n === 'bestia6') || ((player.activeAlien === 'insect' || player.selected === 'insect') && n === 'insect7');
+    await Promise.all(lazy.filter(([n]) => need(n)).map(artLoad));
+    ready = true;
+    (async () => { for (const it of lazy) if (art[it[0]] && art[it[0]]._ph) try { await artLoad(it); } catch (e) {} })(); // the rest, one by one
     initProgress();
     ensureBoss();
     ensureRobot();
@@ -6433,7 +6454,7 @@ const hintsSeen = (() => {
   }
 })();
 function hintOnce(id, text) {
-  if (hintsSeen[id]) return;
+  if (hintsSeen[id] || (typeof tutActive === 'function' && tutActive())) return; // the tutorial card is talking (part-55)
   hintsSeen[id] = 1;
   try {
     localStorage.setItem('omni-hints', JSON.stringify(hintsSeen));
@@ -8415,7 +8436,7 @@ const ROW_ALIAS = {}; // row >= 100 -> { base:<real row>, hue, sat, bri }
 const tintLRU = []; // only a few full-size tinted sheets are kept in memory
 function tintSheet(def) {
   const base = spriteInfo(def.base).sheet;
-  if (!base || base.complete === false || !(base.naturalWidth || base.width)) return null;
+  if (!base || base._ph || base.complete === false || !(base.naturalWidth || base.width)) return null; // _ph: still loading (part-12)
   if (def._c) {
     tintLRU.splice(tintLRU.indexOf(def), 1);
     tintLRU.push(def);
@@ -9285,7 +9306,7 @@ function roomMenu() {
     return;
   }
   showDialog(
-    'SALA CON CÓDIGO · 2 JUGADORES',
+    'SALA CON CÓDIGO · HASTA 4 JUGADORES',
     'Crea una sala o únete',
     '<p>El anfitrión crea la sala y le dice el <b>código de 5 letras</b> a su amigo. El amigo lo escribe y pulsa UNIRSE. Funciona entre PC y móvil, en casa o por Internet (los dos necesitan conexión). Primero elige tu raza en el menú.</p>' +
       '<div class="lanfields"><label>Código de la sala<input id="roomjoin" maxlength="9" placeholder="K7QM2" autocapitalize="characters" autocomplete="off" style="text-transform:uppercase;letter-spacing:3px"></label></div>' +
@@ -9316,7 +9337,7 @@ function roomHost() {
   showDialog(
     'SALA CON CÓDIGO · ANFITRIÓN',
     'Tu código',
-    '<p style="text-align:center;font-size:42px;letter-spacing:8px;margin:8px 0" id="roomcodebig">· · · · ·</p><p style="text-align:center">Díselo a tu amigo (WhatsApp, Discord, en voz alta…). Cuando entre, la partida empieza sola.</p><p id="roommsg" style="min-height:14px;text-align:center">Conectando con el servidor de salas…</p>',
+    '<p style="text-align:center;font-size:42px;letter-spacing:8px;margin:8px 0" id="roomcodebig">· · · · ·</p><p style="text-align:center">Díselo a tu amigo (WhatsApp, Discord, en voz alta…). Cuando entre, la partida empieza sola.</p><p style="text-align:center"><b>Hasta 4 jugadores:</b> dos amigos más pueden entrar luego con el mismo código.</p><p id="roommsg" style="min-height:14px;text-align:center">Conectando con el servidor de salas…</p>',
     [
       ['CANCELAR', () => { leaveRoom(); closeDialog(); }],
       ['COPIAR', () => {
@@ -12792,7 +12813,7 @@ function sagaKill(e) { // damageEnemy (part-08), host side
     if (s.wardens >= 4) toast('¡Carceleros derrotados! Libera a Draven (E)');
     hud();
   }
-  if (e.sagaKind === 'specter' && s.step === 6 && !e.rush) sagaSpectreDown();
+  if (e.sagaKind === 'specter' && s.step === 6 && !e.rush && !e.rematch) sagaSpectreDown();
 }
 function sagaAcid(e) { // corrosive hits once you own the acid
   if (player.acid && e.alive && Math.random() < 0.15) applyStatus(e, 'poison', 3, 3 * multiplier());
@@ -12945,10 +12966,11 @@ function sagaDrawEnemy(e, f) {
     ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(e.x, e.y - 80, 110, 0, 7); ctx.fill();
     ctx.restore();
     const sk = e.hit > 0 ? 'spectre3' : e.wind > 0 || e.cast > 0 ? 'spectre2' : Math.floor(clock * 3) % 2 ? 'spectre1' : 'spectre0';
-    if (!npcArt(sk, e.x, e.y - 6 - Math.sin(clock * 2) * 8, 190, e.face, e.intangible > 0 ? 0.3 : 0.92))
+    const da = e.decoy ? 0.55 : 1; // echoes (part-58) are fainter
+    if (!npcArt(sk, e.x, e.y - 6 - Math.sin(clock * 2) * 8, e.decoy ? 150 : 190, e.face, (e.intangible > 0 ? 0.3 : 0.92) * da))
       sprite(row, f, e.x, e.y - 10 - Math.sin(clock * 2) * 8, 168, e.face, e.intangible > 0 ? 0.3 : e.hit > 0 ? 0.55 : 0.85);
     const by = e.y - 200;
-    txt('EL ESPECTRO', e.x, by - 8, 10, '#d9c2ff');
+    txt(e.label || 'EL ESPECTRO', e.x, by - 8, 10, '#d9c2ff');
     ctx.fillStyle = '#101522'; ctx.fillRect(e.x - 60, by, 120, 7);
     ctx.fillStyle = '#b98cff'; ctx.fillRect(e.x - 60, by, 120 * Math.max(0, e.hp / e.max), 7);
     return;
@@ -13391,7 +13413,9 @@ function featKill(e) {
     player.coins = (player.coins || 0) + 2;
     popup(e.x + 20, e.y - 120, '+2 🪙', '#ffe27a');
   }
-  if (e.hunter) s3HunterDown();
+  if (e.hunter && !e.rematch) s3HunterDown();
+  rematchKill(e); // part-56
+  s5Kill(e); // part-58
   s4Kill(e); // part-50
   sfx('kill'); // part-52
   if (zone === 6 && F1().s3.step === 2) { F1().s3.kills++; if (F1().s3.kills >= 6) s3Go(3); else hud(); }
@@ -13690,7 +13714,7 @@ function s3Pick() {
   for (const b of document.querySelectorAll('[data-pick]')) b.onclick = () => { grantAlien(b.dataset.pick); ensureSelection(); playWatchSFX('dna_added'); toast('¡ADN añadido! ' + ALIENS[b.dataset.pick].name.toUpperCase()); closeDialog(); save(); };
 }
 function s3Spawn() {
-  if (net.role === 'guest' || zone !== 0 || F1().s3.step !== 3 || rush.on || arenaOn() || enemies.some((e) => e.hunter && e.alive)) return;
+  if (net.role === 'guest' || zone !== 0 || F1().s3.step !== 3 || rush.on || rm.on || arenaOn() || enemies.some((e) => e.hunter && e.alive)) return;
   const hp = Math.round(3600 * (1 + player.level * 0.04));
   enemies.push({ id: 97, x: 1150, y: 700, homeX: 1150, homeY: 700, face: -1, hp, max: hp, boss: true, hunter: true, kind: 'enemy', rcd: 1, cast: 0, stun: 0, alive: true, respawn: 1e9, cd: 1, wind: 0, anim: 0, hit: 0, moving: false, net: 3, dash: 6 });
   toast('¡KRAAL, EL CAZADOR DE ADN!');
@@ -13750,6 +13774,8 @@ function featTick(dt) {
 }
 function featDraw() {
   s4Draw(); // part-50
+  sjDraw(); // citizen jobs (part-57)
+  s5Draw(); // part-58
   if (emote.ping) {
     const p = emote.ping;
     ctx.save(); ctx.strokeStyle = '#ffe27a'; ctx.lineWidth = 3; ctx.globalAlpha = Math.min(1, p.t);
@@ -13802,7 +13828,7 @@ document.addEventListener('keydown', (e) => {
   if (k === 'u' && !watchHasUlt()) ultraFire();
   if (k === 'z') emoteWheel();
 });
-function f1Near() { return s3Near() || s4Near(); } // Historia 04 (part-50)
+function f1Near() { return s3Near() || s4Near() || s5Near() || sjNear(); } // Historia 04 (part-50)
 function featInteract() {
   if (!started) return false;
   const n = f1Near();
@@ -14287,7 +14313,7 @@ function favKill() { const q = favActive(); if (q && q.type === 'clear' && zone 
 const ZBOSS = { 0: 'Coloso del pinar', 1: 'Rey de los invasores', 2: 'Bestia del río', 3: 'Gran dron urbano', 4: 'Saqueador del mercado', 5: 'Pirata de los muelles', 7: 'Merodeador del barrio', 11: 'Chatarra viviente', 13: 'Núcleo descontrolado' };
 let zbZone = -1;
 function zoneBossCheck() {
-  if (net.role === 'guest' || !ZBOSS[zone] || arenaOn() || rush.on || dun.on || (zone === 1 && quest.state !== 'done')) return;
+  if (net.role === 'guest' || !ZBOSS[zone] || arenaOn() || rush.on || (typeof rm !== 'undefined' && rm.on) || dun.on || (zone === 1 && quest.state !== 'done')) return;
   const f = F3(), now = Date.now();
   if (now - (f.bossT[zone] || 0) < 5 * 60 * 1000 || Math.random() > 0.35) return;
   f.bossT[zone] = now;
@@ -14775,6 +14801,9 @@ function moreSettings(back) {
 const watchVolume = () => lsGet('omni-volume-watch', 100) / 100;
 // ---------------- patch notes ----------------
 const CHANGELOG = [
+  ['0.27', 'Música propia por zona · Co-op de hasta 4 · Tutorial guiado · Galería de jefes · Encargos de vecinos · Historia 05 · Copias automáticas · Carga más rápida'],
+  ['0.26', 'HUD limpio · Aliens a escala y con su poder · Historia 04 · Sobrecarga · Descargas en la web · Juego sin internet en la web'],
+  ['0.25', 'Relojes, poses de activación, Vega, Draven, el Espectro y fondos nuevos'],
   ['0.24', 'Co-op: ataque en equipo, jefe de incursión, regalos, duelos y ficha del compañero · Teclas, tamaño táctil, texto grande y daltonismo · Ranuras de guardado · Arcade · Modo streamer · Un secreto en Ciudad Bahía'],
   ['0.23', 'Favores, jefes de zona, eventos del mundo, clima, insignias, noches peligrosas, viaje rápido, equipos, mejoras del reloj, laboratorio de ADN, variantes, final de combo y fallos del Omnitrix'],
   ['0.22', 'Esquiva perfecta, debilidades por elemento, enemigos de élite, Torre del Vacío, muñeco de entrenamiento, retos semanales, nivel 30 y prestigio, títulos, tienda y colección'],
@@ -15199,6 +15228,7 @@ function story4Talk() { // Agent Vega, after Story 03 (part-45)
     { w: 'AGENTE VEGA', c: '#8de5f3', t: 'Vuelve la luz a toda la bahía. Y el robot no se volverá a levantar.' },
     { w: 'AGENTE VEGA', c: '#8de5f3', t: 'Recuperamos sus muestras de ADN. Elige una: te la has ganado.' },
   ], () => { s.step = 6; xp(2500); player.coins = (player.coins || 0) + 600; statEvent('mission', { id: 'saga4' }); toast('¡HISTORIA 04 COMPLETADA! · +2500 EXP · +600 monedas · Título: Guardián de la red'); playWatchSFX('recharged'); s3Pick(); hud(); save(); });
+  if (s.step >= 6) return story5Talk(); // Historia 05 (part-58)
   showDialog('AGENTE VEGA · FONTANEROS', s.step >= 6 ? 'Todo en calma' : 'Sobrecarga', s.step >= 6 ? '<p>«Por ahora no hay más misiones. Te avisaré.»</p>' : '<p>«' + S4_STEPS[s.step] + '.»</p>', [['VALE', closeDialog]]);
 }
 function s4Near() {
@@ -15232,7 +15262,7 @@ function s4Kill(e) {
     if (s.kills >= 8) sagaCine([{ w: 'OMNITRIX', c: '#c9ff89', t: 'Sobrecarga estabilizada. El último pulso de energía sale hacia la Zona devastada.' }], () => s4Go(4, S4_STEPS[4]));
     else hud();
   }
-  if (e.mech) sagaCine([
+  if (e.mech && !e.rematch) sagaCine([
     { w: 'ROBOT MK II', c: '#ff8a6a', t: 'SISTEMAS… CRÍTICOS… TRANSMITIENDO… DATOS…', fx: 'shake' },
     { w: '', c: '#c9ff89', t: 'El robot se apaga. Entre los restos hay un contenedor de ADN robado.', fx: 'flash' },
   ], () => s4Go(5, S4_STEPS[5]));
@@ -15427,6 +15457,691 @@ document.addEventListener('click', (e) => {
   const b = e.target && e.target.closest && e.target.closest('#modal button, .ptabs button, #sagacine, .sagacine');
   if (b) sfx(b.closest('#sagacine, .sagacine') ? 'line' : 'click');
 }, true);
+// ============================================================================================
+// OMNI 0.27 · ZONE MUSIC. Every zone has its own short looping tune, composed in code from a few numbers (key,
+// scale, tempo, chord loop, instruments) and played with the Web Audio synthesizer: no recordings, nothing from
+// the series. Bosses switch the zone tune to a faster, darker version. The tune ducks under menus and cutscenes,
+// stops on the concert stage (it has its own song) and steps aside when you play your own imported track.
+// Volume: Pause → MÚSICA (slider "Música de zona").
+// ============================================================================================
+const MUS_SCALES = { major: [0, 2, 4, 5, 7, 9, 11], minor: [0, 2, 3, 5, 7, 8, 10], dorian: [0, 2, 3, 5, 7, 9, 10], mixo: [0, 2, 4, 5, 7, 9, 10], phryg: [0, 1, 3, 5, 7, 8, 10] };
+// root (MIDI), scale, bpm, chord loop (scale degrees), lead wave, drums 0-2, arpeggio, pad, seed
+const MUS_SONGS = {
+  title: [57, 'minor', 92, [0, 5, 3, 4], 'triangle', 1, true, true, 7],
+  0: [57, 'minor', 84, [0, 5, 2, 6], 'triangle', 0, true, true, 11],
+  1: [60, 'major', 90, [0, 4, 5, 3], 'triangle', 1, false, true, 21],
+  2: [64, 'dorian', 76, [0, 3, 0, 6], 'sine', 0, true, true, 31],
+  3: [65, 'major', 112, [0, 5, 3, 4], 'square', 2, false, false, 41],
+  4: [62, 'mixo', 118, [0, 6, 3, 0], 'square', 2, true, false, 51],
+  5: [55, 'major', 96, [0, 3, 4, 0], 'triangle', 1, true, true, 61],
+  6: [62, 'minor', 104, [0, 6, 5, 4], 'sawtooth', 2, false, true, 71],
+  7: [58, 'major', 100, [0, 2, 3, 4], 'triangle', 1, true, false, 81],
+  8: [50, 'minor', 70, [0, 3, 4, 0], 'sine', 0, false, true, 91],
+  9: [60, 'major', 80, [0, 5, 3, 4], 'sine', 1, true, true, 101],
+  11: [52, 'phryg', 120, [0, 1, 0, 6], 'sawtooth', 2, true, false, 111],
+  12: [65, 'major', 92, [0, 1, 4, 0], 'triangle', 1, false, true, 121],
+  13: [59, 'minor', 128, [0, 5, 6, 4], 'square', 2, true, false, 131],
+  14: [49, 'minor', 60, [0, 1, 5, 4], 'sine', 0, true, true, 141],
+};
+const MUS = { ctx: null, out: null, key: null, song: null, step: 0, next: 0, fade: 0, vol: 0.35 };
+try { const v = localStorage.getItem('omni-zmusic'); if (v !== null) MUS.vol = Math.max(0, Math.min(1, +v || 0)); } catch (e) {}
+function musRng(seed) { let s = seed * 9301 + 49297; return () => ((s = (s * 9301 + 49297) % 233280) / 233280); }
+function musBuild(key, boss) {
+  const d = MUS_SONGS[key] || MUS_SONGS[1], [root, sc, bpm, prog, lead, drums, arp, pad, seed] = d, S = MUS_SCALES[boss ? (sc === 'major' ? 'minor' : sc) : sc], r = musRng(seed + (boss ? 5 : 0));
+  const deg = (n) => root + S[((n % 7) + 7) % 7] + 12 * Math.floor(n / 7);
+  // a two-bar motif on chord tones, repeated with the chord under it (easy to remember, not a random noodle)
+  const motif = [];
+  let p = 4;
+  for (let i = 0; i < 32; i++) {
+    const on = i % 4 === 0 ? r() < 0.85 : i % 2 === 0 ? r() < 0.45 : r() < 0.12;
+    if (on) { p = Math.max(0, Math.min(9, p + Math.round((r() - 0.5) * 4))); motif.push([i, p, i % 4 === 0 ? 2 : 1]); }
+  }
+  return { root, deg, bpm: bpm * (boss ? 1.15 : 1), prog, lead, drums: boss ? 2 : drums, arp, pad: pad && !boss, motif, boss, bars: prog.length * 2 };
+}
+function musEnsure() {
+  if (MUS.ctx) { if (MUS.ctx.state === 'suspended') MUS.ctx.resume().catch(() => {}); return true; }
+  try {
+    const C = window.AudioContext || window.webkitAudioContext;
+    MUS.ctx = new C();
+    const comp = MUS.ctx.createDynamicsCompressor();
+    MUS.out = MUS.ctx.createGain();
+    MUS.out.gain.value = 0;
+    MUS.out.connect(comp); comp.connect(MUS.ctx.destination);
+    return true;
+  } catch (e) { return false; }
+}
+const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+function musNote(m, t, dur, type, vol, cut) {
+  const c = MUS.ctx, o = c.createOscillator(), g = c.createGain();
+  o.type = type; o.frequency.value = mtof(m);
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  let last = o;
+  if (cut) { const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = cut; o.connect(f); last = f; }
+  last.connect(g); g.connect(MUS.out);
+  o.start(t); o.stop(t + dur + 0.05);
+}
+let musNoiseBuf = null;
+function musHit(t, kind) {
+  const c = MUS.ctx;
+  if (kind === 'kick') {
+    const o = c.createOscillator(), g = c.createGain();
+    o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.14);
+    g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+    o.connect(g); g.connect(MUS.out); o.start(t); o.stop(t + 0.22);
+    return;
+  }
+  if (!musNoiseBuf) { musNoiseBuf = c.createBuffer(1, c.sampleRate * 0.3, c.sampleRate); const v = musNoiseBuf.getChannelData(0); for (let i = 0; i < v.length; i++) v[i] = Math.random() * 2 - 1; }
+  const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(), hat = kind === 'hat';
+  s.buffer = musNoiseBuf; f.type = hat ? 'highpass' : 'bandpass'; f.frequency.value = hat ? 7000 : 1800;
+  g.gain.setValueAtTime(hat ? 0.08 : 0.22, t); g.gain.exponentialRampToValueAtTime(0.0001, t + (hat ? 0.04 : 0.14));
+  s.connect(f); f.connect(g); g.connect(MUS.out); s.start(t); s.stop(t + 0.2);
+}
+function musStep(t) {
+  const s = MUS.song, i = MUS.step % (s.bars * 16), bar = Math.floor(i / 16), k = i % 16, ch = s.prog[bar % s.prog.length], spb = 60 / s.bpm / 4;
+  // pad: the chord, held for the bar
+  if (s.pad && k === 0) for (const n of [0, 2, 4]) musNote(s.deg(ch + n) - 12, t, spb * 16, 'sawtooth', 0.025, 900);
+  // bass
+  if (k % 4 === 0 || (s.drums === 2 && k % 4 === 2)) musNote(s.deg(ch) - 24, t, spb * (k % 4 === 0 ? 3 : 1.5), s.boss ? 'sawtooth' : 'triangle', 0.12, 600);
+  // arpeggio
+  if (s.arp && k % 2 === 1) musNote(s.deg(ch + [0, 2, 4, 7][(k >> 1) % 4]), t, spb * 1.5, 'square', 0.018, 2400);
+  // melody (bars 3-4 and 7-8 answer bars 1-2 and 5-6, shifted onto the chord)
+  const half = bar % 4 < 2 ? 0 : 1, pos = (bar % 2) * 16 + k;
+  for (const [st, p, len] of s.motif) if (st === pos) musNote(s.deg(p + (half ? ch - s.prog[0] : 0) + 7), t, spb * len * 1.8, s.lead, 0.05, s.lead === 'sawtooth' ? 2600 : 0);
+  // drums
+  if (s.drums >= 1) { if (k === 0 || k === 8 || (s.drums === 2 && k === 10)) musHit(t, 'kick'); if (k === 4 || k === 12) musHit(t, 'snare'); }
+  if (s.drums === 2 || (s.drums === 1 && k % 4 === 2)) if (k % 2 === 0) musHit(t, 'hat');
+}
+function musWanted() {
+  if (!started) return 'title';
+  if (zone === 10 || (window.OmniCooking && OmniCooking.active)) return null; // stage / kitchen have their own audio
+  return zone in MUS_SONGS ? zone : 1;
+}
+function musBossOn() {
+  return started && enemies.some((e) => e.alive && dist(player, e) < 650 && (e.majorBoss || e.robotBoss || e.hunter || e.mech || e.sagaKind === 'specter' || e.raid || e.zboss || e.rematch));
+}
+function musTick() {
+  const own = window.OmniMusic && OmniMusic.enabled && OmniMusic.playing;
+  const want = own || document.hidden || MUS.vol <= 0 ? null : musWanted(), boss = want != null && want !== 'title' && musBossOn(), key = want == null ? null : want + (boss ? '!' : '');
+  if (!MUS.ctx) { if (key == null) return; if (!musEnsure()) return; }
+  const c = MUS.ctx, now = c.currentTime;
+  const duck = (typeof paused !== 'undefined' && paused) || (typeof sagaCineOn !== 'undefined' && sagaCineOn) || (typeof dialogOpen !== 'undefined' && dialogOpen) ? 0.35 : 1;
+  const target = key == null ? 0 : MUS.vol * 0.55 * duck;
+  if (key !== MUS.key) {
+    // fade out, then swap the tune
+    MUS.out.gain.cancelScheduledValues(now); MUS.out.gain.setTargetAtTime(0, now, 0.25);
+    MUS.key = key; MUS.swapAt = now + 0.9;
+    return;
+  }
+  if (MUS.swapAt && now >= MUS.swapAt) { MUS.swapAt = 0; MUS.song = key == null ? null : musBuild(want, boss); MUS.step = 0; MUS.next = now + 0.05; }
+  if (!MUS.song || MUS.swapAt) return;
+  MUS.out.gain.setTargetAtTime(target, now, 0.3);
+  const spb = 60 / MUS.song.bpm / 4;
+  while (MUS.next < now + 0.25) { musStep(MUS.next); MUS.next += spb; MUS.step++; }
+  if (MUS.next < now) MUS.next = now + 0.02; // after a stall, don't play a burst of missed notes
+}
+setInterval(() => { try { musTick(); } catch (e) {} }, 100);
+for (const ev of ['pointerdown', 'keydown', 'touchstart']) document.addEventListener(ev, () => { if (MUS.ctx && MUS.ctx.state === 'suspended') MUS.ctx.resume().catch(() => {}); }, { capture: true, passive: true });
+// slider in the audio dialog (www/music.js builds it)
+(function musSlider() {
+  const M = window.OmniMusic;
+  if (!M || M._zone) return;
+  const open = M.open;
+  M.open = function () {
+    open.apply(this, arguments);
+    const box = document.querySelector('.music-controls');
+    if (!box || box.querySelector('#zmusicvol')) return;
+    const lab = document.createElement('label'), inp = document.createElement('input');
+    lab.innerHTML = 'Música de zona (compuesta por el juego) <span id="zmusiclab">' + Math.round(MUS.vol * 100) + '%</span>';
+    Object.assign(inp, { id: 'zmusicvol', type: 'range', min: 0, max: 100, value: Math.round(MUS.vol * 100) });
+    inp.oninput = () => { MUS.vol = +inp.value / 100; document.getElementById('zmusiclab').textContent = inp.value + '%'; try { localStorage.setItem('omni-zmusic', String(MUS.vol)); } catch (e) {} };
+    box.prepend(lab, inp);
+  };
+  M._zone = true;
+})();
+// ============================================================================================
+// OMNI 0.27 · UP TO 4 PLAYERS (room codes). The host's room takes up to three guests with the same code.
+// The first guest is the "partner" that every two-player feature already knows (team-up, duels, gifts…);
+// players 3 and 4 share the world, fight, take hits, get EXP and see everyone. If the partner leaves, player 3
+// takes the seat. Bosses get tougher with 3–4 players. LAN and the long-code invitation stay two-player.
+// Host: net.extras[pid] = avatar of player 3/4 (pid X1/X2). Guests: net.myPid and net.others (everyone but the host).
+// ============================================================================================
+net.extras = {};
+net.others = [];
+net.xseen = {};
+function partyOthers() {
+  return net.role === 'host' ? Object.values(net.extras) : net.role === 'guest' ? net.others || [] : [];
+}
+function partySize() {
+  return 1 + (net.peer ? 1 : 0) + (net.role === 'host' ? Object.keys(net.extras).length : (net.others || []).length);
+}
+const roomX = () => (net.mode === 'room' ? window.OmniRoom : null);
+function xSendTo(pid, m) {
+  const R = roomX();
+  if (R && R.sendTo) try { R.sendTo(pid, JSON.stringify({ ...m, v: 9 })); } catch (e) {}
+}
+// host: a message from player 3 or 4
+function xReceive(pid, m) {
+  if (!m || m.v !== 9 || net.role !== 'host') return;
+  (net.xlast = net.xlast || {})[pid] = performance.now(); // the partner's own timer (net.last) is not touched
+  if (m.type === 'hello' || m.type === 'avatar') {
+    const fresh = !net.extras[pid];
+    net.extras[pid] = { ...m.avatar, kind: 'remote', id: 'remote' + pid, pid };
+    if (fresh) {
+      xSendTo(pid, { type: 'you', pid });
+      xSendTo(pid, worldPacket());
+      toast('Jugador ' + (pid === 'X1' ? 3 : 4) + ' conectado · ' + partySize() + ' jugadores');
+      playWatchSFX('confirm');
+    }
+    return;
+  }
+  if (m.type === 'damage' && m.zone === zone && m.seq > (net.xseen[pid] || 0)) {
+    net.xseen[pid] = m.seq;
+    const me = net.extras[pid],
+      pool = m.kind === 'civil' ? citizens : m.kind === 'police' ? officers : enemies,
+      t = pool.find((e) => String(e.id) === String(m.id));
+    if (!me || !t || !t.alive || !Number.isFinite(m.damage) || m.damage < 0 || m.damage > 150 || dist(me, t) > 850) return;
+    net.source = 'guest';
+    damageTarget(t, m.damage, Math.min(1, m.stun || 0));
+    net.source = null;
+  }
+}
+// guests: who am I, and where is everybody else
+function partyReceive(m) {
+  if (m.type === 'you') { net.myPid = m.pid; return; }
+  if (m.type === 'party' && net.role === 'guest')
+    net.others = (m.list || []).filter((p) => p.pid !== 'H' && p.pid !== net.myPid && p.a).map((p) => ({ ...p.a, kind: 'remote', id: 'remote' + p.pid, pid: p.pid }));
+}
+let partyT = 0;
+function partyTick(dt) {
+  if (net.role !== 'host' || net.mode !== 'room') { if (net.role !== 'guest') { net.extras = {}; net.others = []; } return; }
+  partyT += dt;
+  if (partyT < 0.1) return;
+  partyT = 0;
+  if (net.room && net.peer) net.info = 'SALA ' + net.room + ' · ' + partySize() + '/4 JUGADORES';
+  for (const pid of Object.keys(net.extras)) if (performance.now() - ((net.xlast || {})[pid] || 0) > 12000) { delete net.extras[pid]; toast('Jugador ' + (pid === 'X1' ? 3 : 4) + ' sin conexión'); }
+  const ids = Object.keys(net.extras);
+  if (!ids.length) return;
+  const list = [{ pid: 'H', a: avatarPacket() }];
+  if (net.peer && net.remote) list.push({ pid: 'P', a: net.remote });
+  for (const pid of ids) list.push({ pid, a: net.extras[pid] });
+  lanSend({ type: 'party', list });
+  // bosses scale with the crowd (once, when they first appear)
+  const n = partySize();
+  if (n > 2)
+    for (const e of enemies)
+      if (e.alive && !e.partyScaled && (e.boss || e.zboss || e.mech || e.hunter || e.majorBoss || e.robotBoss || e.raid)) {
+        e.partyScaled = true;
+        const k = 1 + 0.35 * (n - 2);
+        e.max = Math.round(e.max * k); e.hp = Math.round(e.hp * k);
+      }
+}
+function partyEvent(kind, data) {
+  if (kind === 'xjoin') return true; // wait for their hello
+  if (kind === 'xleave') {
+    if (net.extras[data]) toast('Jugador ' + (data === 'X1' ? 3 : 4) + ' salió de la sala');
+    delete net.extras[data];
+    return true;
+  }
+  if (kind === 'xpromote') { delete net.extras[data]; xSendTo('P', { type: 'you', pid: 'P' }); return true; }
+  if (kind === 'xdata') {
+    try { const o = JSON.parse(data); xReceive(o.pid, JSON.parse(o.d)); } catch (e) {}
+    return true;
+  }
+  return false;
+}
+// ============================================================================================
+// OMNI 0.27 · GUIDED FIRST MINUTES. A small card at the top of the screen walks a brand-new player through the
+// basics, one action at a time; each step ticks itself off when you actually do it (no reading walls of text).
+// Only for new saves (level 1, Omnitrix race). SALTAR skips it; Pause → Ajustes → TUTORIAL replays it.
+// Steps: move · attack · transform · use a power · dodge · back to human · scan · talk to Max.
+// ============================================================================================
+const TUT_TOUCH = (() => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } })();
+const TUT = [
+  { id: 'move', t: TUT_TOUCH ? 'Arrastra la palanca para moverte' : 'Muévete con WASD o las flechas', done: (s) => Math.hypot(player.x - s.x0, player.y - s.y0) > 180 },
+  { id: 'attack', t: TUT_TOUCH ? 'Pulsa el botón Ⅰ para atacar' : 'Ataca con J o con un clic', done: () => player.attack > 0 },
+  { id: 'transform', t: TUT_TOUCH ? 'Toca el reloj (abajo) y elige un alien' : 'Pulsa Q para abrir el reloj y elige un alien', done: () => player.alien },
+  { id: 'power', t: TUT_TOUCH ? 'Usa un poder: botón Ⅱ' : 'Usa un poder con 2 (o 1–4)', done: () => player.alien && [1, 2, 3].some((i) => (player.cool[i] || 0) > 0), skipIf: () => !player.alien },
+  { id: 'dodge', t: TUT_TOUCH ? 'Esquiva con SALTAR' : 'Esquiva con ESPACIO', done: () => player.jump > 0 || !!player.dodge || (player.dodgeCool || 0) > 0 || (player.motion && player.motion.type === 'slide') },
+  { id: 'revert', t: TUT_TOUCH ? 'Vuelve a humano con el reloj: así se recarga' : 'Vuelve a humano con Q: así se recarga la batería', done: () => !player.alien },
+  { id: 'scan', t: 'Escanea un enemigo marcado con ? (' + (TUT_TOUCH ? 'botón ESCANEAR' : 'tecla B') + ')', done: () => Object.values(BX()).some((b) => b.scanned), skipIf: (s) => s.t > 25 && !scanCandidate() },
+  { id: 'talk', t: 'Habla con Max (◆ HABLAR / E) para empezar tu primera misión', done: () => quest.state !== 'new' },
+];
+let tutEl = null;
+const tutState = { i: -1, t: 0, x0: 0, y0: 0 };
+function tutActive() { return started && player.tut === 'on' && tutState.i >= 0 && tutState.i < TUT.length; }
+function tutStart(force) {
+  if (!force && (player.tut || player.level > 1 || race !== 'omni')) return;
+  player.tut = 'on';
+  tutState.i = 0; tutGo(0);
+}
+function tutGo(i) {
+  tutState.i = i; tutState.t = 0; tutState.x0 = player.x; tutState.y0 = player.y;
+  if (i >= TUT.length) return tutEnd(true);
+  tutDraw();
+}
+function tutEnd(done) {
+  player.tut = done ? 'done' : 'skipped';
+  tutState.i = -1;
+  if (tutEl) tutEl.classList.add('hidden');
+  if (done) { player.coins = (player.coins || 0) + 100; toast('¡Tutorial completado! +100 monedas · Se guarda solo mientras juegas'); playWatchSFX('recharged'); }
+  save();
+}
+function tutDraw() {
+  if (!tutEl) {
+    tutEl = document.createElement('div');
+    tutEl.id = 'tutcard';
+    tutEl.innerHTML = '<small></small><b></b><i></i><button>SALTAR</button>';
+    tutEl.querySelector('button').onclick = () => tutEnd(false);
+    $('#game').append(tutEl);
+  }
+  const s = TUT[tutState.i];
+  tutEl.classList.remove('hidden', 'tick');
+  tutEl.querySelector('small').textContent = 'PRIMEROS PASOS · ' + (tutState.i + 1) + ' / ' + TUT.length;
+  tutEl.querySelector('b').textContent = s.t;
+  tutEl.querySelector('i').style.width = (tutState.i / TUT.length) * 100 + '%';
+}
+function tutTick(dt) {
+  if (started && !player.tut && player.level <= 1 && race === 'omni' && !net.role) tutStart();
+  if (!tutActive()) { if (tutEl && !tutEl.classList.contains('hidden') && !(started && player.tut === 'on')) tutEl.classList.add('hidden'); return; }
+  if (paused || dialogOpen || sel) return;
+  tutState.t += dt;
+  const s = TUT[tutState.i];
+  let ok = false;
+  try { ok = s.done(tutState); } catch (e) {}
+  if (!ok && s.skipIf) try { ok = s.skipIf(tutState); } catch (e) {}
+  if (ok && !tutState.wait) {
+    tutState.wait = true;
+    tutEl.classList.add('tick');
+    sfx('click');
+    setTimeout(() => { tutState.wait = false; if (player.tut === 'on') tutGo(tutState.i + 1); }, 650);
+  }
+}
+// ============================================================================================
+// OMNI 0.27 · BOSS GALLERY (rematches). Every boss you have beaten can be fought again in the Ruinas del pinar
+// arena at three levels: ★ (story life, hits ×1.15), ★★ (×1.5 life, hits ×1.35), ★★★ (×2.2 life, hits ×1.6). Best time per boss
+// and level; the first win at each level pays EXP and coins. Pause → JUGAR → GALERÍA DE JEFES.
+// ============================================================================================
+const RM_BOSSES = [
+  ['kraal', 'Kraal, el Cazador de ADN', () => F1().s3.step >= 4, { hunter: true, hp: 3600, net: 3, dash: 6 }],
+  ['espectro', 'El Espectro', () => SG().step >= 7, { sagaKind: 'specter', hp: 3200, tp: 4, ring: 3, intangible: 0 }],
+  ['mk2', 'Robot Mk II', () => S4().step >= 5, { mech: true, hp: 3800, vent: 0, ventCd: 7, laserCd: 4, callCd: 10 }],
+  ...Object.entries(ZBOSS).map(([z, name]) => ['z' + z, name, () => !!(player.bossLog && player.bossLog[name]), { zboss: name, hp: 1400, sagaKind: +z === 13 ? 'rad' : undefined }]),
+];
+const RM_TIERS = [null, { hp: 1, dmg: 1.15, xp: 300, coins: 100 }, { hp: 1.5, dmg: 1.35, xp: 600, coins: 200 }, { hp: 2.2, dmg: 1.6, xp: 1000, coins: 350 }];
+const rm = { on: false, id: null, tier: 1, t: 0, next: 0 };
+function RMX() { return (player.rematch = player.rematch && typeof player.rematch === 'object' ? player.rematch : {}); }
+const rmDmg = () => (rm.on ? RM_TIERS[rm.tier].dmg : 1);
+function rematchMenu(back) {
+  const R = RMX();
+  showDialog('GALERÍA DE JEFES', 'Revancha en la arena de las Ruinas',
+    '<p>Vuelve a enfrentarte a los jefes que ya has derrotado. Tres niveles de dificultad; cuenta tu mejor tiempo.</p><div class="codex">' +
+      RM_BOSSES.map(([id, name, ok]) => {
+        const u = ok(), best = R[id] || {};
+        return '<button class="cx' + (u ? '' : ' locked') + '" data-rm="' + id + '" style="--c:#ff9a6a"><b>' + (u ? name : '???') + '</b><small>' + (u ? [1, 2, 3].map((k) => (best[k] ? '★'.repeat(k) + ' ' + rushFmt(best[k]) : '')).filter(Boolean).join(' · ') || 'Sin revancha todavía' : 'Derrótalo primero') + '</small></button>';
+      }).join('') + '</div>',
+    [['VOLVER', back || pauseMenu]]);
+  for (const b of document.querySelectorAll('[data-rm]'))
+    b.onclick = () => {
+      const B = RM_BOSSES.find((x) => x[0] === b.dataset.rm);
+      if (!B[2]()) return toast('Derrota primero a este jefe');
+      const best = RMX()[B[0]] || {};
+      showDialog('REVANCHA · ' + B[1].toUpperCase(), 'Elige la dificultad',
+        [1, 2, 3].map((k) => '<p><b>' + '★'.repeat(k) + '</b> vida ×' + RM_TIERS[k].hp + ' · golpes ×' + RM_TIERS[k].dmg + (best[k] ? ' · récord ' + rushFmt(best[k]) : ' · primera victoria: +' + RM_TIERS[k].xp + ' EXP +' + RM_TIERS[k].coins + ' monedas') + '</p>').join(''),
+        [['★', () => rematchStart(B[0], 1)], ['★★', () => rematchStart(B[0], 2)], ['★★★', () => rematchStart(B[0], 3)], ['VOLVER', () => rematchMenu(back)]]);
+    };
+}
+function rematchStart(id, tier) {
+  if (net.role === 'guest' && net.peer) return toast('La revancha la empieza el anfitrión');
+  if (arenaOn() || rush.on) return toast('Termina antes lo que estás haciendo');
+  closeDialog();
+  if (zone !== 0) enterZone(0, 'center');
+  enemies = [];
+  zoneStates[region().id] = enemies;
+  Object.assign(rm, { on: true, id, tier, t: 0, next: 2.5 });
+  player.hp = maxHP();
+  toast('REVANCHA · ' + '★'.repeat(tier) + ' · prepárate…');
+  playWatchSFX('warning');
+}
+function rematchSpawn() {
+  const B = RM_BOSSES.find((x) => x[0] === rm.id), d = B[3], r = region(), x = (r.minX + r.maxX) / 2 + 260, y = (r.top + r.bottom) / 2,
+    hp = Math.round(d.hp * (1 + player.level * 0.04) * RM_TIERS[rm.tier].hp);
+  enemies.push({ id: 450, x, y, homeX: x, homeY: y, face: -1, kind: 'enemy', rcd: 1.2, cast: 0, stun: 0, alive: true, respawn: 1e9, cd: 1, wind: 0, anim: 0, hit: 0, moving: false, boss: true, temp: true, modRolled: true, rematch: true, ...d, hp, max: hp });
+  zoneStates[r.id] = enemies;
+  toast('¡' + B[1].toUpperCase() + '!');
+}
+function rematchEnd(why) {
+  if (!rm.on) return;
+  rm.on = false;
+  delete zoneStates[REGIONS[0].id];
+  if (why === 'win') {
+    const R = RMX(), best = (R[rm.id] = R[rm.id] || {}), T = RM_TIERS[rm.tier], first = !best[rm.tier], rec = first || rm.t < best[rm.tier];
+    if (first) { xp(T.xp); player.coins = (player.coins || 0) + T.coins; }
+    if (rec) best[rm.tier] = rm.t;
+    const name = RM_BOSSES.find((x) => x[0] === rm.id)[1];
+    showDialog('¡REVANCHA GANADA!', name + ' · ' + '★'.repeat(rm.tier) + ' · ' + rushFmt(rm.t),
+      '<p>' + (first ? 'Primera victoria en este nivel: +' + T.xp + ' EXP · +' + T.coins + ' monedas' : rec ? '<b>¡NUEVO RÉCORD!</b>' : 'Récord: ' + rushFmt(best[rm.tier])) + '</p>',
+      [['GENIAL', closeDialog], ['OTRA VEZ', () => rematchStart(rm.id, rm.tier)], ['GALERÍA', () => rematchMenu()]]);
+    playWatchSFX('recharged');
+    save();
+  } else toast('Revancha terminada');
+  if (zone === 0 && why !== 'defeat') spawnEnemies();
+}
+function rematchTick(dt) {
+  if (!rm.on) return;
+  if (zone !== 0) return rematchEnd('left');
+  if (net.role === 'guest') return;
+  rm.t += dt;
+  if (rm.next > 0) { rm.next -= dt; if (rm.next <= 0) rematchSpawn(); return; }
+  if (!enemies.some((e) => e.rematch && e.alive)) rematchEnd('win');
+}
+function rematchKill(e) { // featKill (part-45): remember beaten zone bosses for the gallery
+  if (e.zboss && !e.rematch) (player.bossLog = player.bossLog || {})[e.zboss] = true;
+}
+// ============================================================================================
+// OMNI 0.27 · CITIZEN JOBS. In the city zones a citizen now and then shows a yellow "!". Talk to them (E) for a
+// small job, picked at random: find something they lost (it's somewhere in a city zone), chase off the drones
+// bothering them, or take a parcel to someone in another part of the city. Pay: coins + EXP (+ a little karma).
+// One job at a time; a new "!" appears a minute or so after the last one. Count kept for the title "Vecino ejemplar".
+// ============================================================================================
+const SJ_ITEMS = ['la cartera', 'las llaves', 'el móvil', 'el balón', 'la mochila', 'los auriculares', 'el monopatín'];
+const SJ_NAMES = ['Lucía', 'Marco', 'Inés', 'Teo', 'Nora', 'Hugo', 'Alba', 'Leo'];
+const sj = { offer: null, job: null, wait: 20 }; // offer: { z, cid, name } · job: { type, ... }
+const sjCityZones = () => REGIONS.map((r, i) => (r.city ? i : -1)).filter((i) => i >= 0);
+function SJX() { return (player.sideJobs = player.sideJobs || { done: 0 }); }
+function sjPick(a) { return a[Math.floor(Math.random() * a.length)]; }
+function sjSpot(z) { // somewhere open in zone z, away from the story characters (their E would win)
+  const r = REGIONS[z], busy = [[5, VERA], [3, S4_DRAVEN], ...S4_CABLES.map((c) => [c.z, c]), ...S3_TRACKERS.map((t) => [4, t])].filter(([zz]) => zz === z).map((q) => q[1]);
+  let p = null;
+  for (let k = 0; k < 20; k++) {
+    p = { z, x: Math.round(r.minX + 120 + Math.random() * (r.maxX - r.minX - 240)), y: Math.round(r.top + 30 + Math.random() * Math.max(10, r.bottom - r.top - 60)) };
+    if (!busy.some((b) => Math.hypot(b.x - p.x, b.y - p.y) < 260)) break;
+  }
+  return p;
+}
+function sjNpc() { return sj.offer && sj.offer.z === zone ? citizens.find((c) => c.id === sj.offer.cid && c.alive) : null; }
+function sjTick(dt) {
+  if (!started || net.role === 'guest') return;
+  if (!sj.offer && !sj.job && isCity() && citizens.length) {
+    sj.wait -= dt;
+    if (sj.wait <= 0) { const c = sjPick(citizens.filter((c) => c.alive)); if (c) sj.offer = { z: zone, cid: c.id, name: sjPick(SJ_NAMES) }; }
+  }
+  const j = sj.job;
+  if (j && j.type === 'drones' && j.z === zone && !j.spawned) {
+    j.spawned = true;
+    const c = sjNpc() || player;
+    for (let k = 0; k < 3; k++) {
+      const x = clamp(c.x + (k - 1) * 150 + 60, region().minX + 40, region().maxX - 40), y = clamp(c.y + (k % 2 ? 40 : -30), region().top + 20, region().bottom - 20), hp = lvHp(80);
+      enemies.push({ id: 900 + k, x, y, homeX: x, homeY: y, face: -1, hp, max: hp, kind: 'enemy', rcd: 2, cast: 0, stun: 0.8, alive: true, respawn: 1e9, cd: 1.5, wind: 0, anim: 0, hit: 0, moving: false, temp: true, sidejob: true, modRolled: true });
+    }
+  }
+  if (j && j.type === 'drones' && j.spawned && j.z === zone && !enemies.some((e) => e.sidejob && e.alive)) sjDone();
+}
+function sjNear() {
+  const c = sjNpc();
+  if (c && !sj.job && dist(player, c) < 120) return ['◆ ' + sj.offer.name.toUpperCase() + ' NECESITA AYUDA', sjOffer];
+  const j = sj.job;
+  if (!j) return null;
+  if (j.type === 'find' && !j.got && j.item.z === zone && dist(player, j.item) < 100) return ['◆ RECOGER ' + j.what.toUpperCase(), () => { j.got = true; burst(j.item.x, j.item.y - 20, 16, '#ffe27a'); sfx('click'); toast('¡Encontrado! Devuélveselo a ' + j.name); hud(); }];
+  if (j.type === 'find' && j.got && c && dist(player, c) < 120) return ['◆ DEVOLVER ' + j.what.toUpperCase(), sjDone];
+  if (j.type === 'parcel' && j.to.z === zone && dist(player, j.to) < 110) return ['◆ ENTREGAR EL PAQUETE', sjDone];
+  return null;
+}
+function sjOffer() {
+  const name = sj.offer.name, type = sjPick(['find', 'drones', 'parcel']), zones = sjCityZones();
+  let text, job;
+  if (type === 'find') {
+    const what = sjPick(SJ_ITEMS);
+    job = { type, name, what, item: sjSpot(sjPick(zones)) };
+    text = '«He perdido ' + what + ' en algún sitio de la ciudad. ¿Me ayudas a encontrarlo?»';
+    job.what = what.split(' ').slice(1).join(' ');
+  } else if (type === 'drones') {
+    job = { type, name, z: zone };
+    text = '«¡Unos drones no me dejan en paz! ¿Puedes espantarlos?»';
+  } else {
+    const z = sjPick(zones.filter((x) => x !== zone)) ?? zone;
+    job = { type, name, to: sjSpot(z), toName: sjPick(SJ_NAMES.filter((n) => n !== name)) };
+    text = '«¿Le llevas este paquete a ' + job.toName + '? Está en ' + REGIONS[z].name + '.»';
+  }
+  showDialog(name.toUpperCase() + ' · VECINO', 'Encargo', '<p>' + text + '</p><p class="reward">Recompensa: monedas y EXP</p>',
+    [['ACEPTAR', () => { sj.job = job; closeDialog(); toast('Encargo aceptado'); hud(); }], ['AHORA NO', () => { sj.offer = null; sj.wait = 60; closeDialog(); }]]);
+}
+function sjDone() {
+  const j = sj.job, pay = 40 + Math.floor(Math.random() * 40) + player.level * 2, ex = 60 + player.level * 8;
+  sj.job = null; sj.offer = null; sj.wait = 50 + Math.random() * 40;
+  player.coins = (player.coins || 0) + pay;
+  xp(ex);
+  if (typeof law !== 'undefined') law.heat = Math.max(0, (law.heat || 0) - 10);
+  SJX().done++;
+  toast('¡Encargo cumplido para ' + j.name + '! +' + pay + ' monedas · +' + ex + ' EXP');
+  playWatchSFX('recharged');
+  closeDialog(); hud(); save();
+}
+function sjDraw() {
+  const c = sjNpc();
+  if (c && !sj.job) { const b = Math.sin(clock * 5) * 4; txt('!', c.x + 26, c.y - 150 + b, 26, '#ffe27a'); }
+  const j = sj.job;
+  if (!j) return;
+  const mark = (p, label) => {
+    ctx.save(); ctx.translate(p.x, p.y - 26 + Math.sin(clock * 4) * 3); ctx.rotate(Math.PI / 4);
+    ctx.fillStyle = '#ffe27a'; ctx.globalAlpha = 0.9; ctx.fillRect(-8, -8, 16, 16); ctx.restore();
+    txt(label, p.x, p.y - 48, 8, '#ffe27a');
+  };
+  if (j.type === 'find' && !j.got && j.item.z === zone) mark(j.item, j.what.toUpperCase());
+  if (j.type === 'parcel' && j.to.z === zone) mark(j.to, j.toName.toUpperCase());
+  if (j.type === 'find' && j.got && c) txt('▼', c.x, c.y - 130, 14, '#ffe27a');
+}
+function sjHud() { // when no story or mission is using the mission strip
+  const j = sj.job;
+  if (!j || activeMission() || sagaActive() || (F1().s3.step >= 1 && F1().s3.step <= 4) || (S4().step >= 1 && S4().step <= 5)) return;
+  $('#mission .tiny').textContent = 'ENCARGO · ' + j.name.toUpperCase();
+  $('#questtext').textContent = j.type === 'find' ? (j.got ? 'Devuélvelo' : 'Busca ' + j.what) : j.type === 'drones' ? 'Espanta a los drones' : 'Entrega el paquete';
+  $('#questsub').textContent = j.type === 'find' ? (j.got ? 'Vuelve con ' + j.name + ' en ' + REGIONS[sj.offer ? sj.offer.z : zone].name : 'Está en ' + REGIONS[j.item.z].name) : j.type === 'drones' ? (j.z === zone ? 'Quedan ' + enemies.filter((e) => e.sidejob && e.alive).length : 'En ' + REGIONS[j.z].name) : 'Para ' + j.toName + ' en ' + REGIONS[j.to.z].name;
+}
+TITLES.push(['vecino', 'Vecino ejemplar', 'Completa 10 encargos de vecinos', () => (SJX().done || 0) >= 10]);
+// ============================================================================================
+// OMNI 0.27 · STORY 05 · EL ECO DEL ESPECTRO
+// The Mk II's last transmission went into the Null Void, and the Spectre is pulling itself back together from it.
+//  1 talk to Vega · 2 Draven (Ciudad Bahía) gives you charges of Osmosian acid · 3 seal 3 void rifts in the Vacío
+//  Nulo: press E at a rift and hold your ground for 6 s while wardens attack · 4 the Reborn Spectre: at half life
+//  it splits off two echoes (weaker copies) · 5 back to Vega: 3000 EXP, 800 coins, a DNA pick, title "Sellador del Vacío".
+// Only existing art is used (Vega, Draven, the Spectre frames, the void wardens).
+// ============================================================================================
+const S5_RIFTS = [{ x: 380, y: 700 }, { x: 800, y: 800 }, { x: 1180, y: 760 }];
+const S5_STEPS = ['', 'Habla con Draven en Ciudad Bahía', 'Sella 3 grietas en el Vacío Nulo (E y aguanta 6 s)', 'Derrota al Espectro Renacido en el Vacío Nulo', 'Vuelve con el Agente Vega en los Muelles'];
+const S5_TITLES = ['', 'Draven', 'Grietas', 'Espectro Renacido', 'Regreso'];
+function S5() {
+  const f = F1();
+  if (!f.s5 || typeof f.s5 !== 'object') f.s5 = { step: 0, sealed: [false, false, false] };
+  return f.s5;
+}
+let s5Seal = null; // { i, t }
+function s5Go(step, msg) {
+  S5().step = step;
+  if (step === 3) setTimeout(() => sagaCine([
+    { w: 'OMNITRIX', c: '#c9ff89', t: 'Las grietas están selladas… pero algo se ha quedado dentro con nosotros.', fx: 'alarm' },
+    { w: 'EL ESPECTRO', c: '#d9c2ff', t: 'Tu reloj me encerró una vez. Esta vez seremos más.', fx: 'shake' },
+  ]), 300);
+  if (msg) toast(msg);
+  playWatchSFX('confirm');
+  hud(); save();
+}
+function story5Talk() { // Agent Vega, after Story 04 (part-50)
+  const s = S5();
+  if (s.step === 0) return sagaCine([
+    { w: 'AGENTE VEGA', c: '#8de5f3', t: 'Hemos descifrado la última transmisión del Mk II. No iba a nadie de este mundo: iba al Vacío Nulo.' },
+    { w: 'AGENTE VEGA', c: '#8de5f3', t: 'Las lecturas son las del Espectro. Se está recomponiendo con esos datos.' },
+    { w: 'AGENTE VEGA', c: '#8de5f3', t: 'Draven sabe cerrar grietas con ácido osmosiano. Búscalo en Ciudad Bahía.' },
+  ], () => { s.sealed = [false, false, false]; s5Go(1, 'HISTORIA 05 · El Eco del Espectro · ' + S5_STEPS[1]); });
+  if (s.step === 4) return sagaCine([
+    { w: 'AGENTE VEGA', c: '#8de5f3', t: 'Las lecturas del Vacío han vuelto a cero. Esta vez no queda nada de él.' },
+    { w: 'AGENTE VEGA', c: '#8de5f3', t: 'Entre sus restos había ADN que no era suyo. Elige una muestra.' },
+  ], () => { s.step = 5; xp(3000); player.coins = (player.coins || 0) + 800; statEvent('mission', { id: 'saga5' }); toast('¡HISTORIA 05 COMPLETADA! · +3000 EXP · +800 monedas · Título: Sellador del Vacío'); playWatchSFX('recharged'); s3Pick(); hud(); save(); });
+  showDialog('AGENTE VEGA · FONTANEROS', s.step >= 5 ? 'Todo en calma' : 'El Eco del Espectro', s.step >= 5 ? '<p>«Por ahora no hay más misiones. Te avisaré.»</p>' : '<p>«' + S5_STEPS[s.step] + '.»</p>', [['VALE', closeDialog]]);
+}
+function s5Near() {
+  const s = S5();
+  if (zone === 3 && s.step === 1 && dist(player, S4_DRAVEN) < 140)
+    return ['◆ HABLAR CON DRAVEN', () => sagaCine([
+      { w: 'DRAVEN', c: '#d7b762', t: 'El Espectro. Sabía que no se quedaría quieto.' },
+      { w: 'DRAVEN', c: '#d7b762', t: 'Toma tres cargas de ácido. Échalas en las grietas del Vacío y aguanta: el ácido tarda en sellar, y sus carceleros no te lo pondrán fácil.' },
+    ], () => s5Go(2, S5_STEPS[2]))];
+  if (zone === SAGA_ZONE_VOID && s.step === 2 && !s5Seal) {
+    const i = S5_RIFTS.findIndex((r, k) => !s.sealed[k] && dist(player, r) < 110);
+    if (i >= 0) return ['◆ ECHAR ÁCIDO EN LA GRIETA', () => s5StartSeal(i)];
+  }
+  return null;
+}
+function s5StartSeal(i) {
+  s5Seal = { i, t: 6 };
+  const r = S5_RIFTS[i];
+  for (let k = 0; k < 3; k++) {
+    const x = clamp(r.x + (k - 1) * 200, region().minX + 40, region().maxX - 40), y = clamp(r.y + (k % 2 ? 60 : -40), region().top + 20, region().bottom - 20), hp = lvHp(220);
+    enemies.push({ id: 870 + k, x, y, homeX: x, homeY: y, face: -1, hp, max: hp, kind: 'enemy', rcd: 1.5, cast: 0, stun: 0.6, alive: true, respawn: 1e9, cd: 1.2, wind: 0, anim: 0, hit: 0, moving: false, temp: true, sagaKind: 'void', modRolled: true });
+  }
+  sfx('steam');
+  toast('Sellando… ¡no te alejes de la grieta!');
+}
+function s5Spawn() {
+  if (net.role === 'guest' || zone !== SAGA_ZONE_VOID || S5().step !== 3 || (typeof rm !== 'undefined' && rm.on) || enemies.some((e) => e.reborn && e.alive)) return;
+  const hp = Math.round(4200 * (1 + player.level * 0.04));
+  enemies.push({ id: 94, x: 1100, y: 720, homeX: 1100, homeY: 720, face: -1, hp, max: hp, boss: true, sagaKind: 'specter', reborn: true, label: 'ESPECTRO RENACIDO', kind: 'enemy', rcd: 1.1, cast: 0, stun: 0, alive: true, respawn: 1e9, cd: 1, wind: 0, anim: 0, hit: 0, moving: false, tp: 3.5, ring: 2.6, intangible: 0, modRolled: true });
+  toast('¡EL ESPECTRO RENACIDO!');
+  playWatchSFX('warning');
+}
+function s5Tick(dt) {
+  const s = S5();
+  if (!started || net.role === 'guest') return;
+  if (s5Seal) {
+    const r = S5_RIFTS[s5Seal.i];
+    if (zone !== SAGA_ZONE_VOID || s.step !== 2) s5Seal = null;
+    else if (dist(player, r) > 230) { s5Seal = null; toast('Sellado interrumpido · vuelve a la grieta'); }
+    else {
+      s5Seal.t -= dt;
+      if (Math.random() < 0.3) particles.push({ x: r.x + (Math.random() - 0.5) * 60, y: r.y - 10, dx: 0, dy: -50, t: 0.7, color: '#c9ff89', size: 3 });
+      if (s5Seal.t <= 0) {
+        s.sealed[s5Seal.i] = true;
+        burst(r.x, r.y - 20, 30, '#c9ff89'); shake = 0.2; sfx('bolt');
+        const n = s.sealed.filter(Boolean).length;
+        s5Seal = null;
+        toast('Grieta sellada ' + n + ' / 3');
+        if (n >= 3) s5Go(3, S5_STEPS[3]);
+        hud(); save();
+      }
+    }
+  }
+  if (s.step === 3) s5Spawn();
+  for (const e of enemies) {
+    if (!e.reborn || !e.alive || e.split) continue;
+    if (e.hp < e.max * 0.5) { // two echoes split off
+      e.split = true;
+      for (const k of [-1, 1]) {
+        const x = clamp(e.x + k * 220, region().minX + 60, region().maxX - 60), hp = Math.round(e.max * 0.12);
+        enemies.push({ id: 880 + (k + 1), x, y: e.y, homeX: x, homeY: e.y, face: -k, hp, max: hp, sagaKind: 'specter', decoy: true, label: 'ECO', kind: 'enemy', rcd: 1.6, cast: 0, stun: 0.5, alive: true, respawn: 1e9, cd: 1.4, wind: 0, anim: 0, hit: 0, moving: false, tp: 5, ring: 4, intangible: 0, temp: true, modRolled: true });
+      }
+      burst(e.x, e.y - 80, 30, '#d9c2ff');
+      toast('¡El Espectro se divide en ecos!');
+    }
+  }
+}
+function s5Kill(e) {
+  if (!e.reborn) return;
+  for (const d of enemies) if (d.decoy) d.alive = false; // the echoes fade with it
+  if (!e.rematch) {
+    sagaCine([
+      { w: 'EL ESPECTRO', c: '#d9c2ff', t: 'Imposible… las grietas… están… cerradas…', fx: 'shake' },
+      { w: '', c: '#c9ff89', t: 'El Espectro se deshace en polvo violeta. Esta vez, del todo.', fx: 'flash' },
+    ], () => s5Go(4, S5_STEPS[4]));
+  }
+}
+function s5Draw() {
+  const s = S5();
+  if (zone === 3 && s.step === 1) {
+    if (!npcArt('draven0', S4_DRAVEN.x, S4_DRAVEN.y, 108, player.x >= S4_DRAVEN.x ? 1 : -1)) sprite(14, 0, S4_DRAVEN.x, S4_DRAVEN.y, 104, -1);
+    txt('DRAVEN', S4_DRAVEN.x, S4_DRAVEN.y - 124, 9, '#d7b762');
+  }
+  if (zone === SAGA_ZONE_VOID && s.step === 2)
+    S5_RIFTS.forEach((r, i) => {
+      if (s.sealed[i]) return;
+      ctx.save();
+      ctx.globalAlpha = 0.6 + 0.3 * Math.sin(clock * 4 + i);
+      ctx.strokeStyle = '#d9c2ff'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.ellipse(r.x, r.y, 46, 14, 0, 0, 7); ctx.stroke();
+      ctx.fillStyle = '#2a0b4a'; ctx.fill();
+      if (s5Seal && s5Seal.i === i) { ctx.strokeStyle = '#c9ff89'; ctx.beginPath(); ctx.arc(r.x, r.y - 60, 30, -Math.PI / 2, -Math.PI / 2 + (1 - s5Seal.t / 6) * Math.PI * 2); ctx.stroke(); }
+      ctx.restore();
+      txt(s5Seal && s5Seal.i === i ? 'SELLANDO ' + Math.ceil(s5Seal.t) + ' s' : 'GRIETA', r.x, r.y - 30, 8, '#d9c2ff');
+    });
+}
+function s5Hud() {
+  const s = S5();
+  if (!(s.step >= 1 && s.step <= 4) || activeMission() || sagaActive() || (F1().s3.step >= 1 && F1().s3.step <= 4) || (S4().step >= 1 && S4().step <= 5)) return;
+  $('#mission .tiny').textContent = 'HISTORIA 05 · EL ECO DEL ESPECTRO';
+  $('#questtext').textContent = S5_TITLES[s.step];
+  $('#questsub').textContent = s.step === 2 ? S5_STEPS[2] + ' · ' + s.sealed.filter(Boolean).length + ' / 3' : S5_STEPS[s.step];
+}
+function s5Menu() {
+  const s = S5(), ready = S4().step >= 6;
+  showDialog('HISTORIA 05 · EL ECO DEL ESPECTRO', s.step >= 5 ? 'Completada' : s.step ? 'Paso ' + s.step + ' / 4' : 'Sin empezar',
+    !ready ? '<p>Termina primero la Historia 04 (Sobrecarga).</p>'
+      : s.step === 0 ? '<p>Habla con el <b>Agente Vega</b> en los Muelles del faro: la última transmisión del Mk II iba al Vacío Nulo.</p><p class="reward">Recompensa: un alien del almacén de ADN · 3000 EXP · 800 monedas · título «Sellador del Vacío»</p>'
+        : s.step >= 5 ? '<p>El Espectro ha desaparecido del todo. ¡Buen trabajo!</p>' : '<p>' + S5_STEPS[s.step] + '.</p>',
+    [['VOLVER', pauseMenu]]);
+}
+TITLES.push(['sellador', 'Sellador del Vacío', 'Completa la Historia 05', () => typeof S5 === 'function' && S5().step >= 5]);
+RM_BOSSES.push(['renacido', 'Espectro Renacido', () => S5().step >= 4, { sagaKind: 'specter', reborn: true, label: 'ESPECTRO RENACIDO', hp: 4200, tp: 3.5, ring: 2.6, intangible: 0 }]);
+// ============================================================================================
+// OMNI 0.27 · SAVE PROTECTION. The game keeps 3 automatic copies of your whole save on this device (OMNIBAK-0..2):
+// one when a play session starts and then one every 10 minutes of play, oldest replaced first. Pause → Ajustes →
+// COPIAS AUTOMÁTICAS lists them (date, level, race) and restores one with a double tap. If the save ever fails to
+// read when the game opens, it offers the newest copy straight away. (Manual slots and codes still exist too.)
+// ============================================================================================
+const BAK_KEYS = ['OMNIBAK-0', 'OMNIBAK-1', 'OMNIBAK-2'];
+let bakT = 0, bakSession = false, bakArm = -1;
+function bakList() {
+  return BAK_KEYS.map((k) => { try { const v = JSON.parse(localStorage.getItem(k) || 'null'); return v && v.code ? { k, ...v } : null; } catch (e) { return null; } });
+}
+function bakWrite(why) {
+  try {
+    save();
+    const L = bakList(), slot = L.findIndex((x) => !x) >= 0 ? L.findIndex((x) => !x) : L.reduce((a, x, i) => (x.at < L[a].at ? i : a), 0), d = new Date();
+    localStorage.setItem(BAK_KEYS[slot], JSON.stringify({ code: backupCode(), at: Date.now(), why, level: player.level, race: race === 'omni' ? 'Omnitrix' : race === 'osmo' ? 'Osmosiano' : 'Anodita', date: d.toLocaleDateString() + ' ' + d.toLocaleTimeString().slice(0, 5) }));
+    return true;
+  } catch (e) { return false; } // storage full: the game keeps running, just without this copy
+}
+function bakTick(dt) {
+  if (!started || net.role === 'guest') return;
+  if (!bakSession) { bakSession = true; bakT = 0; setTimeout(() => bakWrite('inicio'), 4000); return; }
+  if (paused) return;
+  bakT += dt;
+  if (bakT >= 600) { bakT = 0; bakWrite('auto'); }
+}
+function bakMenu(back) {
+  const L = bakList().map((x, i) => (x ? { ...x, i } : null)).filter(Boolean).sort((a, b) => b.at - a.at);
+  showDialog('COPIAS AUTOMÁTICAS', 'Tu partida, guardada sola en este dispositivo',
+    (L.length ? L.map((x) => '<div class="xrow"><b>' + x.date + '</b><small>Nivel ' + x.level + ' · ' + x.race + (x.why === 'inicio' ? ' · al empezar a jugar' : '') + '</small><span class="lbtns"><button class="pbtn" data-bak="' + x.i + '">' + (bakArm === x.i ? '¿SEGURO? PULSA OTRA VEZ' : 'RESTAURAR') + '</button></span></div>').join('') : '<p>Todavía no hay copias. La primera se hace a los pocos segundos de empezar a jugar.</p>') +
+      '<p>Restaurar sustituye tu partida actual por la copia elegida. Se hace una copia cada 10 minutos de juego y otra al empezar cada sesión.</p><p id="bakmsg"></p>',
+    [['HACER COPIA AHORA', () => { toast(bakWrite('manual') ? 'Copia guardada' : 'No hay espacio para otra copia'); bakMenu(back); }], ['VOLVER', back || pauseMenu]]);
+  for (const b of document.querySelectorAll('[data-bak]'))
+    b.onclick = () => {
+      const i = +b.dataset.bak;
+      if (bakArm !== i) { bakArm = i; return bakMenu(back); }
+      bakArm = -1;
+      const x = bakList()[i], err = x && restoreCode(x.code);
+      if (err) return ($('#bakmsg').textContent = err);
+      toast('Restaurando…');
+      setTimeout(() => location.reload(), 700);
+    };
+}
+// a save that can't be read: offer the newest copy on the title screen
+(function bakCheckOnOpen() {
+  let bad = false;
+  try { const raw = localStorage.getItem(STORE); if (raw) JSON.parse(raw); } catch (e) { bad = true; }
+  if (!bad) return;
+  const newest = bakList().filter(Boolean).sort((a, b) => b.at - a.at)[0];
+  if (!newest) return;
+  setTimeout(() => showDialog('PARTIDA DAÑADA', 'No se pudo leer tu partida', '<p>Hay una copia automática del ' + newest.date + ' (nivel ' + newest.level + ').</p>',
+    [['RESTAURAR COPIA', () => { const err = restoreCode(newest.code); if (err) return toast(err); location.reload(); }], ['NO', closeDialog]]), 1500);
+})();
 applyWatchTheme();
 resize();
 boot();
@@ -15437,7 +16152,7 @@ if (window.__game)
     missionBoard, missionAccept, activeMission, MS, MISSIONS, coopOn, coopState, coopShare, coopTickMissions, COOP_SITES,
     arenaStart, arenaEnd, arena, arenaBest, statEvent, stats, daily, dailyMenu, achMenu, achCheck, ACHS, codexMenu, codexCard, codexIds, extrasMenu, difficultyMenu, diffCfg, diffKey, DIFFS, PAD, padPoll, padHelp,
     watchAnim, WATCH_ERAS, eraPlaylist, eraOf, storyPlay, storyFor, storyDraw, storyFit, storyPreload, BOARDS, SHEET_ROWS, SKIN_ART, boardId,
-    S4, s4Go, story4Talk, s4Near, s4Fx, ULTIMATES, ultOn, ultForm, ALIEN_SCALE, alienHeight, sizeGuard, alienPower, tierDrain, scaleLine, codexCard, ALIENS, F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
+    art, bakWrite, bakList, bakMenu, S5, s5Go, s5StartSeal, story5Talk, citizensQA: () => citizens, get sj() { return sj; }, sjOffer, sjDone, rematchStart, rematchMenu, get rm() { return rm; }, RMX, tutEnd, get tutState() { return tutState; }, remoteTargets, hurtTeam, partyOthers, partySize, get netq() { return net; }, musStepQA: (t) => musStep(t), MUS, musBuild, MUS_SONGS, S4, s4Go, story4Talk, s4Near, s4Fx, ULTIMATES, ultOn, ultForm, ALIEN_SCALE, alienHeight, sizeGuard, alienPower, tierDrain, scaleLine, codexCard, ALIENS, F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
     get enemies() { return enemies; },
     get sagaCineOn() { return sagaCineOn; },
     get scan() { return scan; },

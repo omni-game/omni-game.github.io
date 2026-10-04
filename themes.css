@@ -319,3 +319,13 @@
 #game.hudlite[data-ui="comic"] .omni { top: 64px !important; }
 #game.hudlite[data-ui="comic"] #coins, #game.hudlite[data-ui="comic"] #treebtn { top: 106px !important; }
 #game.hudlite[data-ui="comic"] .vitals .identity, #game.hudlite[data-ui="comic"] .omni .identity { font-size: 13px !important; }
+/* 0.27 · guided first minutes */
+#tutcard { position: absolute; top: 112px; left: 50%; transform: translateX(-50%); z-index: 7; min-width: 300px; max-width: 460px; padding: 8px 74px 10px 14px; background: rgba(5, 12, 10, .9); border: 1px solid color-mix(in srgb, var(--ox, #7dff9a) 60%, transparent); border-left: 3px solid var(--ox, #7dff9a); box-shadow: 0 6px 22px #0007; pointer-events: auto; transition: border-color .2s; }
+#tutcard small { display: block; font-size: 7.5px; letter-spacing: 1.6px; color: var(--ox, #7dff9a); }
+#tutcard b { display: block; font-size: 12px; margin-top: 3px; color: #effff2; }
+#tutcard i { position: absolute; left: 0; bottom: 0; height: 2px; background: var(--ox, #7dff9a); transition: width .3s; }
+#tutcard button { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 8px; letter-spacing: 1px; padding: 5px 8px; background: transparent; border: 1px solid #ffffff33; color: #c9d6cf; }
+#tutcard.tick { border-color: #ffe27a; }
+#tutcard.tick b::before { content: '✔ '; color: #ffe27a; }
+#game[data-ui="comic"] #tutcard { background: var(--paper) !important; border: 3px solid var(--ink) !important; box-shadow: 4px 4px 0 var(--ink) !important; }
+#game[data-ui="comic"] #tutcard b, #game[data-ui="comic"] #tutcard small, #game[data-ui="comic"] #tutcard button { color: var(--ink) !important; }
