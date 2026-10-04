@@ -1,4 +1,4 @@
-window.OMNI_BUILD=53;
+window.OMNI_BUILD=54;
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -11927,6 +11927,19 @@ setInterval(() => {
 // version.json = { build, version, notes[], files[[name, bytes]] } (written by build.sh from NOTES.txt)
 // ============================================================================================
 const OMNI_REMOTE = window.OMNI_REMOTE || 'https://omni-game.github.io/';
+// Installed copies (Android app / PC folder) keep the title page they were installed with and only take the newer
+// game files from the website. Anything that page doesn't load yet is added here, so new features work everywhere.
+(function ensureAssets() {
+  try {
+    for (const css of ['themes.css'])
+      if (!document.querySelector('link[href$="' + css + '"]')) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = css; document.head.append(l); }
+    const js = [['prime-frames.js', () => window.OMNI_PRIME], ['peer.min.js', () => window.Peer]];
+    for (const [src, has] of js)
+      if (!has() && !document.querySelector('script[src$="' + src + '"]')) { const s = document.createElement('script'); s.src = src; document.head.append(s); }
+    const grid = document.querySelector('#menu .menu-grid');
+    if (grid && !document.getElementById('uibtn')) { const b = document.createElement('button'); b.id = 'uibtn'; b.className = 'music-menu-button wide'; b.textContent = 'INTERFAZ · ESTILO'; grid.append(b); }
+  } catch (e) {}
+})();
 const OMNI_BUILD = +(window.OMNI_BUILD || 0);
 window.OMNI_BOOTED = true;
 const updMode = () => (window.__omniSingle ? 'single' : location.protocol === 'file:' ? 'app' : location.href.startsWith(OMNI_REMOTE) ? 'web' : 'other');
