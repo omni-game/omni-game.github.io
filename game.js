@@ -1,4 +1,4 @@
-window.OMNI_BUILD=67;window.OMNI_NOTES=["Todos los aliens tienen forma Ultimate en el Ultimatrix (los que aún no tienen dibujo propio se ven más grandes y con aura)", "Arreglado: el daño recibido mostraba muchos decimales", "Combos de aliens: cambia de alien y golpea con otro elemento (fuego + hielo = CHOQUE TÉRMICO)", "Los jefes entran en FASE 2 con furia por debajo de la mitad de vida", "Alien del día: doble EXP con él y un reto de 15 enemigos (Extras)", "Remate maestro: con un alien al 100 % de dominio, los enemigos casi derrotados caen de un golpe", "Nuevos tipos de enemigo: cargador, bomba, invocador y tirador", "Nueva Partida+: rejuega las historias más difícil conservando todo (tras la Historia 05)", "Pantalla de progreso con todo lo que puedes completar (Extras)", "Modo foto: pegatinas, marco y texto", "Pausa → MENÚ PRINCIPAL para volver a la pantalla de inicio", "NOVEDADES: lee todo lo nuevo desde el menú de inicio o la pausa", "Mientras estás transformado, arriba a la izquierda ves la maestría de ese alien"];
+window.OMNI_BUILD=68;window.OMNI_NOTES=["🎃 Halloween hasta el 2 de noviembre: calabazas cada día, fantasmas de noche y recompensas (Extras → HALLOWEEN)", "Registro de misiones con flecha en pantalla que te guía zona a zona (toca el panel de misión)", "Recompensas de maestría al 25, 50, 75 y 100 % para cada alien", "Fijar objetivo: toca un enemigo (o pulsa L) y tus ataques irán a por él", "Arena de oleadas: elige una mejora cada 3 oleadas y un jefe cada 10", "Medallas de oro, plata y bronce por tiempo en la galería de jefes, con cronómetro", "Pantalla de estadísticas: tiempo, daño, jefes, alien favorito y más", "Vibración en móviles al recibir golpes, transformarte y hacer combos (Ajustes)"];
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -4295,9 +4295,9 @@ function pauseMenu() {
     eras = w && w.eras ? w.eras.map((e) => ERA_NAMES[e]).join(' + ') : '',
     mc = w && player.masterControl && w.masterControl;
   const groups = [
-    ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['MENÚ PRINCIPAL', toTitleAsk], ['NOVEDADES', () => whatsNewMenu(pauseMenu)], ['MISIONES', missionBoard], ['HISTORIA · ECOS DEL VACÍO', sagaMenu], ['HISTORIA 03 · CAZADOR', s3Menu], ['HISTORIA 04 · SOBRECARGA', s4Menu], ['HISTORIA 05 · ECO DEL ESPECTRO', s5Menu], ['NUEVA PARTIDA+', () => ngpMenu()], ['BOSS RUSH', bossRushMenu], ['GALERÍA DE JEFES', () => rematchMenu()], ['EXTRAS · ARENA · RETOS · LOGROS', extrasMenu], ['MAPA', () => showWorldMap()], ['VIAJE RÁPIDO', () => travelMenu()], ['FAVORES', () => favoursMenu()], ['ARCADE', () => arcadeMenu()], ...(net.peer ? [['REGALAR MONEDAS', giftMenu]] : []), ['MINIJUEGOS / TRABAJOS', jobsMenu], ['MULTIJUGADOR · CROSSPLAY', lanMenu]]],
+    ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['REGISTRO DE MISIONES', () => missionLogMenu(pauseMenu)], ['MENÚ PRINCIPAL', toTitleAsk], ['NOVEDADES', () => whatsNewMenu(pauseMenu)], ['MISIONES', missionBoard], ['HISTORIA · ECOS DEL VACÍO', sagaMenu], ['HISTORIA 03 · CAZADOR', s3Menu], ['HISTORIA 04 · SOBRECARGA', s4Menu], ['HISTORIA 05 · ECO DEL ESPECTRO', s5Menu], ['NUEVA PARTIDA+', () => ngpMenu()], ['BOSS RUSH', bossRushMenu], ['GALERÍA DE JEFES', () => rematchMenu()], ['EXTRAS · ARENA · RETOS · LOGROS', extrasMenu], ['MAPA', () => showWorldMap()], ['VIAJE RÁPIDO', () => travelMenu()], ['FAVORES', () => favoursMenu()], ['ARCADE', () => arcadeMenu()], ...(net.peer ? [['REGALAR MONEDAS', giftMenu]] : []), ['MINIJUEGOS / TRABAJOS', jobsMenu], ['MULTIJUGADOR · CROSSPLAY', lanMenu]]],
     ['RELOJ Y ALIENS', [['RELOJ / OMNITRIX', () => watchMenu()], ['MEJORAS DE ALIENS', () => upgradeMenu()], ['EQUIPOS DE ALIENS', () => loadoutMenu()], ['MEJORAS DEL RELOJ', () => watchUpgMenu()], ['LABORATORIO DE ADN', () => labMenu()], ['VARIANTES', () => variantMenu()], ['SKINS DE ALIENS', alienSkinMenu], ['ÁRBOL', skillTree], ['GUÍA / ATAQUES', guide]]],
-    ['PERSONAJE', [['PERSONAJE / SKIN', skinMenu], ['RAZAS', raceMenu], ['MODO FOTO', photoMode], ['TÍTULOS', () => titlesMenu(pauseMenu)], ['PRESTIGIO', prestigeMenu], ['MODO STREAMER: ' + (stream.on ? 'SÍ' : 'NO'), streamToggle], ...(stream.on ? [['RULETA DEL CHAT', chatRoulette]] : []), ['MASCOTA: ' + (F1().pet ? 'SÍ' : 'NO'), () => { F1().pet = !F1().pet; save(); pauseMenu(); }], ['RECOMPENSA DIARIA', dailyCalendar]]],
+    ['PERSONAJE', [['PERSONAJE / SKIN', skinMenu], ['RAZAS', raceMenu], ['MODO FOTO', photoMode], ['TÍTULOS', () => titlesMenu(pauseMenu)], ['MAESTRÍA', () => masteryMenu(pauseMenu)], ['ESTADÍSTICAS', () => statsMenu(pauseMenu)], ['PRESTIGIO', prestigeMenu], ['MODO STREAMER: ' + (stream.on ? 'SÍ' : 'NO'), streamToggle], ...(stream.on ? [['RULETA DEL CHAT', chatRoulette]] : []), ['MASCOTA: ' + (F1().pet ? 'SÍ' : 'NO'), () => { F1().pet = !F1().pet; save(); pauseMenu(); }], ['RECOMPENSA DIARIA', dailyCalendar]]],
     [
       'AJUSTES',
       [
@@ -4311,6 +4311,7 @@ function pauseMenu() {
         ['GRÁFICOS: ' + gfxLabel(), () => { gfxCycle(); pauseMenu(); }],
         ['DIAL: ' + (dialDocked() ? 'MINI' : 'PANTALLA COMPLETA'), () => { dialDockSet(!dialDocked()); pauseMenu(); }],
         ['MANDO', padHelp],
+        ['VIBRACIÓN: ' + (vibOn() ? 'SÍ' : 'NO'), () => { lsSet('omni-vib', !vibOn()); rumble(40); pauseMenu(); }],
         ['MÁS AJUSTES', () => moreSettings(pauseMenu)],
         ['TRANSFERIR PARTIDA', () => transferMenu(pauseMenu)],
         ['COPIAS AUTOMÁTICAS', () => bakMenu(pauseMenu)],
@@ -4405,6 +4406,7 @@ function hitPlayer(amount) {
   amount = sizeGuard(amount); // tiny aliens dodge, giants shrug (part-49)
   if (!amount) return;
   amount = amount * diffCfg().dmg * lvDmg() * rmDmg() * ngpDmg(); // difficulty (part-32) · level (part-49)
+  amount = b6Taken(amount); // mastery 75 %, arena armour, vibration (part-67)
   player.regenWait = 20;
   if (player.shield > 0 && player.alien) { // any alien's shield move (Diamante, kit 'shield' moves)
     const absorbed = Math.min(player.shield, amount);
@@ -4975,6 +4977,7 @@ function update(dt) {
   bakTick(dt); // save copies (part-59)
   b5Tick(dt); // batch 5 (part-65)
   vmTick(dt); // mastery on the HUD (part-66)
+  b6Tick(dt); // batch 6 (part-67)
   eliteTick();
   sigTick(dt);
   anoditeTick(dt);
@@ -5470,6 +5473,7 @@ function draw() {
   sagaDraw(); // part-42
   featDraw(); // part-45
   f3Draw(); // part-47
+  b6Draw(); // pumpkins (part-67)
   f4Draw(); // part-48
   const actors = (
     started
@@ -5665,15 +5669,17 @@ function draw() {
       if (featDrawEnemy(e, f) || f2DrawEnemy(e) || f4DrawEnemy(e, f)) { scanDrawMark(e); continue; }
       if (e.sagaKind) { sagaDrawEnemy(e, f); scanDrawMark(e); continue; }
       scanDrawMark(e);
+      if (e.ghost) ctx.filter = ghostFilter(e); // Halloween ghosts (part-67)
       sprite(
         e.knight === 'melee' ? 17 : e.knight === 'ranged' ? 18 : 2,
         f,
         e.x,
-        e.y,
+        e.y - ghostLift(e),
         e.knight ? 119 : e.boss ? 113 : 98,
         e.face,
-        e.hit > 0 ? 0.5 : 1,
+        e.hit > 0 ? 0.5 : ghostAlpha(e),
       );
+      if (e.ghost) ctx.filter = 'none';
       let barY = e.y - (e.knight ? 134 : e.boss ? 126 : 111);
       if (e.knight) txt('CABALLERO · NV. 15', e.x, barY - 7, 8, '#b8beec');
       ctx.fillStyle = '#101522';
@@ -5885,8 +5891,10 @@ function draw() {
     sprite(4, 0, 1010, 675, 205, -1);
   }
   drawSensory();
+  b6DrawTop(); // lock-on, aura (part-67)
   ctx.restore();
   weatherDraw(); // part-47
+  b6Hud(); // Halloween light, mission arrow, boss timer (part-67)
   photoDecoDraw(); // photo stickers (part-65)
   if (flash > 0) {
     ctx.fillStyle = 'rgba(178,255,122,' + flash * 0.8 + ')';
@@ -6014,7 +6022,8 @@ $('#mission').onclick = () => {
     return;
   }
   if (npcHere() && dist(player, npc) <= 130) talk();
-  else
+  else missionLogMenu(null); // part-67
+  if (false)
     showDialog(
       'DIARIO · SOMBRAS ENTRE LOS PINOS',
       'Un camino seguro',
@@ -7100,7 +7109,7 @@ function ultForm(id = player.activeAlien) {
 }
 const ultOn = () => omniActive() && player.alien && player.ultimate && !!ultForm();
 function drainRate() {
-  return timingFor().drainPerSec * (ultOn() ? ultForm().drainMult : 1) * wupDrain() * tierDrain();
+  return timingFor().drainPerSec * (ultOn() ? ultForm().drainMult : 1) * wupDrain() * tierDrain() * b6Drain();
 }
 const rechargeRate = () => timingFor().rechargePerSec * wupRecharge();
 function cooldownRate() {
@@ -11484,6 +11493,7 @@ function stats() {
 function statEvent(kind, d = {}) {
   try {
     const s = stats();
+    b6Event(kind, d); // part-67
     if (kind === 'kill') s.kills++;
     if (kind === 'transform') {
       try { onTransformEvent(d.alien); } catch (e) {} // combo finisher + malfunction (part-47)
@@ -11714,6 +11724,9 @@ function extrasMenu() {
       ['GALERÍA DE ESCENAS', () => galleryMenu(extrasMenu)],
       ['ALIEN DEL DÍA', () => dailyAlienMenu(extrasMenu)],
       ['PROGRESO', () => progressMenu(extrasMenu)],
+      ...(hwOn() ? [['🎃 HALLOWEEN', () => halloweenMenu(extrasMenu)]] : []),
+      ['ESTADÍSTICAS', () => statsMenu(extrasMenu)],
+      ['MAESTRÍA', () => masteryMenu(extrasMenu)],
       ['BOSS RUSH', bossRushMenu],
       ['JEFE DE INCURSIÓN (CO-OP)', raidMenu],
       ['DUELO (CO-OP)', duelAsk],
@@ -13442,6 +13455,7 @@ function featKill(e) {
   if (e.hunter && !e.rematch) s3HunterDown();
   rematchKill(e); // part-56
   b5Kill(e); // part-65
+  b6Kill(e); // part-67
   s5Kill(e); // part-58
   s4Kill(e); // part-50
   if (zone === 6 && F1().s3.step === 2) { F1().s3.kills++; if (F1().s3.kills >= 6) s3Go(3); else hud(); }
@@ -13948,6 +13962,7 @@ function dmgMod(e, dmg) {
   dmg *= weatherDmg(); // part-47
   dmg *= s4DmgMod(e); // Robot Mk II armour (part-50)
   dmg = comboCheck(e, dmg); // alien swap combos (part-65)
+  dmg = b6Dmg(e, dmg); // mastery rewards, arena perks, stats (part-67)
   if (e.dummy) dummyHit(dmg);
   return dmg;
 }
@@ -14828,6 +14843,7 @@ function moreSettings(back) {
 const watchVolume = () => lsGet('omni-volume-watch', 100) / 100;
 // ---------------- patch notes ----------------
 const CHANGELOG = [
+  ['0.32', 'Halloween · registro de misiones con flecha · recompensas de maestría · fijar objetivo · mejoras y jefes en la arena · medallas de tiempo · estadísticas · vibración'],
   ['0.31.1', 'Volver al menú principal · Novedades · Maestría del alien en pantalla'],
   ['0.31', 'Forma Ultimate para todos los aliens · combos · jefes con fase 2 · alien del día · Nueva Partida+ · tipos de enemigo · progreso · pegatinas de foto'],
   ['0.30', 'Reloj de la muñeca según el que lleves · Galería de escenas · Finales de escena arreglados · Omnitrix de Omniverse nuevo'],
@@ -16457,6 +16473,7 @@ function comboCheck(e, dmg) { // dmgMod (part-46)
   const [, name, mult, col, fx] = rule;
   comboLast = null; // one combo per swap
   popup(e.x, e.y - 175, '¡' + name + '! ×' + mult, col);
+  rumble(50);
   flash = Math.max(flash || 0, 0.18); shake = Math.max(shake || 0, 0.15); sfx('bolt');
   if (fx === 'stun') e.stun = Math.max(e.stun || 0, 1);
   if (fx === 'burn') applyStatus(e, 'poison', 3, 4 * multiplier());
@@ -16641,6 +16658,7 @@ function progressMenu(back) {
     ['Revanchas ★★★', Object.values(RMX()).filter((r) => r[3]).length, RM_BOSSES.length],
     ['Encargos de vecinos', Math.min(10, SJX().done || 0), 10],
     ['Combos de aliens', Math.min(50, B5().combos || 0), 50],
+    ['Medallas de oro', medalCount(), RM_BOSSES.length * 3],
   ];
   const tot = rows.reduce((a, r) => a + r[1] / r[2], 0) / rows.length;
   showDialog('PROGRESO', Math.round(tot * 100) + ' % completado' + (ngp() ? ' · Partida+ ronda ' + (ngp() + 1) : ''),
@@ -16724,11 +16742,473 @@ function vmastHud(p, def) {
   const v = Math.floor(mastery() || 0);
   $('#vmastfill').style.width = Math.min(100, v) + '%';
   $('#vmastfill').style.background = def.color || '#ffa556';
-  $('#vmasttext').textContent = 'MAESTRÍA ' + def.name.toUpperCase() + ' · ' + v + '%' + (v >= 100 ? ' ★' : '');
+  const nx = typeof mastNext === 'function' ? mastNext(v) : null;
+  $('#vmasttext').textContent = 'MAESTRÍA ' + def.name.toUpperCase() + ' · ' + v + '%' + (v >= 100 ? ' ★' : nx ? ' → ' + nx + '%' : '');
 }
 // mastery grows every second while transformed, so refresh the line twice a second (hud() isn't called every frame)
 let vmT = 0;
 function vmTick(dt) { if ((vmT -= dt) > 0) return; vmT = 0.5; if (player.alien && ALIENS[player.activeAlien]) vmastHud(player, ALIENS[player.activeAlien]); }
+// ============================================================================================
+// OMNI 0.32 · BATCH 6
+//  HALLOWEEN   October (to 2 Nov): 3 pumpkins a day in every outdoor zone, ghost enemies at night, spooky light and
+//              leaves, and a Halloween menu to trade pumpkins (coins, a title, an aura).
+//  LOG         Pause → REGISTRO DE MISIONES (and tapping the mission panel): everything in progress, one pinned, and an
+//              arrow on screen that leads to it, zone by zone.
+//  STATS       Extras/Personaje → ESTADÍSTICAS: time played, damage, kills, bosses, favourite alien, distance…
+//  MASTERY     rewards at 25 / 50 / 75 / 100 % for every alien (+damage, +energy, −damage taken, gold finisher).
+//  LOCK-ON     tap an enemy (or press L) to lock on: every attack aims at it until it falls or you leave.
+//  ARENA+      the wave arena gets a perk to choose every 3 waves and a boss every 10 waves.
+//  VIBRATION   short buzzes on phones when hit, transforming, combos and boss kills (Ajustes → VIBRACIÓN).
+//  MEDALS      boss gallery: gold / silver / bronze time targets per boss and level, live timer while fighting.
+// ============================================================================================
+function B6() {
+  const b = (player.b6 = player.b6 && typeof player.b6 === 'object' ? player.b6 : {});
+  for (const k of ['time', 'dmg', 'bosses', 'dist', 'pump', 'pumpTot', 'deaths']) b[k] = b[k] || 0;
+  for (const k of ['use', 'medals', 'mt']) if (!b[k] || typeof b[k] !== 'object') b[k] = {};
+  if (!b.pd || typeof b.pd !== 'object') b.pd = { day: '', got: {} };
+  return b;
+}
+// ---------------- vibration ----------------
+const vibOn = () => lsGet('omni-vib', true);
+function rumble(p) { try { if (vibOn() && navigator.vibrate && matchMedia('(pointer: coarse)').matches) navigator.vibrate(p); } catch (e) {} }
+// ---------------- mastery rewards ----------------
+const MT = [[25, '+5 % de daño'], [50, 'Variante de color · +10 % de energía'], [75, '−10 % de daño recibido'], [100, 'Remate maestro · versión dorada · +10 % de daño']];
+const mNow = () => (player.alien && race === 'omni' ? mastery() || 0 : 0);
+const mTier = (v) => MT.filter(([n]) => v >= n).length;
+function mastNext(v) { const t = MT.find(([n]) => v < n); return t ? t[0] : null; }
+function masteryMenu(back) {
+  const ids = codexIds().filter((id) => alienUnlocked(id) && CORE_ALIENS.includes(id)), m = player.masteries || {};
+  ids.sort((a, b) => (m[b] || 0) - (m[a] || 0));
+  const n100 = ids.filter((id) => (m[id] || 0) >= 100).length;
+  showDialog('MAESTRÍA', n100 + (n100 === 1 ? ' alien' : ' aliens') + ' al 100 %',
+    '<div class="mtlegend">' + MT.map(([n, t]) => '<span><b>' + n + ' %</b> ' + t + '</span>').join('') + '</div><div class="mtlist">' +
+      ids.map((id) => { const v = Math.floor(m[id] || 0); return '<div><span>' + ALIENS[id].name + '</span><i class="mtdots">' + MT.map(([n]) => '<u class="' + (v >= n ? 'on' : '') + '"></u>').join('') + '</i><b>' + v + ' %</b><div class="b5bar"><i style="width:' + Math.min(100, v) + '%;background:' + (ALIENS[id].color || '#ffa556') + '"></i></div></div>'; }).join('') + '</div>',
+    [['VOLVER', back || pauseMenu]]);
+}
+function mastCheck() { // toast when an alien reaches a new reward
+  if (!player.alien || race !== 'omni') return;
+  const id = player.activeAlien, t = mTier(mastery() || 0), mt = B6().mt;
+  if (mt[id] === undefined) { mt[id] = t; return; }
+  if (t > mt[id]) {
+    mt[id] = t;
+    const [n, txt] = MT[t - 1];
+    toast('¡MAESTRÍA ' + n + ' % · ' + ALIENS[id].name.toUpperCase() + '! ' + txt);
+    playWatchSFX('recharged'); rumble([30, 40, 60]);
+    burst(player.x, player.y - 60, 30, ALIENS[id].color || '#ffd84a');
+    save();
+  }
+}
+TITLES.push(['maestro1', 'Maestro alien', 'Lleva un alien al 100 % de maestría', () => Object.values(player.masteries || {}).some((v) => v >= 100)]);
+TITLES.push(['maestro10', 'Gran maestro', 'Lleva 10 aliens al 100 % de maestría', () => Object.values(player.masteries || {}).filter((v) => v >= 100).length >= 10]);
+TITLES.push(['calabaza', 'Rey Calabaza', 'Consigue 25 calabazas en Halloween', () => B6().pumpTot >= 25]);
+// ---------------- damage in / out (dmgMod part-46, hitPlayer part-09, drainRate part-15) ----------------
+function b6Dmg(e, dmg) {
+  const v = mNow();
+  if (v >= 25) dmg *= 1.05;
+  if (v >= 100) dmg *= 1.1;
+  if (arena.on && ap.dmg) dmg *= 1 + 0.15 * ap.dmg;
+  if (arena.on && ap.vamp && dmg > 0) player.hp = Math.min(maxHP(), player.hp + dmg * 0.04 * ap.vamp);
+  if (!e.dummy && dmg > 0) B6().dmg += dmg;
+  return dmg;
+}
+function b6Taken(amount) {
+  if (mNow() >= 75) amount *= 0.9;
+  if (arena.on && ap.armor) amount *= Math.pow(0.88, ap.armor);
+  if (amount > 0) rumble(amount > 25 ? 60 : 30);
+  return amount;
+}
+function b6Drain() { return (mNow() >= 50 ? 0.9 : 1) * (arena.on && ap.energy ? 0.75 : 1); }
+// ---------------- events / kills ----------------
+function b6Event(kind, d) { if (kind === 'transform') rumble([15, 25, 15]); }
+function b6Kill(e) {
+  if (isBossE(e) && !e.decoy && !e.mini) { B6().bosses++; rumble([60, 40, 120]); }
+  if (e.ghost) {
+    if (Math.random() < 0.35) { B6().pump++; B6().pumpTot++; popup(e.x, e.y - 130, '+1 CALABAZA', '#ff9a3a'); }
+    burst(e.x, e.y - 50, 18, '#c9a6ff');
+  }
+  if (lockT === e) lockT = null;
+}
+// ---------------- stats ----------------
+const fmtTime = (s) => { s = Math.floor(s); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? h + ' h ' + m + ' min' : m + ' min ' + (s % 60) + ' s'; };
+function statsMenu(back) {
+  const b = B6(), s = stats(), fav = Object.entries(b.use).filter(([id]) => ALIENS[id]).sort((p, q) => q[1] - p[1])[0];
+  const rows = [
+    ['Tiempo jugado', fmtTime(b.time)],
+    ['Enemigos derrotados', s.kills],
+    ['Jefes derrotados', b.bosses],
+    ['Daño total', Math.round(b.dmg).toLocaleString('es-ES')],
+    ['Transformaciones', s.transforms],
+    ['Alien favorito', fav ? ALIENS[fav[0]].name + ' · ' + fmtTime(fav[1]) : '—'],
+    ['Aliens usados', s.aliens.length],
+    ['Combo más largo', Math.max(combo.best || 0, WK().combo || 0)],
+    ['Poderes usados', s.powers],
+    ['Misiones completadas', s.missions],
+    ['Distancia recorrida', (b.dist / 40 / 1000).toFixed(2) + ' km'],
+    ['Veces derrotado', b.deaths],
+    ['Récord en la arena', 'oleada ' + arenaBest()],
+    ['Calabazas', b.pumpTot],
+  ];
+  showDialog('ESTADÍSTICAS', 'Tu partida en números', '<div class="stgrid">' + rows.map(([k, v]) => '<div><span>' + k + '</span><b>' + v + '</b></div>').join('') + '</div>', [['VOLVER', back || pauseMenu]]);
+}
+// ---------------- lock-on ----------------
+let lockT = null;
+const lockOk = (e) => !!e && e.alive && enemies.includes(e) && dist(player, e) < 950;
+{
+  const nearest0 = nearest;
+  nearest = function (range = 550) {
+    if (lockOk(lockT) && dist(player, lockT) <= Math.max(range * 1.3, range + 60) && lineClear(player.x, player.y, lockT.x, lockT.y)) return lockT;
+    return nearest0(range);
+  };
+}
+function lockAt(wx, wy) {
+  let best = null, bd = 95;
+  for (const e of enemies) if (e.alive) { const d = Math.hypot(e.x - wx, e.y - 50 - wy); if (d < bd) { bd = d; best = e; } }
+  if (!best) return false;
+  lockT = lockT === best ? null : best;
+  if (lockT) { rumble(15); popup(best.x, best.y - 150, 'FIJADO', '#ff7a7a'); }
+  return true;
+}
+function lockCycle() {
+  const list = enemies.filter((e) => e.alive && dist(player, e) < 900).sort((a, b) => dist(player, a) - dist(player, b));
+  if (!list.length) { lockT = null; return; }
+  const i = list.indexOf(lockT);
+  lockT = i < 0 ? list[0] : i + 1 < list.length ? list[i + 1] : null;
+  if (lockT) popup(lockT.x, lockT.y - 150, 'FIJADO', '#ff7a7a');
+}
+worldCanvas.addEventListener('pointerdown', (ev) => {
+  if (!started || paused || dialogOpen || sel) return;
+  const r = worldCanvas.getBoundingClientRect(), z = sceneZoom();
+  lockAt(((ev.clientX - r.left) * (W / r.width)) / z + cam.x, ((ev.clientY - r.top) * (H / r.height)) / z + cam.y);
+});
+document.addEventListener('keydown', (ev) => {
+  if (ev.repeat || !started || paused || dialogOpen || sel) return;
+  if (ev.key === 'l' || ev.key === 'L') lockCycle();
+});
+// ---------------- Halloween ----------------
+function hwOn() {
+  try { if (localStorage.getItem('omni-hw') === '1') return true; } catch (e) {}
+  const d = new Date();
+  return d.getMonth() === 9 || (d.getMonth() === 10 && d.getDate() <= 2);
+}
+const HW_ZONES = OUTDOOR;
+let hwCache = {};
+function hwSpots(z) {
+  const k = dayKey() + ':' + z;
+  if (hwCache[k]) return hwCache[k];
+  let h = 0; for (const c of k) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const r = REGIONS[z], R = seeded(h % 100000), out = [];
+  for (let tries = 0; out.length < 3 && tries < 80; tries++) {
+    const x = r.minX + 90 + R() * (r.maxX - r.minX - 180), y = r.top + 25 + R() * (r.bottom - r.top - 50);
+    if (!isSolid(x, y) && !out.some((p) => Math.abs(p[0] - x) < 260)) out.push([Math.round(x), Math.round(y)]);
+  }
+  return (hwCache[k] = out);
+}
+function hwDay() { const b = B6(); if (b.pd.day !== dayKey()) b.pd = { day: dayKey(), got: {} }; return b.pd; }
+const hwToday = () => Object.keys(hwDay().got).length, hwTotal = () => HW_ZONES.length * 3;
+function hwTick() {
+  if (!hwOn() || !HW_ZONES.includes(zone)) return;
+  const d = hwDay();
+  hwSpots(zone).forEach(([x, y], i) => {
+    const k = zone + ':' + i;
+    if (d.got[k] || Math.hypot(player.x - x, player.y - y) > 55) return;
+    d.got[k] = 1;
+    const b = B6(); b.pump++; b.pumpTot++;
+    burst(x, y - 20, 26, '#ff9a3a'); playWatchSFX('dna_added'); rumble(25);
+    toast('CALABAZA · ' + hwToday() + ' / ' + hwTotal() + ' hoy · tienes ' + b.pump + (b.pumpTot === 25 ? ' · ¡TÍTULO REY CALABAZA!' : ''));
+    if (hwToday() === hwTotal()) { player.coins = (player.coins || 0) + 300; toast('¡TODAS LAS CALABAZAS DE HOY! · +300 monedas'); }
+    save();
+  });
+  if (net.role !== 'guest' && isNight())
+    for (const e of enemies) {
+      if (e.ghostRolled) continue;
+      e.ghostRolled = true;
+      if (!e.alive || isBossE(e) || e.knight || e.temp || e.arena || e.rematch || e.rush || e.dummy || e.dun || e.sidejob || Math.random() > 0.35) continue;
+      e.ghost = true;
+      e.max = e.hp = Math.round(e.max * 0.8);
+    }
+}
+function pumpkin(x, y, glow) {
+  ctx.save();
+  ctx.fillStyle = '#0006'; ctx.beginPath(); ctx.ellipse(x, y + 2, 16, 5, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#e8741c'; ctx.strokeStyle = '#7a3208'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(x, y - 12, 17, 13, 0, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(x, y - 12, 7, 13, 0, 0, 7); ctx.stroke();
+  ctx.fillStyle = '#3f6b1e'; ctx.fillRect(x - 2, y - 30, 4, 7);
+  if (glow) {
+    ctx.fillStyle = '#ffe14a'; ctx.shadowColor = '#ffb020'; ctx.shadowBlur = 14;
+    ctx.beginPath(); ctx.moveTo(x - 9, y - 16); ctx.lineTo(x - 4, y - 16); ctx.lineTo(x - 6.5, y - 20); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x + 4, y - 16); ctx.lineTo(x + 9, y - 16); ctx.lineTo(x + 6.5, y - 20); ctx.fill();
+    ctx.fillRect(x - 7, y - 10, 14, 3);
+  }
+  ctx.restore();
+}
+function hwDraw() {
+  if (!hwOn() || !HW_ZONES.includes(zone)) return;
+  const d = hwDay();
+  hwSpots(zone).forEach(([x, y], i) => { if (!d.got[zone + ':' + i]) pumpkin(x, y + Math.sin(clock * 2 + i) * 1.5, isNight()); });
+}
+function ghostFilter(e) { return e.ghost ? 'hue-rotate(210deg) saturate(1.5) brightness(1.35)' : 'none'; }
+const ghostAlpha = (e) => (e.ghost ? 0.5 + 0.15 * Math.sin(clock * 5 + e.id) : 1);
+const ghostLift = (e) => (e.ghost ? 14 + Math.sin(clock * 2.4 + e.id) * 6 : 0);
+function hwHud() {
+  if (!hwOn() || !started || !OUTDOOR.includes(zone)) return;
+  ctx.save();
+  if (isNight()) {
+    const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, W * 0.7);
+    g.addColorStop(0, 'rgba(40,0,60,0)'); g.addColorStop(1, 'rgba(40,0,60,.45)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  } else { ctx.fillStyle = 'rgba(255,120,30,.05)'; ctx.fillRect(0, 0, W, H); }
+  if (!lowGfx()) for (let i = 0; i < 14; i++) { // falling leaves
+    const x = ((i * 113 + clock * (22 + (i % 4) * 6)) % (W + 40)) - 20, y = ((i * 71 + clock * (30 + (i % 3) * 8)) % (H + 40)) - 20;
+    ctx.save(); ctx.translate(x + Math.sin(clock + i) * 12, y); ctx.rotate(clock * (1 + (i % 3)) + i);
+    ctx.fillStyle = i % 3 ? '#d9661c' : '#8a3fb8'; ctx.globalAlpha = 0.7; ctx.fillRect(-4, -2, 8, 4); ctx.restore();
+  }
+  ctx.restore();
+}
+function halloweenMenu(back) {
+  const b = B6();
+  showDialog('HALLOWEEN', 'Calabazas: ' + b.pump + ' · total ' + b.pumpTot,
+    '<p>Hasta el 2 de noviembre hay <b>3 calabazas al día</b> escondidas en cada zona exterior (' + hwToday() + ' / ' + hwTotal() + ' hoy). De noche aparecen <b>enemigos fantasma</b> que a veces sueltan una.</p>' +
+      '<div class="xrow"><b>300 monedas</b><small>10 calabazas</small></div>' +
+      '<div class="xrow"><b>Título «Rey Calabaza»</b><small>' + (b.pumpTot >= 25 ? 'conseguido ✔' : 'consigue 25 calabazas en total (' + b.pumpTot + ' / 25)') + '</small></div>' +
+      '<div class="xrow"><b>Aura de Halloween</b><small>' + (b.aura ? 'tuya ✔ · ' + (b.auraOn ? 'activada' : 'desactivada') : '40 calabazas en total (' + b.pumpTot + ' / 40)') + '</small></div>',
+    [['CANJEAR 10 → 300 MONEDAS', () => { if (b.pump < 10) return toast('Necesitas 10 calabazas'); b.pump -= 10; player.coins = (player.coins || 0) + 300; playWatchSFX('dna_added'); save(); halloweenMenu(back); }],
+      ...(b.pumpTot >= 40 || b.aura ? [[b.auraOn ? 'QUITAR AURA' : 'PONER AURA', () => { b.aura = true; b.auraOn = !b.auraOn; save(); halloweenMenu(back); }]] : []),
+      ['VOLVER', back || extrasMenu]]);
+}
+// ---------------- mission log + arrow ----------------
+const ML_PTS_ENEMIES = 'enemies';
+function mlEntries() {
+  const L = [], add = (key, cat, title, text, z, pts) => L.push({ key, cat, title, text, z, pts });
+  const safe = (f) => { try { f(); } catch (e) {} };
+  safe(() => { // mission 01
+    if (quest.state === 'done') return;
+    add('m1', 'MISIÓN 01', quest.state === 'active' ? 'Invasores del refugio' : quest.state === 'return' ? 'Regresa con Max' : 'Habla con Max', quest.state === 'active' ? 'Derrota a 6 invasores · ' + quest.kills + ' / 6' : 'Max está en el Refugio', 1, quest.state === 'active' ? ML_PTS_ENEMIES : [npc]);
+  });
+  safe(() => { // story 02
+    const s = SG(), st = s.step;
+    if (st === 0 && quest.state === 'done') add('s2', 'HISTORIA 02 · DISPONIBLE', 'Ecos del Vacío', 'Habla con el Agente Vega en los Muelles' + (player.level < 4 ? ' (nivel 4)' : ''), 5, [VERA]);
+    if (st < 1 || st > 7) return;
+    const z = [0, 13, 13, 13, 14, 14, 14, 5][st], pts = st === 3 ? VALVES.filter((v, i) => !s.valves[i]) : st === 7 ? [VERA] : st === 5 && s.wardens >= 4 ? [DRAVEN] : st === 1 || st === 4 ? [] : ML_PTS_ENEMIES;
+    add('s2', 'HISTORIA 02 · ECOS DEL VACÍO', SAGA_STEPS[st][0], SAGA_STEPS[st][1], z, pts);
+  });
+  safe(() => { // story 03
+    const s = F1().s3;
+    if (s.step === 0 && SG().step >= 8) add('s3', 'HISTORIA 03 · DISPONIBLE', 'El Cazador de ADN', 'Habla con el Agente Vega en los Muelles', 5, [VERA]);
+    if (s.step < 1 || s.step > 4) return;
+    add('s3', 'HISTORIA 03 · CAZADOR', ['', 'Rastreadores', 'Ataque a la Fortaleza', 'Kraal', 'Regreso'][s.step], S3_STEPS[s.step], [0, 4, 6, 0, 5][s.step], s.step === 1 ? S3_TRACKERS.filter((t, i) => !s.found[i]) : s.step === 4 ? [VERA] : ML_PTS_ENEMIES);
+  });
+  safe(() => { // story 04
+    const s = S4();
+    if (s.step === 0 && F1().s3.step >= 5) add('s4', 'HISTORIA 04 · DISPONIBLE', 'Sobrecarga', 'Habla con el Agente Vega en los Muelles', 5, [VERA]);
+    if (s.step < 1 || s.step > 5) return;
+    let z = [0, 3, 3, 13, 11, 5][s.step], pts = s.step === 1 ? [S4_DRAVEN] : s.step === 5 ? [VERA] : ML_PTS_ENEMIES;
+    if (s.step === 2) { const left = S4_CABLES.filter((c, i) => !s.cut[i]), here = left.filter((c) => c.z === zone); z = (here[0] || left[0] || { z: 3 }).z; pts = left.filter((c) => c.z === z); }
+    add('s4', 'HISTORIA 04 · SOBRECARGA', S4_TITLES[s.step], S4_STEPS[s.step], z, pts);
+  });
+  safe(() => { // story 05
+    const s = S5();
+    if (s.step === 0 && S4().step >= 6) add('s5', 'HISTORIA 05 · DISPONIBLE', 'El Eco del Espectro', 'Habla con el Agente Vega en los Muelles', 5, [VERA]);
+    if (s.step < 1 || s.step > 4) return;
+    add('s5', 'HISTORIA 05 · ESPECTRO', S5_TITLES[s.step], S5_STEPS[s.step], [0, 3, 14, 14, 5][s.step], s.step === 1 ? [S4_DRAVEN] : s.step === 2 ? S5_RIFTS.filter((r, i) => !s.sealed[i]) : s.step === 4 ? [VERA] : ML_PTS_ENEMIES);
+  });
+  safe(() => { const m = activeMission(); if (m) add('board', 'MISIÓN DEL TABLÓN', m.title, m.desc || '', m.zone != null ? m.zone : null, ML_PTS_ENEMIES); });
+  safe(() => {
+    const q = favActive();
+    if (q) add('fav', 'FAVOR · ' + q.who.toUpperCase(), q.text.length > 60 ? q.text.slice(0, 58) + '…' : q.text, favStatus(q), q.zone, q.type === 'fetch' ? [{ x: q.x, y: q.y }] : q.type === 'collect' ? q.spots.map(([x, y]) => ({ x, y })) : ML_PTS_ENEMIES);
+  });
+  safe(() => {
+    const j = sj.job;
+    if (!j) return;
+    if (j.type === 'find') add('job', 'ENCARGO · ' + j.name.toUpperCase(), j.got ? 'Devuélvelo' : 'Busca ' + j.what, j.got ? 'Vuelve con ' + j.name : 'Está en ' + REGIONS[j.item.z].name, j.got ? (sj.offer ? sj.offer.z : null) : j.item.z, j.got ? [] : [j.item]);
+    else if (j.type === 'drones') add('job', 'ENCARGO · ' + j.name.toUpperCase(), 'Espanta a los drones', 'En ' + REGIONS[j.z].name, j.z, ML_PTS_ENEMIES);
+    else add('job', 'ENCARGO · ' + j.name.toUpperCase(), 'Entrega el paquete', 'Para ' + j.toName + ' en ' + REGIONS[j.to.z].name, j.to.z, [j.to]);
+  });
+  safe(() => { const id = dailyAlienId(), da = DA(); if (id && !da.done) add('da', 'ALIEN DEL DÍA', ALIENS[id].name + ' · doble EXP', 'Derrota 15 enemigos con él · ' + Math.min(15, da.kills) + ' / 15', null, null); });
+  safe(() => { const D = daily(); D.ids.forEach((i) => { const c = DAILY_POOL.find((x) => x.id === i); if (c && !D.done[i]) add('d:' + i, 'RETO DIARIO', dailyText(c, D), 'Se renueva cada día', null, null); }); });
+  safe(() => { if (hwOn()) add('hw', 'HALLOWEEN', 'Calabazas de hoy', hwToday() + ' / ' + hwTotal() + ' · ' + B6().pump + ' para canjear', HW_ZONES.includes(zone) && hwSpots(zone).some((s, i) => !hwDay().got[zone + ':' + i]) ? zone : HW_ZONES.find((z) => hwSpots(z).some((s, i) => !hwDay().got[z + ':' + i])) ?? null, 'hw'); });
+  return L;
+}
+function mlTracked() {
+  const L = mlEntries(), pin = B6().pin;
+  return L.find((e) => e.key === pin && e.z != null) || L.find((e) => e.z != null && e.key !== 'hw' && !e.key.startsWith('d:') && e.key !== 'da') || null;
+}
+function missionLogMenu(back) {
+  const L = mlEntries(), t = mlTracked(), on = B6().arrow !== false;
+  showDialog('REGISTRO DE MISIONES', L.length ? L.length + ' en curso' : 'Nada en curso',
+    (L.length ? '<div class="mlog">' + L.map((e) => '<div class="' + (t && t.key === e.key ? 'on' : '') + '"><small>' + e.cat + '</small><b>' + e.title + '</b><span>' + e.text + (e.z != null ? ' · <em>' + REGIONS[e.z].name + '</em>' : '') + '</span>' + (e.z != null ? '<button class="pbtn' + (t && t.key === e.key ? ' main' : '') + '" data-ml="' + e.key + '">' + (t && t.key === e.key ? 'SIGUIENDO ✔' : 'SEGUIR') + '</button>' : '') + '</div>').join('') + '</div>' : '<p>Habla con los personajes con ◆ o mira el tablón de misiones.</p>') +
+      '<p>La flecha en pantalla te lleva a la misión que sigues, zona a zona.</p>',
+    [['FLECHA: ' + (on ? 'SÍ' : 'NO'), () => { B6().arrow = !on; save(); missionLogMenu(back); }], ['VOLVER', back || closeDialog]]);
+  for (const b of document.querySelectorAll('[data-ml]')) b.onclick = () => { B6().pin = b.dataset.ml; B6().arrow = true; save(); missionLogMenu(back); };
+}
+// route between zones: left/right/up/down links + the Bellwood door in Ciudad Bahía
+function zoneLinks(z) {
+  const l = REGIONS[z].links, out = [];
+  for (const d of ['left', 'right', 'up', 'down']) if (l[d] !== undefined) out.push([d, l[d]]);
+  if (z === 3) out.push(['bell', 12]);
+  return out;
+}
+function zoneHop(from, to) {
+  if (from === to) return null;
+  const prev = { [from]: null }, q = [from];
+  while (q.length) {
+    const z = q.shift();
+    for (const [d, n] of zoneLinks(z)) if (!(n in prev)) { prev[n] = [z, d]; if (n === to) { let c = n; while (prev[c][0] !== from) c = prev[c][0]; return { dir: prev[c][1], to: c }; } q.push(n); }
+  }
+  return null;
+}
+function gatePos(dir) {
+  const r = region(), ey = r.exitY || (r.top + r.bottom) / 2;
+  if (dir === 'left') return { x: r.minX + 30, y: ey };
+  if (dir === 'right') return { x: r.maxX - 30, y: ey };
+  if (dir === 'up') return { x: r.portalX, y: floorBounds(r.portalX).top + 20 };
+  if (dir === 'down') return { x: r.portalX, y: r.bottom - 20 };
+  return { x: 1110, y: r.top + 20 };
+}
+let mlCacheT = 0, mlCache = null;
+function mlTarget() {
+  if ((mlCacheT -= 1) <= 0) { mlCacheT = 20; mlCache = mlTracked(); }
+  const t = mlCache;
+  if (!t || t.z == null) return null;
+  if (t.z !== zone) { const h = zoneHop(zone, t.z); return h ? { ...gatePos(h.dir), label: REGIONS[h.to].name, gate: true } : null; }
+  let pts = t.pts;
+  if (pts === 'hw') { const d = hwDay(); pts = hwSpots(zone).filter((s, i) => !d.got[zone + ':' + i]).map(([x, y]) => ({ x, y })); }
+  if (pts === ML_PTS_ENEMIES) pts = enemies.filter((e) => e.alive).map((e) => ({ x: e.x, y: e.y - 40 }));
+  if (!pts || !pts.length) return null;
+  let best = null, bd = 1e9;
+  for (const p of pts) { const d = Math.hypot(p.x - player.x, p.y - player.y); if (d < bd) { bd = d; best = p; } }
+  return best && bd > 90 ? { x: best.x, y: best.y, label: t.title } : null;
+}
+function mlArrow() {
+  if (!started || B6().arrow === false || dialogOpen || (typeof photoOn !== 'undefined' && photoOn) || sagaCineOn) return;
+  const t = mlTarget();
+  if (!t) return;
+  const z = sceneZoom(), sx = (t.x - cam.x) * z, sy = (t.y - cam.y) * z, m = 46, on = sx > m && sx < W - m && sy > m + 60 && sy < H - m;
+  ctx.save();
+  ctx.font = 'bold 10px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (on) {
+    const bob = Math.sin(clock * 5) * 5;
+    ctx.fillStyle = '#c9ff89'; ctx.strokeStyle = '#08130a'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(sx, sy - 46 + bob); ctx.lineTo(sx - 11, sy - 64 + bob); ctx.lineTo(sx + 11, sy - 64 + bob); ctx.closePath(); ctx.stroke(); ctx.fill();
+    if (t.gate) { ctx.strokeText(t.label.toUpperCase(), sx, sy - 76 + bob); ctx.fillText(t.label.toUpperCase(), sx, sy - 76 + bob); }
+  } else {
+    const cx = W / 2, cy = H / 2, a = Math.atan2(sy - cy, sx - cx), ex = clamp(cx + Math.cos(a) * W, m, W - m), ey = clamp(cy + Math.sin(a) * W, m + 90, H - 150);
+    ctx.translate(ex, ey);
+    ctx.save(); ctx.rotate(a);
+    ctx.fillStyle = '#c9ff89'; ctx.strokeStyle = '#08130a'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(18, 0); ctx.lineTo(-8, -12); ctx.lineTo(-3, 0); ctx.lineTo(-8, 12); ctx.closePath(); ctx.stroke(); ctx.fill();
+    ctx.restore();
+    const lab = (t.gate ? '→ ' : '') + t.label.toUpperCase(), ly = ey > H / 2 ? -24 : 24, tw = ctx.measureText(lab).width / 2, lx = clamp(0, 8 + tw - ex, W - 8 - tw - ex);
+    ctx.strokeText(lab, lx, ly); ctx.fillStyle = '#e8ffd0'; ctx.fillText(lab, lx, ly);
+  }
+  ctx.restore();
+}
+// ---------------- arena perks + boss waves ----------------
+const ap = {};
+const AP = { dmg: ['+15 % DE DAÑO', 4], armor: ['−12 % DE DAÑO RECIBIDO', 3], vamp: ['ROBO DE VIDA', 2], energy: ['ENERGÍA LLENA · −25 % DE GASTO', 1], coins: ['MONEDAS ×2 POR OLEADA', 1], heal: ['CURACIÓN COMPLETA', 99] };
+{
+  const start0 = arenaStart, clear0 = arenaWaveClear, spawn0 = arenaSpawnWave;
+  arenaStart = function () { for (const k in ap) delete ap[k]; return start0.apply(this, arguments); };
+  arenaWaveClear = function () {
+    clear0();
+    const n = arena.wave;
+    if (ap.coins) player.coins = (player.coins || 0) + 8 * n;
+    if (n % 3 || net.role === 'guest') return;
+    const pool = Object.keys(AP).filter((k) => (ap[k] || 0) < AP[k][1]).sort(() => Math.random() - 0.5).slice(0, 3);
+    arena.breakT = Math.max(arena.breakT, 4);
+    showDialog('MEJORA DE ARENA', 'Oleada ' + n + ' superada · elige una', '<p>Las mejoras duran hasta que salgas de la arena.</p>',
+      pool.map((k) => [AP[k][0], () => {
+        ap[k] = (ap[k] || 0) + 1;
+        if (k === 'heal') player.hp = maxHP();
+        if (k === 'energy') player.battery = 100;
+        closeDialog(); sfx('levelup'); toast('Mejora: ' + AP[k][0]); hud();
+      }]));
+  };
+  arenaSpawnWave = function () {
+    spawn0();
+    const n = arena.wave;
+    if (n % 10 || net.role === 'guest') return;
+    const B = RM_BOSSES[(n / 10 - 1) % 3], d = B[3], r = region(), x = (r.minX + r.maxX) / 2, y = (r.top + r.bottom) / 2, hp = Math.round(d.hp * 0.45 * (1 + n * 0.04) * (1 + player.level * 0.03));
+    enemies.push({ id: 460, x, y, homeX: x, homeY: y, face: -1, kind: 'enemy', rcd: 1.5, cast: 0, stun: 1, alive: true, respawn: 1e9, cd: 1.5, wind: 0, anim: 0, hit: 0, moving: false, temp: true, modRolled: true, behRolled: true, ...d, boss: true, arena: true, hp, max: hp });
+    toast('¡OLEADA ' + n + ' · JEFE: ' + B[1].toUpperCase() + '!');
+    playWatchSFX('warning'); rumble([80, 60, 80]);
+  };
+}
+{
+  const hud0 = arenaHudSet;
+  arenaHudSet = function () { hud0(); if (arena.on && arenaHudEl && Object.keys(ap).length) { const t = arenaHudEl.textContent.split(' · MEJORAS')[0] + ' · MEJORAS: ' + apLine(); if (arenaHudEl.textContent !== t) arenaHudEl.textContent = t; } };
+}
+function apLine() { return Object.keys(ap).map((k) => ({ dmg: 'DAÑO', armor: 'ARMADURA', vamp: 'VAMPIRO', energy: 'ENERGÍA', coins: 'MONEDAS', heal: '' })[k] + (ap[k] > 1 ? '×' + ap[k] : '')).filter((x) => x && x !== '×').join(' · '); }
+// ---------------- boss gallery medals ----------------
+const MEDALS = [null, ['BRONCE', '#d08a4a'], ['PLATA', '#cfd8e0'], ['ORO', '#ffd84a']];
+function rmTargets(id, tier) {
+  const B = RM_BOSSES.find((x) => x[0] === id), base = (B[3].hp / 45) * RM_TIERS[tier].hp;
+  return [Math.round(base * 1.3), Math.round(base * 0.85), Math.round(base * 0.55)]; // bronze, silver, gold (seconds)
+}
+const medalFor = (id, tier, t) => { const [b, s, g] = rmTargets(id, tier); return t <= g ? 3 : t <= s ? 2 : t <= b ? 1 : 0; };
+{
+  const end0 = rematchEnd, menu0 = rematchMenu;
+  rematchEnd = function (why) {
+    const id = rm.id, tier = rm.tier, t = rm.t, was = rm.on;
+    end0(why);
+    if (!was || why !== 'win') return;
+    const m = medalFor(id, tier, t), k = id + ':' + tier, M = B6().medals, prev = M[k] || 0;
+    if (m > prev) { M[k] = m; if (m === 3) { player.coins = (player.coins || 0) + 150; } save(); }
+    const [b, s, g] = rmTargets(id, tier), body = $('#dialogbody');
+    if (body) body.insertAdjacentHTML('beforeend', '<p class="medal">' + (m ? '<b style="color:' + MEDALS[m][1] + '">MEDALLA DE ' + MEDALS[m][0] + '</b>' + (m > prev && m === 3 ? ' · +150 monedas' : m > prev ? ' · ¡nueva!' : '') : 'Sin medalla') + '<br><small>Oro ' + rushFmt(g) + ' · Plata ' + rushFmt(s) + ' · Bronce ' + rushFmt(b) + '</small></p>');
+    if (m) rumble([40, 30, 80]);
+  };
+  rematchMenu = function (back) {
+    menu0(back);
+    const M = B6().medals;
+    for (const btn of document.querySelectorAll('[data-rm]')) {
+      const id = btn.dataset.rm, got = [1, 2, 3].map((k) => M[id + ':' + k] || 0);
+      if (got.some(Boolean)) btn.querySelector('small').insertAdjacentHTML('beforeend', '<br>' + got.map((m, i) => (m ? '<span style="color:' + MEDALS[m][1] + '">' + '★'.repeat(i + 1) + ' ' + MEDALS[m][0] + '</span>' : '')).filter(Boolean).join(' · '));
+    }
+  };
+}
+const medalCount = () => Object.values(B6().medals).filter((m) => m === 3).length;
+function rmTimerHud() {
+  if (!rm.on || !started) return;
+  const [b, s, g] = rmTargets(rm.id, rm.tier), t = rm.t, m = medalFor(rm.id, rm.tier, t), next = t <= g ? ['ORO', g] : t <= s ? ['PLATA', s] : t <= b ? ['BRONCE', b] : null;
+  ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(5,12,9,.8)'; ctx.fillRect(W / 2 - 110, 92, 220, 40);
+  ctx.font = 'bold 18px Arial'; ctx.fillStyle = m ? MEDALS[m][1] : '#e8ffd0'; ctx.fillText(rushFmt(t), W / 2, 106);
+  ctx.font = 'bold 9px Arial'; ctx.fillStyle = '#b8c8c0'; ctx.fillText(next ? next[0] + ' si ganas antes de ' + rushFmt(next[1]) : 'sin medalla · ¡gana igualmente!', W / 2, 124);
+  ctx.restore();
+}
+// ---------------- shared tick / draw ----------------
+let b6Last = null, b6Told = false, b6WasDown = false;
+function b6Tick(dt) {
+  if (!started) return;
+  const b = B6();
+  b.time += dt;
+  if (player.alien && ALIENS[player.activeAlien]) b.use[player.activeAlien] = (b.use[player.activeAlien] || 0) + dt;
+  if (b6Last && b6Last.z === zone) { const d = Math.hypot(player.x - b6Last.x, player.y - b6Last.y); if (d < 80) b.dist += d; }
+  b6Last = { x: player.x, y: player.y, z: zone };
+  if (player.downed && !b6WasDown) b.deaths++;
+  b6WasDown = !!player.downed;
+  if (lockT && !lockOk(lockT)) lockT = null;
+  mastCheck();
+  hwTick();
+  if (!b6Told && hwOn()) { b6Told = true; const d = hwDay(); if (!d.told) { d.told = true; setTimeout(() => toast('🎃 EVENTO DE HALLOWEEN · busca calabazas y caza fantasmas de noche (Extras → HALLOWEEN)'), 9000); } }
+}
+function b6Draw() { hwDraw(); } // world, under the actors (part-11)
+function b6DrawTop() { // world, over the actors (part-11)
+  if (lockOk(lockT)) {
+    const e = lockT, r = 46, cx = e.x, cy = e.y - 52;
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(clock * 1.5); ctx.strokeStyle = '#ff5a5a'; ctx.lineWidth = 3; ctx.globalAlpha = 0.9;
+    for (let k = 0; k < 4; k++) { ctx.rotate(Math.PI / 2); ctx.beginPath(); ctx.moveTo(r, -10); ctx.lineTo(r, 10); ctx.moveTo(r, 0); ctx.lineTo(r - 9, 0); ctx.stroke(); }
+    ctx.restore();
+  }
+  const b = B6();
+  if (b.aura && b.auraOn && started) {
+    ctx.save();
+    for (let k = 0; k < 8; k++) { const a = clock * 2 + (k / 8) * Math.PI * 2; ctx.fillStyle = k % 2 ? '#ff8a2a' : '#a65cff'; ctx.globalAlpha = 0.65; ctx.fillRect(player.x + Math.cos(a) * 44 - 3, player.y - 50 + Math.sin(a) * 22 - 3, 6, 6); }
+    ctx.restore();
+  }
+}
+function b6Hud() { hwHud(); mlArrow(); rmTimerHud(); } // screen space (part-11)
 applyWatchTheme();
 resize();
 boot();
@@ -16739,7 +17219,7 @@ if (window.__game)
     missionBoard, missionAccept, activeMission, MS, MISSIONS, coopOn, coopState, coopShare, coopTickMissions, COOP_SITES,
     arenaStart, arenaEnd, arena, arenaBest, statEvent, stats, daily, dailyMenu, achMenu, achCheck, ACHS, codexMenu, codexCard, codexIds, extrasMenu, difficultyMenu, diffCfg, diffKey, DIFFS, PAD, padPoll, padHelp,
     watchAnim, WATCH_ERAS, eraPlaylist, eraOf, storyPlay, storyFor, storyDraw, storyFit, storyPreload, BOARDS, SHEET_ROWS, SKIN_ART, boardId,
-    toTitle, toTitleAsk, whatsNewMenu, get startedQA() { return started; }, hud, phaseTick, isBossE, b5Tick, get pausedQA() { return paused; }, get dialogQA() { return dialogOpen; }, comboCheck, dailyAlienId, DA, B5, ngpMenu, progressMenu, dailyAlienMenu, behTick, photoDeco: () => photoDeco, beastType, wristInfo, setWrist: (w) => (wristFor = w), wristDet, wristScan, spriteInfoQA: (r) => spriteInfo(r), galleryMenu, galOpen, feedbackMenu, fbSnapshot, art, bakWrite, bakList, bakMenu, S5, s5Go, s5StartSeal, story5Talk, citizensQA: () => citizens, get sj() { return sj; }, sjOffer, sjDone, rematchStart, rematchMenu, get rm() { return rm; }, RMX, tutEnd, get tutState() { return tutState; }, remoteTargets, hurtTeam, partyOthers, partySize, get netq() { return net; }, musStepQA: (t) => musStep(t), MUS, musBuild, MUS_SONGS, S4, s4Go, story4Talk, s4Near, s4Fx, ULTIMATES, ultOn, ultForm, ALIEN_SCALE, alienHeight, sizeGuard, alienPower, tierDrain, scaleLine, codexCard, ALIENS, F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
+    B6, mlEntries, mlTracked, mlTarget, missionLogMenu, zoneHop, statsMenu, masteryMenu, halloweenMenu, hwOn, hwSpots, hwDay, lockAt, lockCycle, get lockT() { return lockT; }, ap, rmTargets, medalFor, b6Dmg, b6Taken, mTier, get arena() { return arena; }, arenaStart, arenaWaveClear, arenaSpawnWave, rematchEnd, get rmQA() { return rm; }, toTitle, toTitleAsk, whatsNewMenu, get startedQA() { return started; }, hud, phaseTick, isBossE, b5Tick, get pausedQA() { return paused; }, get dialogQA() { return dialogOpen; }, comboCheck, dailyAlienId, DA, B5, ngpMenu, progressMenu, dailyAlienMenu, behTick, photoDeco: () => photoDeco, beastType, wristInfo, setWrist: (w) => (wristFor = w), wristDet, wristScan, spriteInfoQA: (r) => spriteInfo(r), galleryMenu, galOpen, feedbackMenu, fbSnapshot, art, bakWrite, bakList, bakMenu, S5, s5Go, s5StartSeal, story5Talk, citizensQA: () => citizens, get sj() { return sj; }, sjOffer, sjDone, rematchStart, rematchMenu, get rm() { return rm; }, RMX, tutEnd, get tutState() { return tutState; }, remoteTargets, hurtTeam, partyOthers, partySize, get netq() { return net; }, musStepQA: (t) => musStep(t), MUS, musBuild, MUS_SONGS, S4, s4Go, story4Talk, s4Near, s4Fx, ULTIMATES, ultOn, ultForm, ALIEN_SCALE, alienHeight, sizeGuard, alienPower, tierDrain, scaleLine, codexCard, ALIENS, F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
     get enemies() { return enemies; },
     get sagaCineOn() { return sagaCineOn; },
     get scan() { return scan; },

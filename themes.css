@@ -358,3 +358,25 @@
 .dialog .wnhead { margin: 10px 0 4px; font-size: 10px !important; letter-spacing: 1.6px; font-weight: 800; color: #c9ff89 !important; }
 .dialog .wnlist { margin: 0 0 8px; padding-left: 18px; font-size: 12px; line-height: 1.6; color: #dbe8dd; }
 #game.hudlite.vmon #coins, #game.hudlite.vmon #treebtn { top: 108px !important; }
+/* ===================== 0.32 · batch 6 ===================== */
+.dialog .mlog { display: grid; gap: 8px; margin: 6px 0 10px; }
+.dialog .mlog > div { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: center; padding: 8px 10px; background: #0a1a14cc; border: 1px solid #6a838244; border-left: 3px solid #6a8382; }
+.dialog .mlog > div.on { border-left-color: #c9ff89; background: #12281acc; }
+.dialog .mlog small { grid-column: 1; font-size: 8px; letter-spacing: 1.4px; color: #9fd3a0; font-weight: 800; }
+.dialog .mlog b { grid-column: 1; font-size: 13px; color: #f0ffe6; }
+.dialog .mlog span { grid-column: 1; font-size: 11px; color: #b9c9c9; line-height: 1.4; }
+.dialog .mlog span em { font-style: normal; color: #c9ff89; }
+.dialog .mlog .pbtn { grid-column: 2; grid-row: 1 / span 3; padding: 8px 12px; font-size: 10px; }
+.dialog .stgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+.dialog .stgrid > div { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid #6a838233; font-size: 12px; color: #b9c9c9; }
+.dialog .stgrid b { color: #f0ffe6; text-align: right; font-variant-numeric: tabular-nums; }
+.dialog .mtlegend { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin-bottom: 10px; font-size: 10px; color: #b9c9c9; }
+.dialog .mtlegend b { color: #ffd8a8; }
+.dialog .mtlist { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; }
+.dialog .mtlist > div { display: grid; grid-template-columns: 1fr auto auto; gap: 2px 8px; align-items: center; font-size: 11px; color: #dbe8dd; }
+.dialog .mtlist .b5bar { grid-column: 1 / -1; }
+.dialog .mtlist b { color: #ffd8a8; font-variant-numeric: tabular-nums; }
+.mtdots { display: inline-flex; gap: 3px; }
+.mtdots u { display: block; width: 7px; height: 7px; border-radius: 50%; border: 1px solid #ffd8a8; text-decoration: none; }
+.mtdots u.on { background: #ffd8a8; }
+.dialog .medal { margin-top: 8px; }
