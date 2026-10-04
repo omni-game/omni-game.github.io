@@ -398,3 +398,11 @@
 .dialog .basecard p { margin: 0; font-size: 11px; line-height: 1.4; }
 .dialog .basecard .pbtn { align-self: flex-start; padding: 7px 12px; font-size: 10px; }
 .codex .cx.sel { outline: 2px solid #ffd84a; outline-offset: -2px; }
+/* ===================== 0.34 · batch 8 ===================== */
+#credits { position: absolute; inset: 0; z-index: 900; background: #020605; overflow: hidden; display: flex; justify-content: center; }
+#credits .crroll { position: absolute; top: 100%; width: min(640px, 92%); text-align: center; animation: crroll 42s linear forwards; display: flex; flex-direction: column; gap: 22px; }
+#credits .crroll small { display: block; font-size: 10px; letter-spacing: 3px; color: #7dff9a; margin-bottom: 6px; }
+#credits .crroll b { display: block; font-size: 18px; color: #e8ffd0; line-height: 1.4; }
+#credits .crroll b.big { font-size: 72px; letter-spacing: 14px; color: #c9ff89; text-shadow: 0 0 24px #7dff9a66; }
+#credits #crskip { position: absolute; right: 18px; bottom: 16px; padding: 8px 16px; background: #283947; color: #dfe; font-weight: 800; font-size: 11px; }
+@keyframes crroll { from { transform: translateY(0); } to { transform: translateY(calc(-100% - 560px)); } }

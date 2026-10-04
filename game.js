@@ -1,4 +1,4 @@
-window.OMNI_BUILD=69;window.OMNI_NOTES=["Base Fontanera: trofeos, tocadiscos, sala de entrenamiento y mejoras (pausa → JUGAR)", "Jefe mundial: el Titán del Vacío aparece en punto y a y media en una zona distinta", "Carreras contrarreloj con fantasma de tu mejor vuelta y medallas (Extras)", "Pesca en el muelle del faro y en la Ribera: 13 especies y algunos aliens pescan distinto", "50 cápsulas de ADN escondidas y 5 logros secretos", "Intercambio en co-op: pescado, calabazas, núcleos o monedas", "Héroe de la semana: un reto nuevo cada lunes con insignia junto a tu nombre", "Repeticiones: los mejores momentos (jefes, combos ×25) para verlos y guardarlos como foto"];
+window.OMNI_BUILD=70;window.OMNI_NOTES=["Modo villano: tres misiones como esbirro de Draven, con ataques propios (Extras)", "Rescates en la ciudad: incendios, vecinos atrapados o en una cornisa; el alien adecuado lo hace de golpe", "Nuevo tiempo: ola de calor y nieve; el clima da más poder a algunos aliens", "Dax, tu rival con reloj propio, aparece de vez en cuando para retarte", "Reto del fallo: si el reloj falla y te cambia de alien, gana la pelea con él para un premio", "Reto personalizado: tus propias reglas en la arena, con código para compartir", "Créditos y epílogo al terminar la Historia 05", "El laboratorio de ADN ahora también está en la Base Fontanera"];
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -4446,6 +4446,7 @@ function interact() {
   if (f3Interact()) return; // favours (part-47)
   if (f4Interact()) return; // secrets (part-48)
   if (b7Interact()) return; // fishing (part-68)
+  if (b8Interact()) return; // rescues (part-69)
   if (talkExtra()) return;
   if (puzzleInteract()) return;
   if (missionInteract()) return;
@@ -4986,6 +4987,7 @@ function update(dt) {
   vmTick(dt); // mastery on the HUD (part-66)
   b6Tick(dt); // batch 6 (part-67)
   b7Tick(dt); // batch 7 (part-68)
+  b8Tick(dt); // batch 8 (part-69)
   eliteTick();
   sigTick(dt);
   anoditeTick(dt);
@@ -5253,6 +5255,7 @@ function hud() {
   f3Hud(); // part-47
   f4Hud(); // part-48
   b7Hud(); // fishing (part-68)
+  b8Hud(); // rescues, villain HUD (part-69)
   anoditeHud();
 }
 function spriteInfo(row) {
@@ -5484,6 +5487,7 @@ function draw() {
   f3Draw(); // part-47
   b6Draw(); // pumpkins (part-67)
   b7Draw(); // capsules, fishing spots, race checkpoints (part-68)
+  b8Draw(); // villain cells, rescues (part-69)
   f4Draw(); // part-48
   const actors = (
     started
@@ -5600,6 +5604,8 @@ function draw() {
       let pose = combatPose(player, row, f);
       const pr = primePose(); // 0.17: reaching for the watch while the dial is open (part-40)
       if (pr) pose = pr;
+      const vp = vilPose(o); // villain mode body (part-69)
+      if (vp) pose = vp;
       if (ultOn()) {
         ctx.save();
         ctx.globalAlpha = 0.28 + 0.14 * Math.sin(clock * 8);
@@ -5622,7 +5628,7 @@ function draw() {
           jumpHeight() -
           travelLift() -
           (player.leap ? Math.sin((1 - player.leap.t) * Math.PI) * 140 : 0),
-        (player.alien ? alienHeight(player.activeAlien) : 98) * ultScale(),
+        (vp ? 104 : player.alien ? alienHeight(player.activeAlien) : 98) * ultScale(),
         player.face,
         player.downed ? 0.5 : player.travel ? travelAlpha() : player.inv > 0 && Math.floor(clock * 12) % 2 === 0 ? 0.45 : 1,
       );
@@ -5676,7 +5682,7 @@ function draw() {
     } else {
       const e = a.e;
       let f = e.wind > 0 || e.cast > 0 ? 3 : e.moving ? (Math.floor(e.anim) % 2) + 1 : 0;
-      if (featDrawEnemy(e, f) || f2DrawEnemy(e) || f4DrawEnemy(e, f) || b7DrawEnemy(e, f)) { scanDrawMark(e); continue; }
+      if (featDrawEnemy(e, f) || f2DrawEnemy(e) || f4DrawEnemy(e, f) || b7DrawEnemy(e, f) || b8DrawEnemy(e, f)) { scanDrawMark(e); continue; }
       if (e.sagaKind) { sagaDrawEnemy(e, f); scanDrawMark(e); continue; }
       scanDrawMark(e);
       if (e.ghost) ctx.filter = ghostFilter(e); // Halloween ghosts (part-67)
@@ -5906,6 +5912,7 @@ function draw() {
   weatherDraw(); // part-47
   b6Hud(); // Halloween light, mission arrow, boss timer (part-67)
   b7Hud2(); // race timer (part-68)
+  b8Hud2(); // weather chip, rescue timer (part-69)
   photoDecoDraw(); // photo stickers (part-65)
   if (flash > 0) {
     ctx.fillStyle = 'rgba(178,255,122,' + flash * 0.8 + ')';
@@ -11745,6 +11752,9 @@ function extrasMenu() {
       ['HÉROE DE LA SEMANA', () => heroMenu(extrasMenu)],
       ['REPETICIONES', () => replayMenu(extrasMenu)],
       ['BASE FONTANERA', () => baseMenu(extrasMenu)],
+      ['MODO VILLANO', () => vilMenu(extrasMenu)],
+      ['RETO PERSONALIZADO', () => custMenu(extrasMenu)],
+      ['CRÉDITOS', () => { closeDialog(); creditsRoll(); }],
       ['MAESTRÍA', () => masteryMenu(extrasMenu)],
       ['BOSS RUSH', bossRushMenu],
       ['JEFE DE INCURSIÓN (CO-OP)', raidMenu],
@@ -13477,6 +13487,7 @@ function featKill(e) {
   b5Kill(e); // part-65
   b6Kill(e); // part-67
   b7Kill(e); // part-68
+  b8Kill(e); // part-69
   s5Kill(e); // part-58
   s4Kill(e); // part-50
   if (zone === 6 && F1().s3.step === 2) { F1().s3.kills++; if (F1().s3.kills >= 6) s3Go(3); else hud(); }
@@ -14616,6 +14627,7 @@ function onTransformEvent(id) {
       else { player.activeAlien = pick; player.cool = player.cooldowns[pick]; player.hp = Math.min(maxHP(), player.hp); hud(); }
       player.swapCool = cool;
       toast('¡FALLO DEL OMNITRIX! Te has convertido en ' + ALIENS[pick].name);
+      glitchChallenge(pick); // part-69
       playWatchSFX('error');
     }, 700);
   }
@@ -14864,6 +14876,7 @@ function moreSettings(back) {
 const watchVolume = () => lsGet('omni-volume-watch', 100) / 100;
 // ---------------- patch notes ----------------
 const CHANGELOG = [
+  ['0.34', 'Modo villano · rescates · ola de calor y nieve · rival Dax · reto del fallo · reto personalizado · créditos y epílogo'],
   ['0.33', 'Base Fontanera · jefe mundial · carreras · pesca · cápsulas de ADN y logros secretos · intercambio · héroe de la semana · repeticiones'],
   ['0.32', 'Halloween · registro de misiones con flecha · recompensas de maestría · fijar objetivo · mejoras y jefes en la arena · medallas de tiempo · estadísticas · vibración'],
   ['0.31.1', 'Volver al menú principal · Novedades · Maestría del alien en pantalla'],
@@ -17805,10 +17818,11 @@ function baseMenu(back) {
       '<div class="basecard"><h4>🏆 TROFEOS</h4><p>' + trophies.length + ' jefes derrotados · ' + medalCount() + ' medallas de oro · ' + b.titans + ' titanes</p><button class="pbtn" data-b="trophy">VER VITRINA</button></div>' +
       '<div class="basecard"><h4>🎵 TOCADISCOS</h4><p>Suena: <b>' + (jukebox == null ? 'automático (la música de la zona)' : jukebox === 'title' ? 'Menú' : REGIONS[jukebox].name) + '</b></p><button class="pbtn" data-b="juke">ELEGIR CANCIÓN</button></div>' +
       '<div class="basecard"><h4>🥊 SALA DE ENTRENAMIENTO</h4><p>Un muñeco para probar el daño de cada alien.</p><button class="pbtn" data-b="train">' + (enemies.some((e) => e.dummy) ? 'QUITAR MUÑECO' : 'PONER MUÑECO') + '</button></div>' +
+      '<div class="basecard"><h4>🧬 LABORATORIO DE ADN</h4><p>Fusiona dos aliens en uno con poderes de ambos.</p><button class="pbtn" data-b="lab">ENTRAR</button></div>' +
       '<div class="basecard"><h4>🔧 MEJORAS</h4><p>Monedas: <b>' + (player.coins || 0) + '</b> · Núcleos de Titán: <b>' + b.cores + '</b></p><button class="pbtn" data-b="up">MEJORAR</button></div>' +
       '</div>',
     [['VOLVER', back || pauseMenu]]);
-  const go = { trophy: () => baseTrophies(back), juke: () => baseJuke(back), train: () => { trainingToggle(); }, up: () => baseUpgrades(back) };
+  const go = { trophy: () => baseTrophies(back), juke: () => baseJuke(back), train: () => { trainingToggle(); }, up: () => baseUpgrades(back), lab: () => labMenu(() => baseMenu(back)) };
   for (const x of document.querySelectorAll('[data-b]')) x.onclick = go[x.dataset.b];
 }
 function baseTrophies(back) {
@@ -17893,6 +17907,503 @@ function b7Transform() {
     return L;
   };
 }
+// ============================================================================================
+// OMNI 0.34 · BATCH 8
+//  VILLAIN     Extras → MODO VILLANO: three short missions as one of Draven's henchmen (the drone body), with its own
+//              four attacks (claw, acid, charge, void scream) against Plumber security robots.
+//  RESCUES     in the city a rescue can start: a fire, someone trapped under rubble or stuck on a ledge. The right alien
+//              does it in one go (water/ice for fires, strong aliens for rubble, flyers for ledges); anyone else can do
+//              it pressing E several times. 60 seconds.
+//  WEATHER     two new kinds (heatwave, snow) and stronger weather powers; a small chip shows your alien's bonus.
+//  RIVAL       DAX, an original rival with his own watch, turns up now and then to challenge you; he transforms at half
+//              health and gets stronger every time you beat him.
+//  GLITCH      when the watch glitches you into another alien (FALLOS DEL RELOJ), win the fight with it for a bonus.
+//  CHALLENGES  Extras → RETO PERSONALIZADO: your own rules in the wave arena, shared as a code.
+//  CREDITS     a credits roll + epilogue after Story 05 (and from Extras).
+// ============================================================================================
+function B8() {
+  const b = (player.b8 = player.b8 && typeof player.b8 === 'object' ? player.b8 : {});
+  for (const k of ['vil', 'rival', 'cust']) if (!b[k] || typeof b[k] !== 'object') b[k] = {};
+  for (const k of ['rescues', 'glitches']) b[k] = b[k] || 0;
+  return b;
+}
+const lvS = () => 1 + player.level * 0.06;
+const FLYERS = ['jetray', 'stinkfly', 'insect', 'bigchill', 'ghostfreak', 'astrodactyl', 'xlr8x', 'upchuck0'].filter((id) => ALIENS[id]);
+const civRow = () => (citizens.find((c) => c.row != null) || { row: 7 }).row;
+// ---------------- villain mode ----------------
+const vil = { on: false, m: 0, cd: [0, 0, 0, 0], dash: null, shots: [], cells: [], respawn: 0 };
+const VIL_M = [
+  null,
+  { z: 4, title: 'Robo en el Mercado', goal: 'Roba 5 células de energía', guards: 6 },
+  { z: 13, title: 'Sabotaje en la Central', goal: 'Destruye los 4 generadores', guards: 5 },
+  { z: 0, title: 'El Centinela', goal: 'Derrota al Centinela Fontanero', guards: 2 },
+];
+const vilOn = () => vil.on;
+function vilMenu(back) {
+  const v = B8().vil, step = v.step || 0;
+  showDialog('MODO VILLANO', 'Una historia corta al otro lado',
+    '<p>Juegas como uno de los <b>esbirros de Draven</b>: sin Omnitrix, con sus propios ataques (<b>1</b> garra · <b>2</b> ácido · <b>3</b> embestida · <b>4</b> grito del Vacío). Tus enemigos son los robots de seguridad de los Fontaneros.</p>' +
+      VIL_M.slice(1).map((m, i) => '<div class="xrow"><b>' + (i + 1) + ' · ' + m.title + '</b><small>' + (i < step ? 'completada ✔' : i === step ? m.goal + ' · ' + REGIONS[m.z].name : 'bloqueada') + '</small>' + (i <= step ? '<span class="lbtns"><button class="pbtn' + (i === step ? ' main' : '') + '" data-vm="' + (i + 1) + '">' + (i < step ? 'REPETIR' : 'JUGAR') + '</button></span>' : '') + '</div>').join('') +
+      (step >= 3 ? '<p class="reward">Historia completada · título «Esbirro del Vacío»</p>' : ''),
+    [['VOLVER', back || extrasMenu]]);
+  for (const b of document.querySelectorAll('[data-vm]')) b.onclick = () => vilIntro(+b.dataset.vm);
+}
+function vilIntro(m) {
+  if (net.peer) return toast('El modo villano es para un jugador');
+  if (arenaOn() || rush.on || rm.on || rc.on || dun.on) return toast('Termina antes lo que estás haciendo');
+  closeDialog();
+  const lines = [
+    null,
+    [{ w: 'DRAVEN', c: '#c084ff', t: 'Tú. El nuevo. Los Fontaneros guardan células de energía en el Mercado.' }, { w: 'DRAVEN', c: '#c084ff', t: 'Tráeme cinco. Y que no te vean esos robots de seguridad.' }],
+    [{ w: 'DRAVEN', c: '#c084ff', t: 'Buen trabajo. Ahora la Central: si caen sus generadores, nadie verá lo que viene.' }, { w: 'EL ESPECTRO', c: '#8de5f3', t: '…Sí… apágalo todo.' }],
+    [{ w: 'EL ESPECTRO', c: '#8de5f3', t: 'Un último guardián protege la grieta de las Ruinas. Destrúyelo.' }, { w: 'DRAVEN', c: '#c084ff', t: '(en voz baja) Cuando termines, aléjate de él. No comparte nada.' }],
+  ][m];
+  sagaCine(lines, () => vilStart(m));
+}
+function vilStart(m) {
+  const M = VIL_M[m];
+  if (player.alien) revert(false);
+  if (zone !== M.z) enterZone(M.z, 'center');
+  closeDialog();
+  enemies = []; zoneStates[region().id] = enemies;
+  Object.assign(vil, { on: true, m, cd: [0, 0, 0, 0], dash: null, shots: [], cells: [], respawn: 6 });
+  const r = region(), R = seeded(9100 + m);
+  if (m === 1) for (let i = 0; vil.cells.length < 5 && i < 60; i++) { const x = r.minX + 150 + R() * (r.maxX - r.minX - 300), y = r.top + 30 + R() * (r.bottom - r.top - 60); if (!isSolid(x, y) && !vil.cells.some((c) => Math.abs(c.x - x) < 200)) vil.cells.push({ x: Math.round(x), y: Math.round(y) }); }
+  if (m === 2) for (let i = 0; i < 4; i++) { const x = r.minX + 250 + i * ((r.maxX - r.minX - 500) / 3), y = i % 2 ? r.top + 50 : r.bottom - 50, hp = Math.round(320 * (1 + player.level * 0.05)); enemies.push(vilEnemy(x, y, hp, { vgen: true, stun: 1e9, cd: 1e9, rcd: 1e9 })); }
+  if (m === 3) { const x = (r.minX + r.maxX) / 2 + 250, y = (r.top + r.bottom) / 2, hp = Math.round(3200 * (1 + player.level * 0.05)); enemies.push(vilEnemy(x, y, hp, { vboss: true, boss: true, ring: 3 })); }
+  for (let i = 0; i < M.guards; i++) vilGuard();
+  player.hp = maxHP();
+  toast('MODO VILLANO · ' + M.title + ' · ' + M.goal); playWatchSFX('warning');
+  hud();
+}
+function vilEnemy(x, y, hp, extra) {
+  return { id: 700 + Math.floor(Math.random() * 99), x, y, homeX: x, homeY: y, face: -1, hp, max: hp, kind: 'enemy', rcd: 2, cast: 0, stun: 0.5, alive: true, respawn: 1e9, cd: 1.2, wind: 0, anim: 0, hit: 0, moving: false, temp: true, modRolled: true, behRolled: true, ghostRolled: true, vil: true, ...extra };
+}
+function vilGuard() {
+  const r = region(), side = Math.random() < 0.5 ? -1 : 1, x = clamp(player.x + side * (450 + Math.random() * 300), r.minX + 60, r.maxX - 60), y = r.top + 40 + Math.random() * (r.bottom - r.top - 80);
+  enemies.push(vilEnemy(x, y, Math.round(130 * (1 + player.level * 0.05)), { vguard: true }));
+}
+function vilEnd(why) {
+  if (!vil.on) return;
+  const m = vil.m, z = VIL_M[m].z;
+  vil.on = false; vil.shots = []; vil.cells = [];
+  delete zoneStates[REGIONS[z].id];
+  if (why === 'win') {
+    const v = B8().vil;
+    if ((v.step || 0) < m) v.step = m;
+    const coins = [0, 250, 400, 1500][m];
+    player.coins = (player.coins || 0) + coins; xp([0, 300, 500, 1500][m]);
+    const end = m === 3
+      ? [{ w: 'EL ESPECTRO', c: '#8de5f3', t: 'La grieta está abierta. Ya no te necesito.' }, { w: 'DRAVEN', c: '#c084ff', t: '¡Corre! Te lo dije: no comparte nada. Esta vez… estamos en paz.' }, { w: 'NARRADOR', t: 'El esbirro escapó. Y en la bahía, alguien con un reloj verde ya iba de camino…' }]
+      : [{ w: 'DRAVEN', c: '#c084ff', t: m === 1 ? 'Cinco células. No está mal para un novato.' : 'Apagón total. El Espectro está contento… y eso me preocupa.' }];
+    sagaCine(end, () => { toast('Misión de villano completada · +' + coins + ' monedas'); save(); });
+    playWatchSFX('recharged');
+  } else toast(why === 'downed' ? 'Te han atrapado los Fontaneros · misión fallida' : 'Misión de villano abandonada');
+  if (zone === z) spawnEnemies();
+  hud(); save();
+}
+TITLES.push(['esbirro', 'Esbirro del Vacío', 'Completa el Modo Villano', () => (B8().vil.step || 0) >= 3]);
+function vilAttack(i) {
+  if (!started || paused || player.downed || vil.cd[i] > 0) return;
+  const f = player.face, cds = [0.45, 0.9, 3, 8];
+  vil.cd[i] = cds[i];
+  player.attack = 0.35; player.attackFrame = 3;
+  if (i === 0) { // claw
+    effects.push({ type: 'punch', x: player.x + f * 50, y: player.y - 40, t: 0.18, max: 0.18, r: 34 });
+    for (const e of enemies) if (e.alive && Math.abs(e.y - player.y) < 70 && (e.x - player.x) * f > -20 && Math.abs(e.x - player.x) < 105) damageEnemy(e, 24 * lvS());
+    sfx('kill');
+  } else if (i === 1) { // acid
+    const t = nearest(520), a = t ? Math.atan2(t.y - 30 - (player.y - 50), t.x - player.x) : f > 0 ? 0 : Math.PI;
+    vil.shots.push({ x: player.x + f * 20, y: player.y - 50, dx: Math.cos(a) * 520, dy: Math.sin(a) * 520, t: 1.2 });
+    sfx('laser');
+  } else if (i === 2) { // charge
+    vil.dash = { t: 0.28, dir: f, hit: new Set() }; sfx('dodge');
+  } else { // void scream
+    effects.push({ type: 'ring', x: player.x, y: player.y - 30, t: 0.6, max: 0.6, r: 190 });
+    for (const e of enemies) if (e.alive && dist(player, e) < 190) { damageEnemy(e, 46 * lvS()); e.stun = Math.max(e.stun || 0, e.vgen ? e.stun : 1); }
+    shake = 0.25; sfx('steam'); rumble(40);
+  }
+}
+function vilTick(dt) {
+  if (!vil.on) return;
+  const M = VIL_M[vil.m];
+  if (zone !== M.z) return vilEnd('left');
+  if (player.downed) return vilEnd('downed');
+  if (player.alien) revert(false);
+  for (let i = 0; i < 4; i++) vil.cd[i] = Math.max(0, vil.cd[i] - dt);
+  if (vil.dash) {
+    vil.dash.t -= dt; moveActor(player, vil.dash.dir * 900 * dt, 0);
+    for (const e of enemies) if (e.alive && !vil.dash.hit.has(e) && dist(player, e) < 75) { vil.dash.hit.add(e); damageEnemy(e, 34 * lvS()); e.stun = Math.max(e.stun || 0, e.vgen ? e.stun : 0.6); }
+    if (vil.dash.t <= 0) vil.dash = null;
+  }
+  for (const s of vil.shots) {
+    s.t -= dt; s.x += s.dx * dt; s.y += s.dy * dt;
+    for (const e of enemies) if (s.t > 0 && e.alive && Math.hypot(e.x - s.x, e.y - 45 - s.y) < 40) { damageEnemy(e, 30 * lvS()); s.t = 0; burst(s.x, s.y, 10, '#7dff4a'); }
+  }
+  vil.shots = vil.shots.filter((s) => s.t > 0);
+  if (vil.m === 1) {
+    vil.cells = vil.cells.filter((c) => { if (Math.hypot(player.x - c.x, player.y - c.y) < 50) { burst(c.x, c.y - 10, 20, '#ffe94f'); playWatchSFX('dna_added'); toast('Célula robada · quedan ' + (vil.cells.length - 1)); return false; } return true; });
+    if (!vil.cells.length) return vilEnd('win');
+  }
+  if (vil.m === 2 && !enemies.some((e) => e.vgen && e.alive)) return vilEnd('win');
+  if (vil.m === 3) {
+    const b = enemies.find((e) => e.vboss);
+    if (b && !b.alive) return vilEnd('win');
+    if (b && b.alive && (b.ring -= dt) <= 0) { b.ring = b.hp < b.max / 2 ? 2.4 : 3.4; for (let k = 0; k < 10; k++) { const a = (k / 10) * Math.PI * 2; hostileShots.push({ type: 'blue', x: b.x, y: b.y - 90, dx: Math.cos(a) * 220, dy: Math.sin(a) * 220, t: 2.4, damage: Math.round(11 * lvDmg()), r: 9 }); } }
+  }
+  if ((vil.respawn -= dt) <= 0) { vil.respawn = 12; if (enemies.filter((e) => e.vguard && e.alive).length < M.guards) vilGuard(); }
+}
+function vilPose(o) {
+  if (!vil.on || o !== player) return null;
+  const f = player.attack > 0 ? 3 : player.moving ? (Math.floor(clock * 8) % 2) + 1 : 0;
+  return { row: 2, f, lift: 0 };
+}
+function vilDraw() {
+  if (!vil.on) return;
+  for (const c of vil.cells) { ctx.save(); ctx.translate(c.x, c.y - 14 + Math.sin(clock * 3 + c.x) * 3); ctx.fillStyle = '#2a2a10'; ctx.fillRect(-9, -14, 18, 26); ctx.fillStyle = '#ffe94f'; ctx.fillRect(-6, -10, 12, 18); ctx.fillStyle = '#2a2a10'; ctx.fillRect(-3, -17, 6, 4); ctx.restore(); }
+  for (const s of vil.shots) { ctx.fillStyle = '#7dff4a'; ctx.beginPath(); ctx.arc(s.x, s.y, 8, 0, 7); ctx.fill(); }
+}
+function vilHud() {
+  if (!vil.on) return;
+  $('#form').textContent = 'ESBIRRO';
+  const names = ['GARRA', 'ÁCIDO', 'EMBESTIDA', 'GRITO'];
+  document.querySelectorAll('#attacks .attack').forEach((b, i) => {
+    if (i > 3) return;
+    b.classList.remove('locked'); b.classList.toggle('cooldown', vil.cd[i] > 0);
+    const sp = b.querySelector('span'), sm = b.querySelector('small');
+    if (sp) sp.textContent = names[i];
+    if (sm) sm.textContent = vil.cd[i] > 0.1 ? vil.cd[i].toFixed(1) + ' s' : 'LISTO';
+  });
+  const M = VIL_M[vil.m];
+  $('#mission .tiny').textContent = 'MODO VILLANO · ' + vil.m + ' / 3';
+  $('#questtext').textContent = M.title;
+  $('#questsub').textContent = vil.m === 1 ? 'Células: ' + (5 - vil.cells.length) + ' / 5' : vil.m === 2 ? 'Generadores: ' + enemies.filter((e) => e.vgen && !e.alive).length + ' / 4' : 'Derrota al Centinela';
+}
+{
+  const attack0 = attack, transform0 = transform, sel0 = openSelector;
+  attack = function (i) { if (vil.on) return vilAttack(i); return attack0.apply(this, arguments); };
+  transform = function () { if (vil.on) return toast('Los esbirros no tienen Omnitrix'); return transform0.apply(this, arguments); };
+  openSelector = function () { if (vil.on) return toast('Los esbirros no tienen Omnitrix'); return sel0.apply(this, arguments); };
+}
+// ---------------- rescues ----------------
+const resc = { on: false, type: null, z: 0, t: 0, items: [], wait: 120 };
+const RESC = { fire: ['INCENDIO', 'Apaga los 3 fuegos'], debris: ['ATRAPADO', 'Saca al vecino de los escombros'], ledge: ['EN LA CORNISA', 'Baja al vecino de la cornisa'] };
+function rescStart(type) {
+  const r = region(), R = Math.random;
+  type = type || ['fire', 'debris', 'ledge'][Math.floor(R() * 3)];
+  const spot = () => { for (let i = 0; i < 40; i++) { const x = r.minX + 200 + R() * (r.maxX - r.minX - 400), y = r.top + 40 + R() * (r.bottom - r.top - 80); if (!isSolid(x, y)) return { x: Math.round(x), y: Math.round(y) }; } return { x: (r.minX + r.maxX) / 2, y: (r.top + r.bottom) / 2 }; };
+  const base = spot();
+  Object.assign(resc, { on: true, type, z: zone, t: 60, items: type === 'fire' ? [0, 1, 2].map((k) => ({ x: clamp(base.x + (k - 1) * 120, r.minX + 60, r.maxX - 60), y: base.y + (k % 2) * 30, hp: 100 })) : [{ ...base, hp: 100 }] });
+  toast('🚨 ¡RESCATE! ' + RESC[type][0] + ' · ' + RESC[type][1] + ' · 60 s'); playWatchSFX('warning'); rumble([60, 40, 60]);
+}
+function rescFits() {
+  const el = myElems(), id = player.alien ? player.activeAlien : null;
+  if (resc.type === 'fire') return el.includes('water') || el.includes('ice');
+  if (resc.type === 'debris') return el.includes('heavy');
+  return !!id && FLYERS.includes(id);
+}
+function rescNear() {
+  if (!resc.on || resc.z !== zone) return null;
+  const it = resc.items.filter((i) => i.hp > 0).sort((a, b) => dist(player, a) - dist(player, b))[0];
+  if (!it || dist(player, it) > 110) return null;
+  return [{ fire: '🔥 APAGAR', debris: '🧱 LEVANTAR', ledge: '🧗 RESCATAR' }[resc.type] + (rescFits() ? ' ★' : ''), () => rescWork(it)];
+}
+function rescWork(it) {
+  const fits = rescFits(), step = fits ? 100 : resc.type === 'fire' ? 34 : resc.type === 'debris' ? 20 : 25;
+  it.hp = Math.max(0, it.hp - step);
+  burst(it.x, it.y - 30, fits ? 26 : 10, resc.type === 'fire' ? '#9fe8ff' : '#e8d6a0');
+  if (fits) popup(it.x, it.y - 120, '¡ALIEN PERFECTO!', '#ffd84a');
+  if (!resc.items.some((i) => i.hp > 0)) rescDone(true);
+  else hud();
+}
+function rescDone(ok) {
+  resc.on = false; resc.wait = 150 + Math.random() * 120;
+  if (ok) {
+    const b = B8(); b.rescues++;
+    player.coins = (player.coins || 0) + 120; xp(150);
+    toast('🚨 ¡RESCATE COMPLETADO! · +120 monedas · +150 EXP · rescates: ' + b.rescues);
+    playWatchSFX('recharged'); rumble([40, 30, 80]);
+    for (const c of citizens) if (c.alive && dist(c, player) < 600) popup(c.x, c.y - 130, '¡GRACIAS!', '#c9ff89');
+    save();
+  } else toast('El rescate ha terminado sin ti… la próxima vez llega antes');
+  hud();
+}
+function rescTick(dt) {
+  if (resc.on) { if ((resc.t -= dt) <= 0 || (zone !== resc.z && resc.t < 50)) rescDone(false); return; }
+  if (net.role === 'guest' || !REGIONS[zone].city || activeMission() || sagaActive() || arenaOn() || rush.on || rm.on || rc.on || vil.on || dun.on) return;
+  if ((resc.wait -= dt) <= 0) rescStart();
+}
+function rescDraw() {
+  if (!resc.on || resc.z !== zone) return;
+  for (const it of resc.items) {
+    if (it.hp <= 0) continue;
+    if (resc.type === 'fire') {
+      for (let k = 0; k < 5; k++) { const h = 30 + Math.sin(clock * 9 + k * 2) * 10 + k * 4, x = it.x + (k - 2) * 9; ctx.fillStyle = k % 2 ? '#ff8a2a' : '#ffd84a'; ctx.globalAlpha = 0.85 * (it.hp / 100) + 0.15; ctx.beginPath(); ctx.moveTo(x - 8, it.y); ctx.quadraticCurveTo(x, it.y - h * 1.6, x + 8, it.y); ctx.fill(); }
+      ctx.globalAlpha = 1;
+    } else if (resc.type === 'debris') {
+      sprite(civRow(), 3, it.x, it.y, 100, 1, 1);
+      ctx.fillStyle = '#6b6258'; for (let k = 0; k < 4; k++) ctx.fillRect(it.x - 46 + k * 22, it.y - 44 - (k % 2) * 10, 30, 22);
+      txt('¡AYUDA!', it.x, it.y - 120, 10, '#ffd0a0');
+    } else {
+      ctx.fillStyle = '#4a5560'; ctx.fillRect(it.x - 50, it.y - 150, 100, 12);
+      sprite(civRow(), 3, it.x, it.y - 150, 100, 1, 1);
+      txt('¡AYUDA!', it.x, it.y - 270, 10, '#ffd0a0');
+    }
+    const bw = 60; ctx.fillStyle = '#101522'; ctx.fillRect(it.x - bw / 2, it.y + 8, bw, 5); ctx.fillStyle = '#7dff9a'; ctx.fillRect(it.x - bw / 2, it.y + 8, bw * (1 - it.hp / 100), 5);
+  }
+}
+function rescHud() {
+  if (!resc.on || !started) return;
+  ctx.save(); ctx.textAlign = 'center'; ctx.font = 'bold 11px Arial'; ctx.fillStyle = 'rgba(40,6,6,.82)'; ctx.fillRect(W / 2 - 150, 168, 300, 24);
+  ctx.fillStyle = '#ffb0a0'; ctx.fillText('🚨 ' + RESC[resc.type][0] + ' · ' + RESC[resc.type][1] + ' · ' + Math.ceil(resc.t) + ' s' + (resc.z !== zone ? ' · ' + REGIONS[resc.z].name : ''), W / 2, 184);
+  ctx.restore();
+}
+// ---------------- weather powers ----------------
+WEATHERS.heat = ['OLA DE CALOR', 'Fuego +20 % · hielo −10 %'];
+WEATHERS.snow = ['NIEVE', 'Hielo +20 % · fuego −10 %'];
+{
+  const tick0 = weatherTick, dmg0 = weatherDmg;
+  weatherTick = function (dt) {
+    const before = wx.t;
+    tick0(dt);
+    if (wx.t > before && Math.random() < 0.3) { // a new weather was rolled: sometimes make it a heatwave or snow
+      const k = isNight() ? 'snow' : 'heat';
+      wx.kind = k;
+      if (OUTDOOR.includes(zone)) toast('Tiempo: ' + WEATHERS[k][0] + ' · ' + WEATHERS[k][1]);
+    }
+  };
+  weatherDmg = function () {
+    let m = dmg0();
+    if (!OUTDOOR.includes(zone)) return m;
+    const el = myElems();
+    if (wx.kind === 'heat') m *= el.includes('fire') ? 1.2 : el.includes('ice') ? 0.9 : 1;
+    if (wx.kind === 'snow') m *= el.includes('ice') ? 1.2 : el.includes('fire') ? 0.9 : 1;
+    if (wx.kind === 'rain' && (el.includes('plant') || el.includes('ice'))) m *= 1.1;
+    if (wx.kind === 'fog' && player.alien && player.activeAlien === 'ghostfreak') m *= 1.2;
+    return m;
+  };
+}
+function wxPowerTick(dt) {
+  if (!OUTDOOR.includes(zone) || !player.alien) return;
+  const el = myElems();
+  if (wx.kind === 'storm' && el.includes('electric')) player.battery = Math.min(100, player.battery + dt * 0.8); // storms charge electric aliens
+  if (wx.kind === 'rain' && el.includes('water') && player.hp < maxHP() && (player.regenWait || 0) <= 0) player.hp = Math.min(maxHP(), player.hp + dt * 1.5);
+}
+function wxHud() {
+  if (!started || !OUTDOOR.includes(zone) || !player.alien || wx.kind === 'clear') return;
+  const m = weatherDmg(), el = myElems(), extra = (wx.kind === 'storm' && el.includes('electric')) ? ' · RECARGA' : (wx.kind === 'rain' && el.includes('water')) ? ' · CURACIÓN' : '';
+  if (Math.abs(m - 1) < 0.01 && !extra) return;
+  const t = (WEATHERS[wx.kind] ? WEATHERS[wx.kind][0] : wx.kind).toUpperCase() + ' · ' + (m >= 1 ? '+' : '') + Math.round((m - 1) * 100) + ' % DAÑO' + extra;
+  ctx.save(); ctx.font = 'bold 9px Arial'; ctx.textAlign = 'left'; const w = ctx.measureText(t).width + 16;
+  ctx.fillStyle = m >= 1 ? 'rgba(20,60,30,.85)' : 'rgba(70,20,20,.85)'; ctx.fillRect(14, 150, w, 18);
+  ctx.fillStyle = m >= 1 ? '#c9ff89' : '#ffb0a0'; ctx.fillText(t, 22, 163); ctx.restore();
+}
+function wxDraw() { // heatwave haze / snowfall (screen)
+  if (!started || !OUTDOOR.includes(zone)) return;
+  if (wx.kind === 'heat') { ctx.fillStyle = 'rgba(255,140,40,.08)'; ctx.fillRect(0, 0, W, H); }
+  if (wx.kind === 'snow' && !lowGfx()) { ctx.save(); ctx.fillStyle = 'rgba(255,255,255,.85)'; for (let i = 0; i < 60; i++) { const x = ((i * 97 + Math.sin(clock + i) * 30 + clock * 20) % (W + 20)) - 10, y = ((i * 53 + clock * (40 + (i % 5) * 10)) % (H + 20)) - 10; ctx.fillRect(x, y, 2 + (i % 2), 2 + (i % 2)); } ctx.restore(); }
+}
+// ---------------- rival ----------------
+const RIVAL_NAME = 'DAX';
+const riv = { e: null, wait: 300, state: null };
+function rivalTick(dt) {
+  if (net.role === 'guest' || player.level < 6) return;
+  const e = riv.e;
+  if (e && (!enemies.includes(e) || zone !== riv.z)) { riv.e = null; riv.state = null; return; }
+  if (!e) {
+    if (!OUTDOOR.includes(zone) || arenaOn() || rush.on || rm.on || rc.on || vil.on || dun.on || resc.on || dialogOpen) return;
+    if ((riv.wait -= dt) > 0) return;
+    riv.wait = 360 + Math.random() * 240;
+    const r = region(), x = clamp(player.x + (player.x < (r.minX + r.maxX) / 2 ? 520 : -520), r.minX + 60, r.maxX - 60), y = player.y, wins = B8().rival.wins || 0, hp = Math.round(900 * (1 + player.level * 0.08) * (1 + wins * 0.25));
+    riv.e = { id: 990, x, y, homeX: x, homeY: y, face: -1, hp, max: hp, kind: 'enemy', rcd: 1.6, cast: 0, stun: 1e9, alive: true, respawn: 1e9, cd: 99, wind: 0, anim: 0, hit: 0, moving: false, temp: true, modRolled: true, behRolled: true, ghostRolled: true, rival: true, boss: true, spread: 4 };
+    riv.z = zone; riv.state = 'walk';
+    enemies.push(riv.e);
+    toast('Alguien con un reloj rojo se acerca…'); playWatchSFX('warning');
+    return;
+  }
+  if (riv.state === 'walk') {
+    e.intangible = 1;
+    const d = dist(player, e);
+    if (d > 150) { moveActor(e, Math.sign(player.x - e.x) * 150 * dt, Math.sign(player.y - e.y) * 60 * dt); e.moving = true; e.face = player.x < e.x ? -1 : 1; }
+    else { e.moving = false; riv.state = 'ask'; rivalAsk(); }
+  } else if (riv.state === 'fight') {
+    if (!e.alive) return rivalWin();
+    if (player.downed) return rivalLose();
+    if (!e.alien && e.hp < e.max / 2) {
+      const pool = CORE_ALIENS.filter((id) => ALIENS[id] && alienInfo(id).implemented);
+      e.alien = pool[Math.floor(Math.random() * pool.length)];
+      burst(e.x, e.y - 60, 40, '#ff4d4d'); flash = 0.2;
+      popup(e.x, e.y - 170, RIVAL_NAME + ' → ' + ALIENS[e.alien].name.toUpperCase(), '#ff7a7a');
+      playWatchSFX('transform'); e.stun = 0.8;
+    }
+    if ((e.spread -= dt) <= 0) { e.spread = e.alien ? 3 : 4.5; const a = Math.atan2(player.y - e.y, player.x - e.x); for (let k = -1; k <= 1; k++) hostileShots.push({ type: 'bossfire', x: e.x, y: e.y - 60, dx: Math.cos(a + k * 0.25) * 330, dy: Math.sin(a + k * 0.25) * 330, t: 2, damage: Math.round(10 * lvDmg()), r: 9 }); }
+  }
+}
+function rivalAsk() {
+  const wins = B8().rival.wins || 0;
+  showDialog(RIVAL_NAME + ' · RIVAL', wins ? 'Revancha nº ' + (wins + 1) : '¿Quién eres tú?',
+    '<p>«' + (wins ? ['Esta vez he entrenado. Mi reloj también ha mejorado.', 'Llevo días buscándote. Otra ronda.', 'Ya sé cómo peleas. No volverá a pasar.'][wins % 3] : 'Vaya, otro portador de reloj. El mío se llama Omnicron, y es mejor que el tuyo. ¿Lo comprobamos?') + '»</p><p class="reward">Victorias contra ' + RIVAL_NAME + ': ' + wins + ' · cada vez es más fuerte</p>',
+    [['¡ACEPTO!', () => { closeDialog(); riv.state = 'fight'; const e = riv.e; e.intangible = 0; e.stun = 0.6; e.cd = 1; toast('¡DUELO CONTRA ' + RIVAL_NAME + '!'); playWatchSFX('warning'); }],
+      ['AHORA NO', () => { closeDialog(); rivalLeave('«Cobarde. Nos veremos.»'); }]]);
+}
+function rivalLeave(msg) { const e = riv.e; if (e) { e.alive = false; burst(e.x, e.y - 40, 20, '#ff4d4d'); } riv.e = null; riv.state = null; if (msg) toast(RIVAL_NAME + ': ' + msg); }
+function rivalWin() {
+  const b = B8().rival; b.wins = (b.wins || 0) + 1;
+  const coins = 200 + b.wins * 50;
+  player.coins = (player.coins || 0) + coins; xp(300 + b.wins * 100);
+  riv.e = null; riv.state = null;
+  showDialog(RIVAL_NAME + ' · DERROTADO', 'Victoria nº ' + b.wins, '<p>«Hoy has ganado tú. Pero el Omnicron aprende rápido.»</p><p class="reward">+' + coins + ' monedas · +' + (300 + b.wins * 100) + ' EXP</p>', [['GENIAL', closeDialog]]);
+  playWatchSFX('recharged'); replaySave('Duelo contra ' + RIVAL_NAME); save();
+}
+function rivalLose() { rivalLeave('«Como pensaba. Vuelve cuando estés listo.»'); }
+TITLES.push(['rival', 'Némesis de Dax', 'Derrota a Dax 3 veces', () => (B8().rival.wins || 0) >= 3]);
+function rivalDrawEnemy(e, f) {
+  if (!e.rival) return false;
+  ctx.save();
+  if (e.alien) { ctx.filter = 'hue-rotate(-40deg) saturate(1.4)'; sprite(ALIENS[e.alien].row, 0, e.x, e.y, Math.min(170, alienHeight(e.alien)), e.face, e.hit > 0 ? 0.6 : 1); }
+  else { const sk = SKINS[(player.skin + 1) % SKINS.length].row; ctx.filter = 'hue-rotate(150deg) saturate(1.3)'; sprite(sk, e.moving ? (Math.floor(clock * 8) % 2) + 1 : 0, e.x, e.y, 98, e.face, e.hit > 0 ? 0.6 : 1); }
+  ctx.restore();
+  ctx.fillStyle = '#ff4d4d'; ctx.beginPath(); ctx.arc(e.x + e.face * 14, e.y - 48, 5, 0, 7); ctx.fill(); // the red watch
+  const by = e.y - (e.alien ? Math.min(170, alienHeight(e.alien)) : 98) - 26;
+  txt(RIVAL_NAME + ' · RIVAL' + (e.alien ? ' · ' + ALIENS[e.alien].name.toUpperCase() : ''), e.x, by - 8, 9, '#ff9a9a');
+  if (riv.state === 'fight') { ctx.fillStyle = '#101522'; ctx.fillRect(e.x - 40, by, 80, 6); ctx.fillStyle = '#ff4d4d'; ctx.fillRect(e.x - 40, by, 80 * Math.max(0, e.hp / e.max), 6); }
+  return true;
+}
+// ---------------- watch glitch challenge ----------------
+const gl = { on: false, id: null, t: 0, kills: 0 };
+function glitchChallenge(id) {
+  if (gl.on || !enemies.some((e) => e.alive && dist(player, e) < 800)) return;
+  Object.assign(gl, { on: true, id, t: 45, kills: 0 });
+  setTimeout(() => toast('RETO DEL FALLO: derrota 4 enemigos como ' + ALIENS[id].name + ' sin volver a humano · 45 s'), 1600);
+}
+function glitchTick(dt) {
+  if (!gl.on) return;
+  gl.t -= dt;
+  if (!player.alien || player.activeAlien !== gl.id) { gl.on = false; toast('Reto del fallo perdido'); return; }
+  if (gl.t <= 0) { gl.on = false; toast('Se acabó el tiempo del reto del fallo'); }
+}
+function glitchKill() {
+  if (!gl.on || !player.alien || player.activeAlien !== gl.id) return;
+  gl.kills++;
+  if (gl.kills >= 4) { gl.on = false; B8().glitches++; player.coins = (player.coins || 0) + 150; xp(250); toast('¡RETO DEL FALLO SUPERADO! · +150 monedas · +250 EXP'); playWatchSFX('recharged'); save(); }
+}
+// ---------------- custom challenges (wave arena) ----------------
+const CRULES = [['human', 'Solo humano', 'Sin Omnitrix'], ['one', 'Un solo alien', 'Solo el alien elegido'], ['noheal', 'Sin curación', 'La vida no se recupera'], ['double', 'Enemigos dobles', 'Cada oleada trae el doble'], ['fast', 'Enemigos rápidos', 'Todos corren más'], ['dmg2', 'Golpes dobles', 'Recibes el doble de daño'], ['life', 'Una vida', 'Si caes, se acaba']];
+let cust = null, custDraft = { rules: {}, alien: null };
+function custCode(c) { let m = 0; CRULES.forEach(([k], i) => { if (c.rules[k]) m |= 1 << i; }); return 'RETO-' + m.toString(36).toUpperCase() + (c.rules.one && c.alien ? '-' + c.alien.toUpperCase() : ''); }
+function custParse(code) {
+  const m = String(code || '').trim().toUpperCase().match(/^RETO-([0-9A-Z]+)(?:-([A-Z0-9_]+))?$/);
+  if (!m) return null;
+  const n = parseInt(m[1], 36), rules = {};
+  CRULES.forEach(([k], i) => { if (n & (1 << i)) rules[k] = true; });
+  const alien = m[2] ? m[2].toLowerCase() : null;
+  if (rules.one && (!alien || !ALIENS[alien])) return null;
+  return { rules, alien };
+}
+function custMenu(back) {
+  const d = custDraft, code = custCode(d), best = B8().cust[code];
+  const aliens = CORE_ALIENS.filter((id) => ALIENS[id] && alienInfo(id).implemented && alienUnlocked(id));
+  if (d.rules.one && !d.alien) d.alien = player.selected && aliens.includes(player.selected) ? player.selected : aliens[0];
+  showDialog('RETO PERSONALIZADO', 'Tus reglas en la arena de oleadas',
+    '<div class="codex">' + CRULES.map(([k, n, s]) => '<button class="cx' + (d.rules[k] ? ' sel' : '') + '" data-cr="' + k + '" style="--c:' + (d.rules[k] ? '#ffd84a' : '#6a8382') + '"><b>' + (d.rules[k] ? '✔ ' : '') + n + '</b><small>' + s + '</small></button>').join('') + '</div>' +
+      (d.rules.one ? '<p>Alien: <b>' + ALIENS[d.alien].name + '</b> <button class="pbtn" data-calien>CAMBIAR</button></p>' : '') +
+      '<p class="reward">Código para compartir: <b class="sel">' + code + '</b>' + (best ? ' · tu récord: oleada ' + best : '') + '</p>' +
+      '<p>¿Te han pasado un código? <input id="custin" maxlength="24" placeholder="RETO-…" style="width:150px;background:#071923;color:#e7ffe7;border:1px solid #749286;padding:4px;user-select:text;-webkit-user-select:text;touch-action:auto"> <button class="pbtn" data-cload>CARGAR</button></p>',
+    [['¡EMPEZAR!', () => custStart({ rules: { ...d.rules }, alien: d.rules.one ? d.alien : null })], ['COPIAR CÓDIGO', () => { try { navigator.clipboard.writeText(code).then(() => toast('Código copiado'), () => toast(code)); } catch (e) { toast(code); } }], ['VOLVER', back || extrasMenu]]);
+  for (const b of document.querySelectorAll('[data-cr]')) b.onclick = () => { const k = b.dataset.cr; d.rules[k] = !d.rules[k]; if (k === 'human' && d.rules.human) d.rules.one = false; if (k === 'one' && d.rules.one) d.rules.human = false; custMenu(back); };
+  const ca = document.querySelector('[data-calien]'); if (ca) ca.onclick = () => { const i = aliens.indexOf(d.alien); d.alien = aliens[(i + 1) % aliens.length]; custMenu(back); };
+  const inp = $('#custin'); if (inp) for (const ev of ['keydown', 'keyup', 'keypress']) inp.addEventListener(ev, (e) => e.stopPropagation());
+  const cl = document.querySelector('[data-cload]'); if (cl) cl.onclick = () => { const c = custParse($('#custin').value); if (!c) return toast('Código no válido'); custDraft = c; toast('Reto cargado'); custMenu(back); };
+}
+function custStart(c) {
+  if (net.role === 'guest' && net.peer) return toast('El reto lo empieza el anfitrión');
+  if (c.rules.human && player.alien) revert(false);
+  cust = { ...c, code: custCode(c), hp: null };
+  arenaStart();
+  if (!arena.on) { cust = null; return; }
+  toast('RETO ' + cust.code + ' · ' + CRULES.filter(([k]) => c.rules[k]).map(([, n]) => n).join(' · '));
+}
+function custTick(dt) {
+  if (!cust) return;
+  if (!arena.on) return custFinish();
+  const R = cust.rules;
+  if (R.human && player.alien) { revert(false); toast('Reto: solo humano'); }
+  if (R.one && player.alien && player.activeAlien !== cust.alien) { revert(false); toast('Reto: solo ' + ALIENS[cust.alien].name); }
+  if (R.noheal) { if (cust.hp != null && player.hp > cust.hp) player.hp = cust.hp; cust.hp = player.hp; }
+  if (R.life && player.downed) arenaEnd('defeat');
+}
+function custFinish() {
+  const c = cust; cust = null;
+  const reached = Math.max(0, arena.wave - 1), B = B8().cust, prev = B[c.code] || 0;
+  if (reached > prev) B[c.code] = reached;
+  setTimeout(() => showDialog('RETO TERMINADO', c.code, '<p>Llegaste a la oleada <b>' + arena.wave + '</b>' + (reached > prev ? ' · <b>¡NUEVO RÉCORD!</b>' : ' · récord: oleada ' + prev) + '</p><p>Pasa el código <b>' + c.code + '</b> a tus amigos para que intenten superarte.</p>', [['OTRA VEZ', () => custStart(c)], ['CERRAR', closeDialog]]), 600);
+  save();
+}
+{
+  const spawn0 = arenaSpawnWave, taken0 = b6Taken;
+  arenaSpawnWave = function () {
+    spawn0();
+    if (!cust || net.role === 'guest') return;
+    const list = enemies.filter((e) => e.arena && e.alive);
+    if (cust.rules.double) for (const e of list) if (!e.boss) enemies.push({ ...e, id: e.id + 50, x: clamp(e.x + 60, region().minX + 40, region().maxX - 40), y: e.y + 30 });
+    if (cust.rules.fast) for (const e of enemies) if (e.arena && !e.boss) { e.mod = 'fast'; e.modRolled = true; }
+  };
+  b6Taken = function (a) { return taken0(cust && cust.rules.dmg2 ? a * 2 : a); };
+}
+// ---------------- credits + epilogue ----------------
+const CREDIT_NAME = 'Scott';
+function creditsRoll(after) {
+  let el = document.getElementById('credits');
+  if (!el) { el = document.createElement('div'); el.id = 'credits'; $('#game').append(el); }
+  const rows = [
+    ['', 'OMNI'], ['UNA AVENTURA PIXEL', ''], ['', ''],
+    ['IDEA, DISEÑO Y DIRECCIÓN', CREDIT_NAME], ['PROGRAMACIÓN', CREDIT_NAME + ' y Claude'], ['ARTE', CREDIT_NAME + ' (con ChatGPT)'], ['MÚSICA Y SONIDO', 'compuestos por código'],
+    ['HISTORIAS', 'Sombras entre los pinos · Ecos del Vacío · El Cazador de ADN · Sobrecarga · El Eco del Espectro'],
+    ['PERSONAJES ORIGINALES', 'Agente Vega · Draven · El Espectro · Kraal · Dax · el Titán del Vacío'],
+    ['PROBADORES', 'todos los que jugaron y mandaron un informe'], ['', ''],
+    ['', 'Juego de fans sin ánimo de lucro inspirado en Ben 10.'], ['', 'Ben 10 y sus personajes pertenecen a Cartoon Network.'], ['', ''],
+    ['', 'GRACIAS POR JUGAR'],
+  ];
+  el.innerHTML = '<div class="crroll">' + rows.map(([a, b]) => '<div>' + (a ? '<small>' + a + '</small>' : '') + (b ? '<b' + (b === 'OMNI' ? ' class="big"' : '') + '>' + b + '</b>' : '<br>') + '</div>').join('') + '</div><button id="crskip">SALTAR</button>';
+  el.classList.remove('hidden');
+  photoOn = true; const jb = jukebox; jukebox = 'title';
+  const done = () => { if (el.classList.contains('hidden')) return; el.classList.add('hidden'); photoOn = false; jukebox = jb; last = performance.now(); B8().credits = true; save(); if (after) after(); };
+  el.querySelector('#crskip').onclick = done;
+  el.querySelector('.crroll').addEventListener('animationend', done);
+}
+function epilogue() {
+  sagaCine([
+    { w: 'AGENTE VEGA', c: '#8de5f3', t: 'Las lecturas del Vacío Nulo se han calmado. Por primera vez en semanas, silencio.' },
+    { w: 'DRAVEN', c: '#c084ff', t: 'El silencio no es buena señal. El Espectro no fue el que abrió la primera grieta.' },
+    { w: 'AGENTE VEGA', c: '#8de5f3', t: '¿Entonces quién?' },
+    { w: 'DRAVEN', c: '#c084ff', t: 'Alguien que lleva un reloj… rojo.' },
+    { w: 'NARRADOR', t: 'HISTORIA 06 · PRÓXIMAMENTE' },
+  ], () => {});
+}
+{
+  const go0 = s5Go;
+  s5Go = function (step) { const r = go0.apply(this, arguments); if (step >= 5 && !B8().credits) setTimeout(() => creditsRoll(epilogue), 3500); return r; };
+}
+// ---------------- near / tick / draw hooks ----------------
+function b8Near() { return rescNear(); }
+function b8Interact() { const n = b8Near(); if (!n) return false; n[1](); return true; }
+function b8Hud() { const n = b8Near(); if (n) { $('#talk').classList.remove('hidden'); $('#talk').textContent = n[0]; } vilHud(); }
+let b8LastNear = '';
+setInterval(() => { try { if (!started) return; const n = b8Near(), l = n ? n[0] : ''; if (l !== b8LastNear) { b8LastNear = l; hud(); } if (vil.on) vilHud(); } catch (e) {} }, 250);
+function b8Tick(dt) {
+  if (!started) return;
+  vilTick(dt); rescTick(dt); wxPowerTick(dt); rivalTick(dt); glitchTick(dt); custTick(dt);
+}
+function b8DrawEnemy(e, f) {
+  if (rivalDrawEnemy(e, f)) return true;
+  if (e.vguard) { sprite(28, f, e.x, e.y, 112, e.face, e.hit > 0 ? 0.6 : 1); ctx.fillStyle = '#101522'; ctx.fillRect(e.x - 22, e.y - 128, 44, 4); ctx.fillStyle = '#5fb8ff'; ctx.fillRect(e.x - 22, e.y - 128, 44 * Math.max(0, e.hp / e.max), 4); txt('SEGURIDAD', e.x, e.y - 134, 7, '#9fd4ff'); return true; }
+  if (e.vgen) { ctx.fillStyle = '#26323c'; ctx.fillRect(e.x - 34, e.y - 80, 68, 80); ctx.fillStyle = e.hit > 0 ? '#ffffff' : '#5fb8ff'; ctx.fillRect(e.x - 24, e.y - 70, 48, 20 + Math.sin(clock * 6) * 3); ctx.fillStyle = '#101522'; ctx.fillRect(e.x - 30, e.y - 92, 60, 5); ctx.fillStyle = '#ffd84a'; ctx.fillRect(e.x - 30, e.y - 92, 60 * Math.max(0, e.hp / e.max), 5); txt('GENERADOR', e.x, e.y - 100, 8, '#ffd84a'); return true; }
+  if (e.vboss) { sprite(28, f, e.x, e.y, 210, e.face, e.hit > 0 ? 0.6 : 1); const by = e.y - 232; txt('CENTINELA FONTANERO', e.x, by - 10, 11, '#9fd4ff'); ctx.fillStyle = '#101522'; ctx.fillRect(e.x - 90, by, 180, 9); ctx.fillStyle = '#5fb8ff'; ctx.fillRect(e.x - 90, by, 180 * Math.max(0, e.hp / e.max), 9); return true; }
+  return false;
+}
+function b8Draw() { vilDraw(); rescDraw(); }
+function b8Hud2() { wxDraw(); wxHud(); rescHud(); }
+function b8Kill(e) { glitchKill(); }
 applyWatchTheme();
 resize();
 boot();
@@ -17903,7 +18414,7 @@ if (window.__game)
     missionBoard, missionAccept, activeMission, MS, MISSIONS, coopOn, coopState, coopShare, coopTickMissions, COOP_SITES,
     arenaStart, arenaEnd, arena, arenaBest, statEvent, stats, daily, dailyMenu, achMenu, achCheck, ACHS, codexMenu, codexCard, codexIds, extrasMenu, difficultyMenu, diffCfg, diffKey, DIFFS, PAD, padPoll, padHelp,
     watchAnim, WATCH_ERAS, eraPlaylist, eraOf, storyPlay, storyFor, storyDraw, storyFit, storyPreload, BOARDS, SHEET_ROWS, SKIN_ART, boardId,
-    B7, fishOpen, fishClose, fishAct, get fishG() { return fishG; }, fishLand, fishSellMenu, fishBook, FISH, FISH_SPOTS, capSpots, capGot, wbWindow, wbMenu, raceStart, raceEnd, raceMenu, get rc() { return rc; }, trackPts, raceTargets, tradeMenu, tradeReceive, HERO, heroMenu, heroEvent, heroBadge, RP, replaySave, replayMenu, replayPlay, baseMenu, baseUpgrades, baseJuke, baseTrophies, get jukebox() { return jukebox; }, isSolidQA: (x, y) => isSolid(x, y), achMenu, ACHS, B6, mlEntries, mlTracked, mlTarget, missionLogMenu, zoneHop, statsMenu, masteryMenu, halloweenMenu, hwOn, hwSpots, hwDay, lockAt, lockCycle, get lockT() { return lockT; }, ap, rmTargets, medalFor, b6Dmg, b6Taken, mTier, get arena() { return arena; }, arenaStart, arenaWaveClear, arenaSpawnWave, rematchEnd, get rmQA() { return rm; }, toTitle, toTitleAsk, whatsNewMenu, get startedQA() { return started; }, hud, phaseTick, isBossE, b5Tick, get pausedQA() { return paused; }, get dialogQA() { return dialogOpen; }, comboCheck, dailyAlienId, DA, B5, ngpMenu, progressMenu, dailyAlienMenu, behTick, photoDeco: () => photoDeco, beastType, wristInfo, setWrist: (w) => (wristFor = w), wristDet, wristScan, spriteInfoQA: (r) => spriteInfo(r), galleryMenu, galOpen, feedbackMenu, fbSnapshot, art, bakWrite, bakList, bakMenu, S5, s5Go, s5StartSeal, story5Talk, citizensQA: () => citizens, get sj() { return sj; }, sjOffer, sjDone, rematchStart, rematchMenu, get rm() { return rm; }, RMX, tutEnd, get tutState() { return tutState; }, remoteTargets, hurtTeam, partyOthers, partySize, get netq() { return net; }, musStepQA: (t) => musStep(t), MUS, musBuild, MUS_SONGS, S4, s4Go, story4Talk, s4Near, s4Fx, ULTIMATES, ultOn, ultForm, ALIEN_SCALE, alienHeight, sizeGuard, alienPower, tierDrain, scaleLine, codexCard, ALIENS, F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
+    B8, vil, vilStart, vilEnd, vilAttack, vilMenu, get resc() { return resc; }, rescStart, rescWork, rescDone, get riv() { return riv; }, rivalTick, rivalWin, glitchChallenge, glitchKill, get gl() { return gl; }, custMenu, custStart, custParse, custCode, get cust() { return cust; }, creditsRoll, epilogue, get wx() { return wx; }, weatherDmg, B7, fishOpen, fishClose, fishAct, get fishG() { return fishG; }, fishLand, fishSellMenu, fishBook, FISH, FISH_SPOTS, capSpots, capGot, wbWindow, wbMenu, raceStart, raceEnd, raceMenu, get rc() { return rc; }, trackPts, raceTargets, tradeMenu, tradeReceive, HERO, heroMenu, heroEvent, heroBadge, RP, replaySave, replayMenu, replayPlay, baseMenu, baseUpgrades, baseJuke, baseTrophies, get jukebox() { return jukebox; }, isSolidQA: (x, y) => isSolid(x, y), achMenu, ACHS, B6, mlEntries, mlTracked, mlTarget, missionLogMenu, zoneHop, statsMenu, masteryMenu, halloweenMenu, hwOn, hwSpots, hwDay, lockAt, lockCycle, get lockT() { return lockT; }, ap, rmTargets, medalFor, b6Dmg, b6Taken, mTier, get arena() { return arena; }, arenaStart, arenaWaveClear, arenaSpawnWave, rematchEnd, get rmQA() { return rm; }, toTitle, toTitleAsk, whatsNewMenu, get startedQA() { return started; }, hud, phaseTick, isBossE, b5Tick, get pausedQA() { return paused; }, get dialogQA() { return dialogOpen; }, comboCheck, dailyAlienId, DA, B5, ngpMenu, progressMenu, dailyAlienMenu, behTick, photoDeco: () => photoDeco, beastType, wristInfo, setWrist: (w) => (wristFor = w), wristDet, wristScan, spriteInfoQA: (r) => spriteInfo(r), galleryMenu, galOpen, feedbackMenu, fbSnapshot, art, bakWrite, bakList, bakMenu, S5, s5Go, s5StartSeal, story5Talk, citizensQA: () => citizens, get sj() { return sj; }, sjOffer, sjDone, rematchStart, rematchMenu, get rm() { return rm; }, RMX, tutEnd, get tutState() { return tutState; }, remoteTargets, hurtTeam, partyOthers, partySize, get netq() { return net; }, musStepQA: (t) => musStep(t), MUS, musBuild, MUS_SONGS, S4, s4Go, story4Talk, s4Near, s4Fx, ULTIMATES, ultOn, ultForm, ALIEN_SCALE, alienHeight, sizeGuard, alienPower, tierDrain, scaleLine, codexCard, ALIENS, F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
     get enemies() { return enemies; },
     get sagaCineOn() { return sagaCineOn; },
     get scan() { return scan; },
