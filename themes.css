@@ -255,3 +255,29 @@
 /* 0.23 batch 3 */
 #eventhud { position: absolute; left: 50%; top: 92px; transform: translateX(-50%); z-index: 7; pointer-events: none; padding: 5px 14px; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; color: #ffe27a; background: rgba(30, 14, 2, .85); border: 1px solid #ffe27a88; animation: corePulse 1.6s ease-in-out infinite; }
 .xrow .lbtns { display: flex; gap: 6px; margin-top: 4px; } .xrow .lbtns .pbtn { padding: 6px 10px; }
+/* 0.24 batch 4 */
+#partnercard { position: absolute; left: 22px; top: 170px; z-index: 6; width: 170px; padding: 6px 9px; font-size: 10px; background: rgba(4, 12, 18, .85); border: 1px solid #8de5f388; pointer-events: none; }
+#partnercard b { display: block; font-size: 8px; letter-spacing: 1.5px; color: #8de5f3; }
+#partnercard span { display: block; font-weight: 800; color: #fff; margin: 2px 0; }
+#partnercard i { display: block; height: 4px; background: #8de5f3; box-shadow: 0 0 6px #8de5f3; }
+#partnercard small { display: block; margin-top: 3px; font-size: 8px; color: #b8c8c0; }
+.setrows label { display: block; margin: 8px 0; font-size: 11px; color: #d6e8da; } .setrows input { width: 100%; } .setrows b { color: var(--ox); }
+#game.touchsized #joystick { scale: var(--tscale); transform-origin: 0 100%; opacity: var(--talpha); }
+#game.touchsized #attacks { scale: var(--tscale); transform-origin: 100% 100%; opacity: var(--talpha); }
+#game.touchsized .transform, #game.touchsized .jump-button, #game.touchsized .slide-button, #game.touchsized .more-button { scale: var(--tscale); transform-origin: 50% 100%; opacity: var(--talpha); }
+#game.bigtext #toast { font-size: 15px !important; } #game.bigtext .dialog p, #game.bigtext .dialog small, #game.bigtext .xrow small { font-size: 14px !important; line-height: 1.6 !important; }
+#game.bigtext .mission strong { font-size: 14px !important; } #game.bigtext .mission > span:last-child, #game.bigtext .tiny { font-size: 11px !important; } #game.bigtext #dialogbuttons button, #game.bigtext .pbtn { font-size: 13px !important; }
+#game.cbsafe { --ox: #3aa0ff !important; } #game.cbsafe .hp i { background: linear-gradient(90deg, #1f6fd1, #7cc4ff) !important; } #game.cbsafe #combo { --rk: #ffb000 !important; }
+#game.streammode #kbhint, #game.streammode #emotebtn, #game.streammode #lawstatus, #game.streammode #clock { display: none !important; }
+#streamcard { position: absolute; right: 22px; bottom: 200px; z-index: 6; padding: 8px 14px; text-align: right; background: rgba(0, 0, 0, .7); border-right: 4px solid #b06bff; pointer-events: none; }
+#streamcard b { display: block; font-size: 22px; font-weight: 900; letter-spacing: 2px; color: #fff; text-shadow: 0 0 10px #b06bff; } #streamcard small { font-size: 10px; letter-spacing: 1.5px; color: #e6ccff; }
+#roulette { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); z-index: 400; padding: 18px 34px; text-align: center; background: rgba(10, 0, 20, .92); border: 3px solid #b06bff; box-shadow: 0 0 40px #b06bff88; }
+#roulette small { display: block; font-size: 11px; letter-spacing: 3px; color: #e6ccff; } #roulette b { display: block; font-size: 36px; font-weight: 900; color: #fff; }
+#arcade { position: absolute; inset: 0; z-index: 420; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .78); }
+#arcade .arcbox { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px; background: #050c08; border: 2px solid var(--ox); box-shadow: 0 0 30px color-mix(in srgb, var(--ox) 40%, transparent); }
+#arcade .arcbox b { letter-spacing: 3px; color: var(--ox); } #arcade canvas { width: 520px; height: 320px; image-rendering: auto; touch-action: none; } #arcade small { font-size: 10px; color: #b8c8c0; max-width: 520px; text-align: center; }
+#arcade button { padding: 8px 18px; font-weight: 800; background: #283947; color: #dfe; }
+@media (max-height: 420px) { #arcade canvas { width: 420px; height: 258px; } }
+/* the collapsed key-help chip: its loose text nodes must collapse too */
+#game #kbhint.mini { font-size: 0 !important; width: auto !important; }
+#game #kbhint.mini::before { font-size: 9px; }

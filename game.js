@@ -1,4 +1,4 @@
-window.OMNI_BUILD=52;
+window.OMNI_BUILD=53;
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -1788,6 +1788,10 @@ function lanReceive(m) {
   }
   if (m.type === 'hurt' && m.zone === zone && Number.isFinite(m.damage) && m.damage > 0 && m.damage <= 150) {
     hitPlayer(m.damage);
+    return;
+  }
+  if (m.type === 'f4') {
+    f4Receive(m); // part-48
     return;
   }
   if (m.type === 'emote') {
@@ -3668,6 +3672,7 @@ function damageEnemy(e, dmg) {
     featKill(e); // batch 1 (part-45)
     eliteKill(e); // batch 2 (part-46)
     f3Kill(e); // batch 3 (part-47)
+    f4Kill(e); // batch 4 (part-48)
     if (zone === 1 && net.peer) lanSend({ type: 'reward', kill: true });
     if (quest.state === 'active' && zone === 1) {
       quest.kills++;
@@ -4271,9 +4276,9 @@ function pauseMenu() {
     eras = w && w.eras ? w.eras.map((e) => ERA_NAMES[e]).join(' + ') : '',
     mc = w && player.masterControl && w.masterControl;
   const groups = [
-    ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['MISIONES', missionBoard], ['HISTORIA · ECOS DEL VACÍO', sagaMenu], ['HISTORIA 03 · CAZADOR', s3Menu], ['BOSS RUSH', bossRushMenu], ['EXTRAS · ARENA · RETOS · LOGROS', extrasMenu], ['MAPA', () => showWorldMap()], ['VIAJE RÁPIDO', () => travelMenu()], ['FAVORES', () => favoursMenu()], ['MINIJUEGOS / TRABAJOS', jobsMenu], ['MULTIJUGADOR · CROSSPLAY', lanMenu]]],
+    ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['MISIONES', missionBoard], ['HISTORIA · ECOS DEL VACÍO', sagaMenu], ['HISTORIA 03 · CAZADOR', s3Menu], ['BOSS RUSH', bossRushMenu], ['EXTRAS · ARENA · RETOS · LOGROS', extrasMenu], ['MAPA', () => showWorldMap()], ['VIAJE RÁPIDO', () => travelMenu()], ['FAVORES', () => favoursMenu()], ['ARCADE', () => arcadeMenu()], ...(net.peer ? [['REGALAR MONEDAS', giftMenu]] : []), ['MINIJUEGOS / TRABAJOS', jobsMenu], ['MULTIJUGADOR · CROSSPLAY', lanMenu]]],
     ['RELOJ Y ALIENS', [['RELOJ / OMNITRIX', () => watchMenu()], ['MEJORAS DE ALIENS', () => upgradeMenu()], ['EQUIPOS DE ALIENS', () => loadoutMenu()], ['MEJORAS DEL RELOJ', () => watchUpgMenu()], ['LABORATORIO DE ADN', () => labMenu()], ['VARIANTES', () => variantMenu()], ['SKINS DE ALIENS', alienSkinMenu], ['ÁRBOL', skillTree], ['GUÍA / ATAQUES', guide]]],
-    ['PERSONAJE', [['PERSONAJE / SKIN', skinMenu], ['RAZAS', raceMenu], ['MODO FOTO', photoMode], ['TÍTULOS', () => titlesMenu(pauseMenu)], ['PRESTIGIO', prestigeMenu], ['MASCOTA: ' + (F1().pet ? 'SÍ' : 'NO'), () => { F1().pet = !F1().pet; save(); pauseMenu(); }], ['RECOMPENSA DIARIA', dailyCalendar]]],
+    ['PERSONAJE', [['PERSONAJE / SKIN', skinMenu], ['RAZAS', raceMenu], ['MODO FOTO', photoMode], ['TÍTULOS', () => titlesMenu(pauseMenu)], ['PRESTIGIO', prestigeMenu], ['MODO STREAMER: ' + (stream.on ? 'SÍ' : 'NO'), streamToggle], ...(stream.on ? [['RULETA DEL CHAT', chatRoulette]] : []), ['MASCOTA: ' + (F1().pet ? 'SÍ' : 'NO'), () => { F1().pet = !F1().pet; save(); pauseMenu(); }], ['RECOMPENSA DIARIA', dailyCalendar]]],
     [
       'AJUSTES',
       [
@@ -4285,6 +4290,7 @@ function pauseMenu() {
         ['GRÁFICOS: ' + gfxLabel(), () => { gfxCycle(); pauseMenu(); }],
         ['DIAL: ' + (dialDocked() ? 'MINI' : 'PANTALLA COMPLETA'), () => { dialDockSet(!dialDocked()); pauseMenu(); }],
         ['MANDO', padHelp],
+        ['MÁS AJUSTES', () => moreSettings(pauseMenu)],
         ['TRANSFERIR PARTIDA', () => transferMenu(pauseMenu)],
         ['FALLOS DEL RELOJ: ' + (F3().glitch ? 'SÍ' : 'NO'), () => { F3().glitch = !F3().glitch; save(); pauseMenu(); }],
         ['NUEVA PARTIDA', newGameConfirm, 'danger'],
@@ -4404,6 +4410,7 @@ function interact() {
   if (sagaInteract()) return; // Historia 02 (part-42)
   if (featInteract()) return; // Historia 03 (part-45)
   if (f3Interact()) return; // favours (part-47)
+  if (f4Interact()) return; // secrets (part-48)
   if (talkExtra()) return;
   if (puzzleInteract()) return;
   if (missionInteract()) return;
@@ -4931,6 +4938,7 @@ function update(dt) {
   featTick(dt); // batch 1 (part-45)
   f2Tick(dt); // batch 2 (part-46)
   f3Tick(dt); // batch 3 (part-47)
+  f4Tick(dt); // batch 4 (part-48)
   eliteTick();
   sigTick(dt);
   anoditeTick(dt);
@@ -5192,6 +5200,7 @@ function hud() {
   f1Hud(); // part-45
   f2Hud(); // part-46
   f3Hud(); // part-47
+  f4Hud(); // part-48
   anoditeHud();
 }
 function spriteInfo(row) {
@@ -5421,6 +5430,7 @@ function draw() {
   sagaDraw(); // part-42
   featDraw(); // part-45
   f3Draw(); // part-47
+  f4Draw(); // part-48
   const actors = (
     started
       ? [
@@ -5608,7 +5618,7 @@ function draw() {
     } else {
       const e = a.e;
       let f = e.wind > 0 || e.cast > 0 ? 3 : e.moving ? (Math.floor(e.anim) % 2) + 1 : 0;
-      if (featDrawEnemy(e, f) || f2DrawEnemy(e)) { scanDrawMark(e); continue; }
+      if (featDrawEnemy(e, f) || f2DrawEnemy(e) || f4DrawEnemy(e, f)) { scanDrawMark(e); continue; }
       if (e.sagaKind) { sagaDrawEnemy(e, f); scanDrawMark(e); continue; }
       scanDrawMark(e);
       sprite(
@@ -9498,7 +9508,7 @@ for (const [watch, art] of Object.entries(WATCH_SFX_ONLY)) {
 const sfxPool = {};
 function playSfxFile(file) {
   try {
-    const vol = (window.OmniSound?.volumes?.sfx ?? 0.5) * 1.4;
+    const vol = (window.OmniSound?.volumes?.sfx ?? 0.5) * 1.4 * (typeof watchVolume === 'function' ? watchVolume() : 1);
     if (vol <= 0) return true;
     let a = sfxPool[file];
     if (!a) a = sfxPool[file] = new Audio(file);
@@ -11638,6 +11648,9 @@ function extrasMenu() {
       ['LOGROS', () => achMenu(extrasMenu)],
       ['CÓDICE ALIEN', () => codexMenu(extrasMenu)],
       ['BOSS RUSH', bossRushMenu],
+      ['JEFE DE INCURSIÓN (CO-OP)', raidMenu],
+      ['DUELO (CO-OP)', duelAsk],
+      ['ARCADE', () => arcadeMenu(extrasMenu)],
       ['TORRE DEL VACÍO', towerMenu],
       ['RETOS SEMANALES', () => weeklyMenu(extrasMenu)],
       ['ENTRENAMIENTO', trainingToggle],
@@ -14462,6 +14475,437 @@ let f3LastNear = '';
 function f3Near() { const n = favNear(); const l = n ? n[0] : ''; if (l !== f3LastNear) { f3LastNear = l; hud(); } return n; }
 function f3Interact() { if (!started) return false; const n = favNear(); if (!n) return false; n[1](); return true; }
 setInterval(() => { try { if (started) f3Near(); } catch (e) {} }, 300);
+// ============================================================================================
+// OMNI 0.24 · FEATURE BATCH 4 — co-op, quality of life, extras
+//  CO-OP   TEAM-UP (X when your partner is near and you are both transformed: both press within 3 s → a combined attack
+//          named after your two elements) · RAID BOSS (needs both players close, or its shield holds) · GIFTS (send
+//          coins) · DUEL (friendly 1-v-1, first one down loses) · PARTNER CARD (their alien, health, area) ·
+//          4 co-op achievements
+//  QoL     key remapping · touch button size + transparency · watch-sound volume · patch notes history ·
+//          3 save slots · colour-blind palette + big text · first-time hints for the new systems
+//  EXTRAS  VOIDEX secret studio (Bay City) · STREAM MODE (clean screen, big alien card, chat roulette) ·
+//          ARCADE: Catch the DNA · Omnitrix Reflex · Alien Memory (best scores, coins)
+// State: player.f4 = { arcade{}, voidex }, device settings in localStorage (omni-keys, omni-touch, omni-a11y, …)
+// ============================================================================================
+function F4() {
+  const f = (player.f4 = player.f4 && typeof player.f4 === 'object' ? player.f4 : {});
+  if (!f.arcade || typeof f.arcade !== 'object') f.arcade = {};
+  return f;
+}
+const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+function statAdd(k, n = 1) { const s = stats(); s[k] = (s[k] || 0) + n; try { achCheck(); } catch (e) {} }
+ACHS.push(
+  ['teamup', '🤜', 'Dúo dinámico', 'Haz 10 ataques en equipo', (s) => (s.teamups || 0) >= 10],
+  ['raid', '🛡️', 'Incursión', 'Derrota al jefe de incursión en co-op', (s) => (s.raids || 0) >= 1],
+  ['duel', '⚔️', 'Duelista', 'Gana un duelo', (s) => (s.duelWins || 0) >= 1],
+  ['gift', '🎁', 'Generoso', 'Regala monedas a tu compañero', (s) => (s.gifts || 0) >= 1],
+);
+// ---------------- team-up ----------------
+const TEAMUP = { fire_ice: 'VAPOR', fire_electric: 'PLASMA', fire_water: 'GÉISER', fire_plant: 'INCENDIO', ice_water: 'GLACIAR', electric_water: 'TORMENTA', electric_tech: 'SOBRECARGA', heavy_light: 'METEORO', heavy_heavy: 'TERREMOTO', light_light: 'SUPERNOVA' };
+const team = { asked: 0, theirs: 0, cool: 0 };
+function teamName() {
+  const a = myElems()[0] || 'heavy', b = (net.remote && net.remote.alien && ELEM[net.remote.activeAlien] && ELEM[net.remote.activeAlien][0]) || 'light';
+  return TEAMUP[[a, b].sort().join('_')] || 'COMBO ' + (ELEM_NAME[a] || '').toUpperCase() + '+' + (ELEM_NAME[b] || '').toUpperCase();
+}
+const teamReady = () => net.peer && partnerHere() && player.alien && net.remote.alien && dist(player, net.remote) < 260 && team.cool <= 0;
+function teamPress() {
+  if (!teamReady()) return toast(net.peer ? 'Ataque en equipo: los dos transformados y cerca' : 'El ataque en equipo es para co-op');
+  team.asked = performance.now();
+  lanSend({ type: 'f4', k: 'team' });
+  toast('¡Ataque en equipo listo! · tu compañero debe pulsar X');
+  if (performance.now() - team.theirs < 3000) teamFire(true);
+}
+function teamFire(send) {
+  team.asked = team.theirs = 0;
+  team.cool = 25;
+  const name = teamName(), cx = (player.x + net.remote.x) / 2, cy = (player.y + net.remote.y) / 2, d = 160 * multiplier();
+  if (net.role !== 'guest') areaHit(cx, cy, 280, d, 1);
+  effects.push({ type: 'resonance', x: cx, y: cy, r: 280, t: 0.8, max: 0.8, color: '#ffd84a' });
+  burst(cx, cy - 60, 50, '#ffd84a');
+  flash = 0.4; shake = 0.4;
+  toast('¡' + name + '! · ataque en equipo');
+  playWatchSFX('ultimate.transform');
+  statAdd('teamups');
+  if (send) lanSend({ type: 'f4', k: 'teamfire' });
+}
+// ---------------- raid boss ----------------
+function raidMenu() {
+  showDialog('JEFE DE INCURSIÓN', 'Solo en co-op', '<p>Un mecha gigante con un escudo que <b>solo cae si los dos estáis cerca de él</b>. Lanza anillos de energía y golpes de área. Recompensa para los dos: 1500 EXP · 500 monedas.</p>', [['¡INVOCAR!', raidStart], ['VOLVER', extrasMenu]]);
+}
+function raidStart() {
+  closeDialog();
+  if (!net.peer || !partnerHere()) return toast('Necesitas a tu compañero en la misma zona');
+  if (net.role === 'guest') return toast('La incursión la invoca el anfitrión');
+  if (enemies.some((e) => e.raid && e.alive)) return;
+  const r = region(), x = (r.minX + r.maxX) / 2, y = (r.top + r.bottom) / 2, hp = Math.round(9000 * (1 + player.level * 0.05));
+  enemies.push({ id: 960, x, y, homeX: x, homeY: y, face: -1, hp, max: hp, boss: true, raid: true, kind: 'enemy', rcd: 1, cast: 0, stun: 0, alive: true, respawn: 1e9, cd: 1, wind: 0, anim: 0, hit: 0, moving: false, temp: true, modRolled: true, ring: 3, slam: 6 });
+  lanSend({ type: 'f4', k: 'raid' });
+  toast('¡JEFE DE INCURSIÓN! · acercaos los dos para romper su escudo');
+  playWatchSFX('warning');
+}
+function raidShielded(e) { return !(partnerHere() && dist(player, e) < 380 && dist(net.remote, e) < 380); }
+function raidTick(dt) {
+  if (net.role === 'guest') return;
+  for (const e of enemies) {
+    if (!e.raid || !e.alive) continue;
+    e.intangible = raidShielded(e) ? 1 : 0;
+    e.ring -= dt; e.slam -= dt;
+    if (e.ring <= 0) { e.ring = e.hp < e.max / 2 ? 2.2 : 3.2; const n = 14; for (let k = 0; k < n; k++) { const a = (k / n) * Math.PI * 2 + Math.random() * 0.2; hostileShots.push({ type: 'bossfire', x: e.x, y: e.y - 90, dx: Math.cos(a) * 200, dy: Math.sin(a) * 200, t: 2.8, damage: 12, r: 10 }); } }
+    if (e.slam <= 0) { e.slam = 6; burst(e.x, e.y, 30, '#ff7a4a'); shake = 0.3; for (const t of teamTargets()) if (dist(t, e) < 200) hurtTeam(t, 22); }
+  }
+}
+function raidWin() { xp(1500); player.coins = (player.coins || 0) + 500; statAdd('raids'); toast('¡INCURSIÓN SUPERADA! · +1500 EXP · +500 monedas'); playWatchSFX('recharged'); save(); }
+// ---------------- gifts ----------------
+function giftMenu() {
+  if (!net.peer) return toast('Conéctate con un compañero primero');
+  showDialog('REGALAR', 'Envía monedas a tu compañero', '<p>Tienes ' + (player.coins || 0) + ' monedas.</p>', [[100, 500, 1000].map((n) => [n + ' MONEDAS', () => giftSend(n)])].flat().concat([['VOLVER', pauseMenu]]));
+}
+function giftSend(n) {
+  if ((player.coins || 0) < n) return toast('No tienes suficientes monedas');
+  player.coins -= n;
+  lanSend({ type: 'f4', k: 'gift', n });
+  statAdd('gifts');
+  toast('Has regalado ' + n + ' monedas');
+  playWatchSFX('confirm');
+  closeDialog(); hud(); save();
+}
+// ---------------- duel ----------------
+const duel = { on: false, t: 0, ffWas: false };
+function duelAsk() {
+  closeDialog();
+  if (!net.peer || !partnerHere()) return toast('Tu compañero tiene que estar en tu zona');
+  lanSend({ type: 'f4', k: 'duelask' });
+  toast('Duelo propuesto · esperando a tu compañero…');
+}
+function duelStart(send) {
+  if (duel.on) return;
+  duel.on = true; duel.t = 3; duel.ffWas = net.ff;
+  player.hp = maxHP(); player.downed = null;
+  if (send) lanSend({ type: 'f4', k: 'duelgo' });
+  toast('¡DUELO! 3…'); playWatchSFX('warning');
+  setTimeout(() => duel.on && toast('2…'), 1000);
+  setTimeout(() => duel.on && toast('1…'), 2000);
+  setTimeout(() => { if (duel.on) { net.ff = true; toast('¡LUCHAD!'); } }, 3000);
+}
+function duelEnd(iLost, send) {
+  if (!duel.on) return;
+  duel.on = false;
+  net.ff = duel.ffWas;
+  player.downed = null;
+  player.hp = Math.max(player.hp, maxHP() * 0.6);
+  if (!iLost) statAdd('duelWins');
+  showDialog(iLost ? 'DUELO PERDIDO' : '¡DUELO GANADO!', iLost ? 'Tu compañero gana esta vez' : '+200 EXP', '<p>' + (iLost ? 'La próxima será tuya.' : '¡Buen combate!') + '</p>', [['VALE', closeDialog]]);
+  if (!iLost) xp(200);
+  if (send) lanSend({ type: 'f4', k: 'duelend', loserIsSender: iLost });
+}
+function duelTick() {
+  if (!duel.on) return;
+  if (!net.peer || !partnerHere()) { duel.on = false; net.ff = duel.ffWas; toast('Duelo cancelado'); return; }
+  if (net.ff && (player.downed || player.hp <= 2)) duelEnd(true, true);
+}
+// ---------------- network ----------------
+function f4Receive(m) {
+  if (m.k === 'team') { team.theirs = performance.now(); if (performance.now() - team.asked < 3000 && teamReady()) teamFire(true); else toast('¡Tu compañero quiere un ataque en equipo! · pulsa X'); }
+  if (m.k === 'teamfire' && net.remote) teamFire(false);
+  if (m.k === 'gift' && m.n > 0 && m.n <= 1000) { player.coins = (player.coins || 0) + m.n; toast('🎁 Tu compañero te regala ' + m.n + ' monedas'); playWatchSFX('recharged'); hud(); save(); }
+  if (m.k === 'raid') toast('¡JEFE DE INCURSIÓN! · acercaos los dos para romper su escudo');
+  if (m.k === 'raidwin') raidWin();
+  if (m.k === 'duelask') showDialog('DUELO', 'Tu compañero te reta', '<p>Combate amistoso: el primero que caiga pierde. Nadie pierde progreso.</p>', [['¡ACEPTO!', () => { closeDialog(); duelStart(true); }], ['NO', () => { closeDialog(); lanSend({ type: 'f4', k: 'duelno' }); }]]);
+  if (m.k === 'duelno') toast('Tu compañero ha rechazado el duelo');
+  if (m.k === 'duelgo') duelStart(false);
+  if (m.k === 'duelend') duelEnd(!m.loserIsSender, false);
+}
+// ---------------- partner card ----------------
+let pcard = null;
+function partnerCard() {
+  const on = started && net.peer && net.remote;
+  if (!pcard) { pcard = document.createElement('div'); pcard.id = 'partnercard'; $('#game').append(pcard); }
+  pcard.classList.toggle('hidden', !on);
+  if (!on) return;
+  const r = net.remote, name = r.alien && ALIENS[r.activeAlien] ? ALIENS[r.activeAlien].name : 'Humano', z = REGIONS[r.zone] ? REGIONS[r.zone].name : '?';
+  const html = '<b>COMPAÑERO · NV. ' + (r.level || 1) + '</b><span>' + name + (r.downed ? ' · ¡DERRIBADO!' : '') + '</span><i style="width:' + Math.max(0, Math.min(100, ((r.hp || 0) / (r.max || 100)) * 100)) + '%"></i><small>' + (r.zone === zone ? 'Contigo' : z) + (team.cool > 0 ? ' · equipo ' + Math.ceil(team.cool) + ' s' : teamReady() ? ' · ⚡ X EQUIPO' : '') + '</small>';
+  if (pcard.innerHTML !== html) pcard.innerHTML = html;
+}
+// ---------------- key remapping ----------------
+const REMAP_ACTIONS = [['j', 'Atacar'], ['q', 'Omnitrix'], [' ', 'Saltar / esquivar'], ['e', 'Hablar / usar'], ['f', 'Deslizar'], ['g', 'Cambio rápido'], ['v', 'Página de poderes'], ['m', 'Mapa'], ['k', 'Árbol'], ['b', 'Escanear'], ['u', 'Ultra'], ['z', 'Emotes'], ['x', 'Ataque en equipo']];
+let keyMap = lsGet('omni-keys', {}); // physical key → game key
+document.addEventListener('keydown', remapKey, true);
+document.addEventListener('keyup', remapKey, true);
+let remapWait = null;
+function remapKey(e) {
+  if (e.__omniRemap) return;
+  const k = e.key && e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (remapWait && e.type === 'keydown') {
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (k !== 'Escape') { for (const p of Object.keys(keyMap)) if (keyMap[p] === remapWait) delete keyMap[p]; if (k !== remapWait) keyMap[k] = remapWait; lsSet('omni-keys', keyMap); }
+    remapWait = null; remapMenu(); return;
+  }
+  const to = keyMap[k];
+  if (!to || dialogOpen) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  const ev = new KeyboardEvent(e.type, { key: to, bubbles: true, cancelable: true });
+  ev.__omniRemap = true;
+  document.dispatchEvent(ev);
+}
+function remapMenu(back) {
+  const keyOf = (game) => (Object.keys(keyMap).find((p) => keyMap[p] === game) || game).replace(' ', 'ESPACIO').toUpperCase();
+  showDialog('TECLAS', remapWait ? 'Pulsa la tecla nueva… (ESC cancela)' : 'Toca una acción para cambiar su tecla',
+    '<div class="codex">' + REMAP_ACTIONS.map(([g, n]) => '<button class="cx" data-remap="' + (g === ' ' ? 'SPACE' : g) + '" style="--c:var(--ox)"><b>' + n + '</b><small>' + keyOf(g) + (keyOf(g) !== (g === ' ' ? 'ESPACIO' : g.toUpperCase()) ? ' · antes ' + (g === ' ' ? 'ESPACIO' : g.toUpperCase()) : '') + '</small></button>').join('') + '</div><p>Las teclas originales siguen funcionando también.</p>',
+    [['RESTABLECER', () => { keyMap = {}; lsSet('omni-keys', keyMap); remapMenu(back); }], ['VOLVER', back || pauseMenu]]);
+  for (const b of document.querySelectorAll('[data-remap]')) b.onclick = () => { remapWait = b.dataset.remap === 'SPACE' ? ' ' : b.dataset.remap; remapMenu(back); };
+}
+// ---------------- touch layout + accessibility + watch volume ----------------
+function settingsApply() {
+  const g = $('#game'), t = lsGet('omni-touch', { size: 100, alpha: 100 }), a = lsGet('omni-a11y', {});
+  if (!g) return;
+  g.style.setProperty('--tscale', t.size / 100);
+  g.style.setProperty('--talpha', t.alpha / 100);
+  g.classList.toggle('touchsized', t.size !== 100 || t.alpha !== 100);
+  g.classList.toggle('bigtext', !!a.big);
+  g.classList.toggle('cbsafe', !!a.cb);
+  g.classList.toggle('streammode', !!stream.on);
+}
+function moreSettings(back) {
+  const t = lsGet('omni-touch', { size: 100, alpha: 100 }), a = lsGet('omni-a11y', {}), wv = lsGet('omni-volume-watch', 100);
+  showDialog('MÁS AJUSTES', 'Controles, accesibilidad y sonido',
+    '<div class="setrows"><label>Tamaño de los botones táctiles <b id="sv1">' + t.size + ' %</b><input id="ts" type="range" min="70" max="140" step="5" value="' + t.size + '"></label>' +
+      '<label>Opacidad de los botones <b id="sv2">' + t.alpha + ' %</b><input id="ta" type="range" min="30" max="100" step="5" value="' + t.alpha + '"></label>' +
+      '<label>Volumen del reloj (sonidos del Omnitrix) <b id="sv3">' + wv + ' %</b><input id="wv" type="range" min="0" max="150" step="5" value="' + wv + '"></label></div>',
+    [['TECLAS', () => remapMenu(() => moreSettings(back))], ['TEXTO GRANDE: ' + (a.big ? 'SÍ' : 'NO'), () => { a.big = !a.big; lsSet('omni-a11y', a); settingsApply(); moreSettings(back); }], ['DALTONISMO: ' + (a.cb ? 'SÍ' : 'NO'), () => { a.cb = !a.cb; lsSet('omni-a11y', a); settingsApply(); moreSettings(back); }], ['RANURAS DE GUARDADO', () => slotsMenu(() => moreSettings(back))], ['NOVEDADES', () => notesMenu(() => moreSettings(back))], ['VOLVER', back || pauseMenu]]);
+  const bind = (id, lab, key, field) => { const el = $('#' + id); el.oninput = () => { $('#' + lab).textContent = el.value + ' %'; if (key === 'touch') { t[field] = +el.value; lsSet('omni-touch', t); settingsApply(); } else lsSet('omni-volume-watch', +el.value); }; };
+  bind('ts', 'sv1', 'touch', 'size'); bind('ta', 'sv2', 'touch', 'alpha'); bind('wv', 'sv3', 'watch');
+}
+const watchVolume = () => lsGet('omni-volume-watch', 100) / 100;
+// ---------------- patch notes ----------------
+const CHANGELOG = [
+  ['0.24', 'Co-op: ataque en equipo, jefe de incursión, regalos, duelos y ficha del compañero · Teclas, tamaño táctil, texto grande y daltonismo · Ranuras de guardado · Arcade · Modo streamer · Un secreto en Ciudad Bahía'],
+  ['0.23', 'Favores, jefes de zona, eventos del mundo, clima, insignias, noches peligrosas, viaje rápido, equipos, mejoras del reloj, laboratorio de ADN, variantes, final de combo y fallos del Omnitrix'],
+  ['0.22', 'Esquiva perfecta, debilidades por elemento, enemigos de élite, Torre del Vacío, muñeco de entrenamiento, retos semanales, nivel 30 y prestigio, títulos, tienda y colección'],
+  ['0.21', 'Medidor Ultra, mejoras de aliens, combos con rango, recompensa diaria, Chispa, modo foto, emotes, Boss Rush, transferir partida e Historia 03'],
+  ['0.20', 'Cuatro estilos de interfaz, menú de pausa con pestañas, logo animado y animación de subida de nivel'],
+  ['0.19', 'Pantalla de actualización con logo y progreso'],
+  ['0.18', 'Historia 02 · Ecos del Vacío, Central nuclear y Vacío Nulo, ácido osmosiano, bestiario y gráficos bajos'],
+  ['0.17', 'Actualizaciones automáticas, dial mini sobre el botón del reloj y poses de activación'],
+];
+function notesMenu(back) {
+  showDialog('NOVEDADES', 'Historial de versiones', CHANGELOG.map(([v, t]) => '<div class="xrow"><b>v' + v + '</b><small>' + t + '</small></div>').join(''), [['VOLVER', back || pauseMenu]]);
+}
+// ---------------- save slots ----------------
+function slotsMenu(back) {
+  const slot = (i) => lsGet('OMNISLOT-' + i, null);
+  showDialog('RANURAS DE GUARDADO', 'Tres copias de tu partida en este dispositivo',
+    [0, 1, 2].map((i) => { const s = slot(i); return '<div class="xrow"><b>RANURA ' + (i + 1) + '</b><small>' + (s ? 'Nivel ' + s.level + ' · ' + s.race + ' · ' + s.date : 'vacía') + '</small><span class="lbtns"><button class="pbtn" data-sv="' + i + '">GUARDAR AQUÍ</button>' + (s ? '<button class="pbtn main" data-ld="' + i + '">CARGAR</button>' : '') + '</span></div>'; }).join('') + '<p>Cargar una ranura sustituye tu partida actual (guárdala antes en otra ranura si quieres conservarla).</p><p id="slotmsg"></p>',
+    [['VOLVER', back || pauseMenu]]);
+  for (const b of document.querySelectorAll('[data-sv]')) b.onclick = () => { try { save(); } catch (e) {} const d = new Date(); lsSet('OMNISLOT-' + b.dataset.sv, { code: backupCode(), level: player.level, race: race === 'omni' ? 'Omnitrix' : race === 'osmo' ? 'Osmosiano' : 'Anodita', date: d.toLocaleDateString() + ' ' + d.toLocaleTimeString().slice(0, 5) }); toast('Guardado en la ranura ' + (+b.dataset.sv + 1)); slotsMenu(back); };
+  for (const b of document.querySelectorAll('[data-ld]')) b.onclick = () => { const s = slot(+b.dataset.ld), err = s && restoreCode(s.code); if (err) return ($('#slotmsg').textContent = err); toast('Cargando…'); setTimeout(() => location.reload(), 700); };
+}
+// ---------------- first-time hints ----------------
+let hintT = 0;
+function hintsTick(dt) {
+  hintT -= dt;
+  if (hintT > 0 || !started || dialogOpen) return;
+  hintT = 2;
+  if (typeof scanCandidate === 'function' && scanCandidate()) return hintOnce('h_scan', 'Consejo: los enemigos con "?" se pueden escanear con B');
+  if (omniActive() && player.alien && typeof F1 === 'function' && F1().ultra >= 100) return hintOnce('h_ultra', 'Consejo: medidor ULTRA lleno · pulsa U');
+  if (typeof combo !== 'undefined' && combo.n >= 5) return hintOnce('h_combo', 'Consejo: transfórmate o cambia de alien en mitad de un combo para un FINAL DE COMBO');
+  if (net.peer) return hintOnce('h_coop', 'Co-op: Z para emotes · X para ataque en equipo · Pausa → Extras para incursión y duelo');
+  if (player.level >= 5) return hintOnce('h_extras', 'Nuevo: Pausa → Extras tiene Boss Rush, Torre, Tienda, Arcade y más');
+}
+// ---------------- VOIDEX secret ----------------
+const VOIDEX = { x: 140, y: 790 }; // a quiet corner of Bay City, behind the bench
+function voidexNear() {
+  if (zone !== 3 || dist(player, VOIDEX) > 90) return null;
+  return ['◆ ¿QUÉ ES ESO?', voidexFound];
+}
+function voidexFound() {
+  const f = F4();
+  if (f.voidex) return toast('El estudio de VOIDEX · en directo pronto 🎙️');
+  f.voidex = true;
+  sagaCine([
+    { w: '', t: 'Detrás del banco hay una puerta oculta con un letrero de neón…', fx: 'flash' },
+    { w: 'VOIDEX', c: '#c084ff', t: '¡Has encontrado el estudio secreto de VOIDEX! Pocos llegan hasta aquí.' },
+    { w: 'VOIDEX', c: '#c084ff', t: 'Toma, para que vengas a los directos con estilo. Nos vemos en el Vacío.' },
+  ], () => { player.coins = (player.coins || 0) + 777; F2().owned.includes('trail_void') || F2().owned.push('trail_void'); toast('SECRETO · +777 monedas · Estela del Vacío desbloqueada · título «VOIDEX VIP»'); save(); hud(); });
+}
+TITLES.push(['voidex', 'VOIDEX VIP', 'Encuentra el estudio secreto', () => !!F4().voidex]);
+function voidexDraw() {
+  if (zone !== 3 || !F4().voidex) return;
+  ctx.save();
+  ctx.font = 'bold 26px Arial'; ctx.textAlign = 'center';
+  ctx.shadowColor = '#b06bff'; ctx.shadowBlur = 14 + 6 * Math.sin(clock * 4);
+  ctx.fillStyle = '#e6ccff'; ctx.fillText('VOIDEX', VOIDEX.x, VOIDEX.y - 120);
+  ctx.restore();
+}
+// ---------------- stream mode ----------------
+const stream = { on: !!lsGet('omni-stream', false) };
+function streamToggle() { stream.on = !stream.on; lsSet('omni-stream', stream.on); settingsApply(); toast(stream.on ? 'Modo streamer: pantalla limpia · ruleta del chat en Pausa' : 'Modo streamer desactivado'); pauseMenu(); }
+let scard = null;
+function streamCard() {
+  if (!scard) { scard = document.createElement('div'); scard.id = 'streamcard'; $('#game').append(scard); }
+  const on = stream.on && started;
+  scard.classList.toggle('hidden', !on);
+  if (!on) return;
+  const n = player.alien ? (ALIENS[player.activeAlien] || {}).name : race === 'omni' ? 'Humano' : race === 'osmo' ? 'Osmosiano' : 'Anodita';
+  const html = '<b>' + (n || '').toUpperCase() + '</b><small>NV. ' + player.level + (F2().prestige ? ' ★' + F2().prestige : '') + ' · ' + region().name + '</small>';
+  if (scard.innerHTML !== html) scard.innerHTML = html;
+}
+function chatRoulette() {
+  if (!omniActive()) return toast('La ruleta es para portadores del Omnitrix');
+  if (player.alien) return toast('Vuelve a humano para girar la ruleta');
+  const l = watchPlaylist();
+  closeDialog();
+  let el = document.getElementById('roulette');
+  if (!el) { el = document.createElement('div'); el.id = 'roulette'; $('#game').append(el); }
+  el.classList.remove('hidden');
+  let n = 0, i = 0;
+  const steps = 26 + Math.floor(Math.random() * 10);
+  const spin = () => {
+    i = Math.floor(Math.random() * l.length);
+    el.innerHTML = '<small>¡EL CHAT ELIGE!</small><b>' + ALIENS[l[i]].name.toUpperCase() + '</b>';
+    tone(600 + (n % 5) * 80, 0.04, 'square', 0.02);
+    if (++n < steps) setTimeout(spin, 40 + n * 6);
+    else { playWatchSFX('confirm'); setTimeout(() => { el.classList.add('hidden'); player.selected = l[i]; transform({ fromSelector: true }); }, 900); }
+  };
+  spin();
+}
+// ---------------- arcade ----------------
+const ARCADE = { dna: ['Atrapa el ADN', 'Mueve el reloj (flechas, A/D o arrastra) y atrapa cápsulas verdes. Las rojas restan. 30 s.'], reflex: ['Reflejos del Omnitrix', 'Toca o pulsa ESPACIO en cuanto el reloj se ponga VERDE. 5 rondas; cuenta tu tiempo medio.'], memory: ['Memoria alien', 'Repite la secuencia de colores. Cada ronda, uno más.'] };
+function arcadeMenu(back) {
+  const a = F4().arcade;
+  showDialog('ARCADE', 'Minijuegos · récords y monedas', Object.entries(ARCADE).map(([k, [n, d]]) => '<div class="xrow"><b>' + n + '</b><small>' + d + ' · Récord: ' + (a[k] != null ? (k === 'reflex' ? a[k] + ' ms' : a[k]) : '—') + '</small><span class="lbtns"><button class="pbtn main" data-arc="' + k + '">JUGAR</button></span></div>').join(''), [['VOLVER', back || pauseMenu]]);
+  for (const b of document.querySelectorAll('[data-arc]')) b.onclick = () => arcadePlay(b.dataset.arc);
+}
+let arc = null;
+function arcadePlay(kind) {
+  closeDialog();
+  let el = document.getElementById('arcade');
+  if (!el) { el = document.createElement('div'); el.id = 'arcade'; $('#game').append(el); }
+  el.innerHTML = '<div class="arcbox"><b>' + ARCADE[kind][0].toUpperCase() + '</b><canvas width="520" height="320"></canvas><small id="arcmsg">' + ARCADE[kind][1] + '</small><button id="arcquit">SALIR</button></div>';
+  el.classList.remove('hidden');
+  const c = el.querySelector('canvas'), g = c.getContext('2d');
+  arc = { kind, c, g, t0: performance.now(), score: 0, done: false, keys: {} };
+  el.querySelector('#arcquit').onclick = () => arcadeEnd(true);
+  photoOn = true; // freeze the world while playing
+  if (kind === 'dna') arcDna(); else if (kind === 'reflex') arcReflex(); else arcMemory();
+}
+function arcadeEnd(quit) {
+  if (!arc) return;
+  const a = arc, f = F4().arcade;
+  arc = null;
+  photoOn = false;
+  last = performance.now();
+  document.getElementById('arcade').classList.add('hidden');
+  if (quit) return;
+  let coins = 0, best = false;
+  if (a.kind === 'reflex') { best = f.reflex == null || a.score < f.reflex; coins = Math.max(10, Math.round(400 - a.score) / 2) | 0; if (best) f.reflex = a.score; }
+  else { best = f[a.kind] == null || a.score > f[a.kind]; coins = a.kind === 'dna' ? a.score * 3 : a.score * 15; if (best) f[a.kind] = a.score; }
+  player.coins = (player.coins || 0) + Math.max(0, coins);
+  showDialog(ARCADE[a.kind][0].toUpperCase(), (a.kind === 'reflex' ? a.score + ' ms' : a.score + ' puntos') + (best ? ' · ¡RÉCORD!' : ''), '<p>+' + Math.max(0, coins) + ' monedas</p>', [['OTRA', () => arcadePlay(a.kind)], ['ARCADE', () => arcadeMenu()], ['SALIR', closeDialog]]);
+  save();
+}
+function arcKeys(down) { return (e) => { if (!arc) return; arc.keys[e.key] = down; if (down && e.key === ' ' && arc.onTap) { e.preventDefault(); arc.onTap(); } }; }
+document.addEventListener('keydown', arcKeys(true));
+document.addEventListener('keyup', arcKeys(false));
+function arcDna() {
+  const a = arc, W2 = 520, H2 = 320;
+  let px = W2 / 2, items = [], spawn = 0, lastT = performance.now();
+  a.c.onpointermove = (e) => { const r = a.c.getBoundingClientRect(); px = ((e.clientX - r.left) / r.width) * W2; };
+  const loop = (now) => {
+    if (arc !== a) return;
+    const dt = Math.min(0.05, (now - lastT) / 1000), left = 30 - (now - a.t0) / 1000; lastT = now;
+    if (a.keys.ArrowLeft || a.keys.a) px -= 420 * dt;
+    if (a.keys.ArrowRight || a.keys.d) px += 420 * dt;
+    px = clamp(px, 30, W2 - 30);
+    spawn -= dt;
+    if (spawn <= 0) { spawn = Math.max(0.25, 0.7 - (30 - left) * 0.012); items.push({ x: 20 + Math.random() * (W2 - 40), y: -10, v: 120 + Math.random() * 120 + (30 - left) * 6, bad: Math.random() < 0.25 }); }
+    const g = a.g;
+    g.fillStyle = '#06100b'; g.fillRect(0, 0, W2, H2);
+    for (const it of items) {
+      it.y += it.v * dt;
+      if (!it.hit && it.y > H2 - 34 && Math.abs(it.x - px) < 36) { it.hit = true; a.score = Math.max(0, a.score + (it.bad ? -3 : 1)); tone(it.bad ? 160 : 880, 0.05, 'square', 0.02); }
+      if (it.hit) continue;
+      g.fillStyle = it.bad ? '#ff4d4d' : '#7dff9a'; g.beginPath(); g.ellipse(it.x, it.y, 7, 12, 0, 0, 7); g.fill();
+      g.fillStyle = '#ffffffaa'; g.fillRect(it.x - 2, it.y - 8, 3, 6);
+    }
+    items = items.filter((it) => !it.hit && it.y < H2 + 20);
+    g.fillStyle = '#1b2220'; g.fillRect(px - 36, H2 - 26, 72, 16);
+    g.fillStyle = '#7dff9a'; g.beginPath(); g.arc(px, H2 - 18, 9, 0, 7); g.fill();
+    g.fillStyle = '#fff'; g.font = 'bold 16px Arial'; g.textAlign = 'left'; g.fillText('ADN ' + a.score, 12, 22); g.textAlign = 'right'; g.fillText(Math.max(0, Math.ceil(left)) + ' s', W2 - 12, 22);
+    if (left <= 0) return arcadeEnd(false);
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+}
+function arcReflex() {
+  const a = arc, times = [];
+  let state = 'wait', goAt = 0;
+  const draw = (col, text) => { const g = a.g; g.fillStyle = '#06100b'; g.fillRect(0, 0, 520, 320); g.fillStyle = col; g.beginPath(); g.arc(260, 150, 90, 0, 7); g.fill(); g.fillStyle = '#06100b'; g.beginPath(); g.moveTo(215, 95); g.lineTo(305, 95); g.lineTo(260, 150); g.lineTo(305, 205); g.lineTo(215, 205); g.lineTo(260, 150); g.closePath(); g.fill(); g.fillStyle = '#fff'; g.font = 'bold 16px Arial'; g.textAlign = 'center'; g.fillText(text, 260, 290); };
+  const next = () => { if (arc !== a) return; state = 'wait'; draw('#5a1a1a', 'Espera… (' + (times.length + 1) + ' / 5)'); const at = performance.now() + 900 + Math.random() * 2200; goAt = at; setTimeout(() => { if (arc !== a || goAt !== at) return; state = 'go'; goAt = performance.now(); draw('#7dff9a', '¡YA!'); }, at - performance.now()); };
+  a.onTap = () => {
+    if (state === 'go') { times.push(Math.round(performance.now() - goAt)); tone(900, 0.05, 'square', 0.02); if (times.length >= 5) { a.score = Math.round(times.reduce((x, y) => x + y, 0) / times.length); return arcadeEnd(false); } draw('#2a4a2a', times[times.length - 1] + ' ms'); setTimeout(next, 700); }
+    else if (state === 'wait') { goAt = -1; draw('#ff4d4d', '¡Demasiado pronto! +500 ms'); times.push(500); state = 'pause'; tone(150, 0.1, 'square', 0.03); if (times.length >= 5) { a.score = Math.round(times.reduce((x, y) => x + y, 0) / times.length); return setTimeout(() => arcadeEnd(false), 600); } setTimeout(next, 900); }
+  };
+  a.c.onpointerdown = () => a.onTap();
+  next();
+}
+function arcMemory() {
+  const a = arc, cols = ['#7dff9a', '#ff5a4a', '#5fb8ff', '#ffd84a'], seq = [];
+  let input = 0, showing = false;
+  const pads = [[150, 90], [370, 90], [150, 230], [370, 230]];
+  const draw = (lit = -1, text = '') => { const g = a.g; g.fillStyle = '#06100b'; g.fillRect(0, 0, 520, 320); pads.forEach(([x, y], i) => { g.fillStyle = i === lit ? cols[i] : cols[i] + '44'; g.beginPath(); g.arc(x, y, 58, 0, 7); g.fill(); }); g.fillStyle = '#fff'; g.font = 'bold 15px Arial'; g.textAlign = 'center'; g.fillText(text || 'Ronda ' + seq.length, 260, 166); };
+  const play = () => { showing = true; input = 0; let k = 0; const step = () => { if (arc !== a) return; if (k >= seq.length) { showing = false; draw(-1, '¡Tu turno!'); return; } draw(seq[k], ''); tone(400 + seq[k] * 120, 0.18, 'sine', 0.04); k++; setTimeout(() => { draw(-1, ''); setTimeout(step, 180); }, 420); }; setTimeout(step, 500); };
+  const round = () => { seq.push(Math.floor(Math.random() * 4)); draw(-1, 'Ronda ' + seq.length); play(); };
+  a.c.onpointerdown = (e) => {
+    if (showing) return;
+    const r = a.c.getBoundingClientRect(), x = ((e.clientX - r.left) / r.width) * 520, y = ((e.clientY - r.top) / r.height) * 320;
+    const i = pads.findIndex(([px, py]) => Math.hypot(x - px, y - py) < 60);
+    if (i < 0) return;
+    draw(i, ''); tone(400 + i * 120, 0.12, 'sine', 0.04);
+    if (i !== seq[input]) { a.score = seq.length - 1; return setTimeout(() => arcadeEnd(false), 400); }
+    input++;
+    if (input >= seq.length) setTimeout(round, 600);
+  };
+  round();
+}
+// ---------------- tick / draw / interact / extras ----------------
+function f4Tick(dt) {
+  F4();
+  team.cool = Math.max(0, team.cool - dt);
+  raidTick(dt);
+  duelTick();
+  hintsTick(dt);
+}
+setInterval(() => { try { partnerCard(); streamCard(); } catch (e) {} }, 250);
+function f4Draw() {
+  voidexDraw();
+  for (const e of enemies) if (e.raid && e.alive) {
+    const sh = e.intangible > 0;
+    ctx.save(); ctx.globalAlpha = 0.25 + 0.1 * Math.sin(clock * 3); ctx.fillStyle = sh ? '#5fb8ff' : '#ff5a4a'; ctx.beginPath(); ctx.ellipse(e.x, e.y - 100, 110, 140, 0, 0, 7); ctx.fill(); ctx.restore();
+  }
+}
+function f4DrawEnemy(e, f) {
+  if (!e.raid) return false;
+  sprite(28, f, e.x, e.y, 230, e.face, e.hit > 0 ? 0.6 : 1);
+  const by = e.y - 250;
+  txt('JEFE DE INCURSIÓN · MECHA DEL VACÍO', e.x, by - 10, 11, '#ffb59a');
+  ctx.fillStyle = '#101522'; ctx.fillRect(e.x - 90, by, 180, 9);
+  ctx.fillStyle = e.intangible > 0 ? '#5fb8ff' : '#ff5a4a'; ctx.fillRect(e.x - 90, by, 180 * Math.max(0, e.hp / e.max), 9);
+  if (e.intangible > 0) txt('ESCUDO · acercaos los dos', e.x, by + 22, 9, '#9fd4ff');
+  return true;
+}
+function f4Kill(e) {
+  if (e.raid) { raidWin(); lanSend({ type: 'f4', k: 'raidwin' }); }
+}
+function f4Interact() { if (!started) return false; const n = voidexNear(); if (!n) return false; n[1](); return true; }
+document.addEventListener('keydown', (e) => {
+  if (e.repeat || !e.key || !started || sel || dialogOpen || sagaCineOn || arc) return;
+  if (e.key.toLowerCase() === 'x') teamPress();
+});
+settingsApply();
+let f4LastNear = '';
+function f4Hud() { const n = voidexNear(); if (n) { $('#talk').classList.remove('hidden'); $('#talk').textContent = n[0]; } }
+setInterval(() => { try { if (!started) return; const n = voidexNear(), l = n ? n[0] : ''; if (l !== f4LastNear) { f4LastNear = l; hud(); } } catch (e) {} }, 300);
 applyWatchTheme();
 resize();
 boot();
@@ -14472,7 +14916,7 @@ if (window.__game)
     missionBoard, missionAccept, activeMission, MS, MISSIONS, coopOn, coopState, coopShare, coopTickMissions, COOP_SITES,
     arenaStart, arenaEnd, arena, arenaBest, statEvent, stats, daily, dailyMenu, achMenu, achCheck, ACHS, codexMenu, codexCard, codexIds, extrasMenu, difficultyMenu, diffCfg, diffKey, DIFFS, PAD, padPoll, padHelp,
     watchAnim, WATCH_ERAS, eraPlaylist, eraOf, storyPlay, storyFor, storyDraw, storyFit, storyPreload, BOARDS, SHEET_ROWS, SKIN_ART, boardId,
-    F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
+    F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
     get enemies() { return enemies; },
     get sagaCineOn() { return sagaCineOn; },
     get scan() { return scan; },
