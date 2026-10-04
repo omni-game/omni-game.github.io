@@ -1,4 +1,4 @@
-window.OMNI_BUILD=66;
+window.OMNI_BUILD=67;window.OMNI_NOTES=["Todos los aliens tienen forma Ultimate en el Ultimatrix (los que aún no tienen dibujo propio se ven más grandes y con aura)", "Arreglado: el daño recibido mostraba muchos decimales", "Combos de aliens: cambia de alien y golpea con otro elemento (fuego + hielo = CHOQUE TÉRMICO)", "Los jefes entran en FASE 2 con furia por debajo de la mitad de vida", "Alien del día: doble EXP con él y un reto de 15 enemigos (Extras)", "Remate maestro: con un alien al 100 % de dominio, los enemigos casi derrotados caen de un golpe", "Nuevos tipos de enemigo: cargador, bomba, invocador y tirador", "Nueva Partida+: rejuega las historias más difícil conservando todo (tras la Historia 05)", "Pantalla de progreso con todo lo que puedes completar (Extras)", "Modo foto: pegatinas, marco y texto", "Pausa → MENÚ PRINCIPAL para volver a la pantalla de inicio", "NOVEDADES: lee todo lo nuevo desde el menú de inicio o la pausa", "Mientras estás transformado, arriba a la izquierda ves la maestría de ese alien"];
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -4295,7 +4295,7 @@ function pauseMenu() {
     eras = w && w.eras ? w.eras.map((e) => ERA_NAMES[e]).join(' + ') : '',
     mc = w && player.masterControl && w.masterControl;
   const groups = [
-    ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['MISIONES', missionBoard], ['HISTORIA · ECOS DEL VACÍO', sagaMenu], ['HISTORIA 03 · CAZADOR', s3Menu], ['HISTORIA 04 · SOBRECARGA', s4Menu], ['HISTORIA 05 · ECO DEL ESPECTRO', s5Menu], ['NUEVA PARTIDA+', () => ngpMenu()], ['BOSS RUSH', bossRushMenu], ['GALERÍA DE JEFES', () => rematchMenu()], ['EXTRAS · ARENA · RETOS · LOGROS', extrasMenu], ['MAPA', () => showWorldMap()], ['VIAJE RÁPIDO', () => travelMenu()], ['FAVORES', () => favoursMenu()], ['ARCADE', () => arcadeMenu()], ...(net.peer ? [['REGALAR MONEDAS', giftMenu]] : []), ['MINIJUEGOS / TRABAJOS', jobsMenu], ['MULTIJUGADOR · CROSSPLAY', lanMenu]]],
+    ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['MENÚ PRINCIPAL', toTitleAsk], ['NOVEDADES', () => whatsNewMenu(pauseMenu)], ['MISIONES', missionBoard], ['HISTORIA · ECOS DEL VACÍO', sagaMenu], ['HISTORIA 03 · CAZADOR', s3Menu], ['HISTORIA 04 · SOBRECARGA', s4Menu], ['HISTORIA 05 · ECO DEL ESPECTRO', s5Menu], ['NUEVA PARTIDA+', () => ngpMenu()], ['BOSS RUSH', bossRushMenu], ['GALERÍA DE JEFES', () => rematchMenu()], ['EXTRAS · ARENA · RETOS · LOGROS', extrasMenu], ['MAPA', () => showWorldMap()], ['VIAJE RÁPIDO', () => travelMenu()], ['FAVORES', () => favoursMenu()], ['ARCADE', () => arcadeMenu()], ...(net.peer ? [['REGALAR MONEDAS', giftMenu]] : []), ['MINIJUEGOS / TRABAJOS', jobsMenu], ['MULTIJUGADOR · CROSSPLAY', lanMenu]]],
     ['RELOJ Y ALIENS', [['RELOJ / OMNITRIX', () => watchMenu()], ['MEJORAS DE ALIENS', () => upgradeMenu()], ['EQUIPOS DE ALIENS', () => loadoutMenu()], ['MEJORAS DEL RELOJ', () => watchUpgMenu()], ['LABORATORIO DE ADN', () => labMenu()], ['VARIANTES', () => variantMenu()], ['SKINS DE ALIENS', alienSkinMenu], ['ÁRBOL', skillTree], ['GUÍA / ATAQUES', guide]]],
     ['PERSONAJE', [['PERSONAJE / SKIN', skinMenu], ['RAZAS', raceMenu], ['MODO FOTO', photoMode], ['TÍTULOS', () => titlesMenu(pauseMenu)], ['PRESTIGIO', prestigeMenu], ['MODO STREAMER: ' + (stream.on ? 'SÍ' : 'NO'), streamToggle], ...(stream.on ? [['RULETA DEL CHAT', chatRoulette]] : []), ['MASCOTA: ' + (F1().pet ? 'SÍ' : 'NO'), () => { F1().pet = !F1().pet; save(); pauseMenu(); }], ['RECOMPENSA DIARIA', dailyCalendar]]],
     [
@@ -4974,6 +4974,7 @@ function update(dt) {
   s5Tick(dt); // part-58
   bakTick(dt); // save copies (part-59)
   b5Tick(dt); // batch 5 (part-65)
+  vmTick(dt); // mastery on the HUD (part-66)
   eliteTick();
   sigTick(dt);
   anoditeTick(dt);
@@ -5167,6 +5168,7 @@ function hud() {
   $('#masterytext').textContent = Math.floor(mastery()) + '%';
   $('#masterylabel').textContent = 'MAESTRÍA ' + def.name.toUpperCase();
   $('#masteryfill').style.background = def.color;
+  vmastHud(p, def); // the transformed alien's mastery in the top-left panel (part-66)
   $('#transformlabel').textContent = p.alien ? 'VOLVER A HUMANO · Q' : race === 'anodite' ? 'FORMA ANODITA · Q' : 'OMNITRIX · Q';
   $('#transformhint').textContent = p.battery <= 0 ? 'RECARGANDO' : def.name.toUpperCase();
   $('#transform').classList.toggle('unavailable', !p.alien && p.battery <= 0);
@@ -12186,13 +12188,14 @@ function updWelcome() {
   const c = document.createElement('div');
   c.id = 'updwelcome';
   c.innerHTML = '<canvas width="120" height="120"></canvas><div><b>¡ACTUALIZADO A v' + u.to + '!</b><small>desde v' + u.from + '</small>' +
-    (u.notes && u.notes.length ? '<ul>' + u.notes.slice(0, 5).map((n) => '<li>' + n + '</li>').join('') + '</ul>' : '') + '<button>¡A JUGAR!</button></div>';
+    (u.notes && u.notes.length ? '<ul>' + u.notes.slice(0, 5).map((n) => '<li>' + n + '</li>').join('') + '</ul>' : '') + '<button>¡A JUGAR!</button>' + (u.notes && u.notes.length > 5 ? '<button data-all>VER TODO (' + u.notes.length + ')</button>' : '') + '</div>';
   $('#game').append(c);
   tabIcon(1, '✔ OMNI ' + u.to);
   setTimeout(() => tabIcon(null), 6000);
   const st = { p: 1, done: false };
   updLogo(c.querySelector('canvas'), st); // stops by itself once the card is removed
   c.querySelector('button').onclick = () => c.remove();
+  const all = c.querySelector('[data-all]'); if (all) all.onclick = () => { c.remove(); whatsNewMenu(started ? pauseMenu : null); };
   setTimeout(() => c.remove(), 15000);
 }
 setTimeout(updWelcome, 900);
@@ -14825,6 +14828,7 @@ function moreSettings(back) {
 const watchVolume = () => lsGet('omni-volume-watch', 100) / 100;
 // ---------------- patch notes ----------------
 const CHANGELOG = [
+  ['0.31.1', 'Volver al menú principal · Novedades · Maestría del alien en pantalla'],
   ['0.31', 'Forma Ultimate para todos los aliens · combos · jefes con fase 2 · alien del día · Nueva Partida+ · tipos de enemigo · progreso · pegatinas de foto'],
   ['0.30', 'Reloj de la muñeca según el que lleves · Galería de escenas · Finales de escena arreglados · Omnitrix de Omniverse nuevo'],
   ['0.29', 'Arte nuevo para 18 aliens y 6 formas Ultimate · Escenas de transformación nuevas · Omnitrix Recalibrado y recargas del Ultimatrix'],
@@ -14841,9 +14845,7 @@ const CHANGELOG = [
   ['0.18', 'Historia 02 · Ecos del Vacío, Central nuclear y Vacío Nulo, ácido osmosiano, bestiario y gráficos bajos'],
   ['0.17', 'Actualizaciones automáticas, dial mini sobre el botón del reloj y poses de activación'],
 ];
-function notesMenu(back) {
-  showDialog('NOVEDADES', 'Historial de versiones', CHANGELOG.map(([v, t]) => '<div class="xrow"><b>v' + v + '</b><small>' + t + '</small></div>').join(''), [['VOLVER', back || pauseMenu]]);
-}
+function notesMenu(back) { whatsNewMenu(back); }
 // ---------------- save slots ----------------
 function slotsMenu(back) {
   const slot = (i) => lsGet('OMNISLOT-' + i, null);
@@ -16654,6 +16656,79 @@ function b5Tick(dt) {
   if (!b5Told && race === 'omni' && dailyAlienId()) { b5Told = true; const da = DA(); if (!da.told) { da.told = true; setTimeout(() => toast('ALIEN DEL DÍA: ' + ALIENS[dailyAlienId()].name + ' · doble EXP hoy (Extras)'), 6000); } }
 }
 function b5Kill(e) { dailyAlienKill(); }
+// ============================================================================================
+// OMNI 0.31.1 · MAIN MENU + WHAT'S NEW + MASTERY ON THE HUD
+//  · Pause → MENÚ PRINCIPAL: saves and goes back to the title screen (in co-op it asks first, then leaves the room).
+//  · NOVEDADES: the full notes of this version (window.OMNI_NOTES, stamped by build.sh from NOTES.txt) plus the
+//    history of older versions. Reachable from the title screen, the pause menu and the "updated" card.
+//  · Clean HUD (where the old mastery bar is hidden): while transformed, the watch panel shows that alien's mastery (bar in the alien's colour).
+// ============================================================================================
+function whatsNewMenu(back) {
+  const notes = Array.isArray(window.OMNI_NOTES) ? window.OMNI_NOTES : [], v = gameVersion();
+  try { localStorage.setItem('omni-notes-seen', String(OMNI_BUILD)); } catch (e) {}
+  wnBadge();
+  const older = CHANGELOG.filter(([cv]) => cv !== v);
+  showDialog('NOVEDADES', 'Versión ' + v,
+    (notes.length ? '<p class="wnhead">Lo nuevo en esta versión</p><ul class="wnlist">' + notes.map((n) => '<li>' + n + '</li>').join('') + '</ul>' : '') +
+      '<p class="wnhead">Versiones anteriores</p>' + older.map(([cv, t]) => '<div class="xrow"><b>v' + cv + '</b><small>' + t + '</small></div>').join(''),
+    [['VOLVER', back || closeDialog]]);
+}
+function wnBadge() {
+  const b = document.getElementById('wnbtn');
+  if (!b) return;
+  let seen = 0;
+  try { seen = +localStorage.getItem('omni-notes-seen') || 0; } catch (e) {}
+  b.classList.toggle('fresh', seen < OMNI_BUILD);
+}
+// a NOVEDADES button on the title screen
+{
+  const grid = document.querySelector('#menu .menu-grid');
+  if (grid && !document.getElementById('wnbtn')) {
+    const b = document.createElement('button');
+    b.id = 'wnbtn';
+    b.className = 'music-menu-button wide';
+    b.innerHTML = '★ NOVEDADES · v' + gameVersion() + '<i>NUEVO</i>';
+    b.onclick = () => whatsNewMenu(null);
+    grid.prepend(b);
+    wnBadge();
+  }
+}
+function toTitleAsk() {
+  if (net.peer || net.role) {
+    showDialog('MENÚ PRINCIPAL', '¿Salir de la sala?', '<p>Volver al menú principal te desconecta de la partida en co-op. Tu progreso está guardado.</p>',
+      [['SALIR AL MENÚ', () => { leaveRoom(); toTitle(); }], ['VOLVER', pauseMenu]]);
+    return;
+  }
+  toTitle();
+}
+function toTitle() {
+  try { save(); } catch (e) {}
+  try { if (typeof photoOn !== 'undefined' && photoOn) photoExit(); } catch (e) {}
+  closeDialog();
+  for (const k in keys) keys[k] = false;
+  stick.x = stick.y = 0;
+  started = false;
+  paused = false;
+  $('#hud').classList.add('hidden');
+  $('#menu').classList.remove('hidden');
+  $('#play').innerHTML = 'CONTINUAR AVENTURA <span>→</span>';
+  wnBadge();
+}
+function vmastHud(p, def) {
+  let box = document.getElementById('vmast');
+  if (!box) { const o = document.querySelector('#hud .omni'); if (!o) return; o.insertAdjacentHTML('beforeend', '<div id="vmast" class="vmast hidden"><span id="vmasttext"></span><div class="vmastbar"><i id="vmastfill"></i></div></div>'); box = document.getElementById('vmast'); }
+  if (!box) return;
+  box.classList.toggle('hidden', !p.alien);
+  $('#game').classList.toggle('vmon', !!p.alien); // clean HUD: coins/tree move down below it
+  if (!p.alien) return;
+  const v = Math.floor(mastery() || 0);
+  $('#vmastfill').style.width = Math.min(100, v) + '%';
+  $('#vmastfill').style.background = def.color || '#ffa556';
+  $('#vmasttext').textContent = 'MAESTRÍA ' + def.name.toUpperCase() + ' · ' + v + '%' + (v >= 100 ? ' ★' : '');
+}
+// mastery grows every second while transformed, so refresh the line twice a second (hud() isn't called every frame)
+let vmT = 0;
+function vmTick(dt) { if ((vmT -= dt) > 0) return; vmT = 0.5; if (player.alien && ALIENS[player.activeAlien]) vmastHud(player, ALIENS[player.activeAlien]); }
 applyWatchTheme();
 resize();
 boot();
@@ -16664,7 +16739,7 @@ if (window.__game)
     missionBoard, missionAccept, activeMission, MS, MISSIONS, coopOn, coopState, coopShare, coopTickMissions, COOP_SITES,
     arenaStart, arenaEnd, arena, arenaBest, statEvent, stats, daily, dailyMenu, achMenu, achCheck, ACHS, codexMenu, codexCard, codexIds, extrasMenu, difficultyMenu, diffCfg, diffKey, DIFFS, PAD, padPoll, padHelp,
     watchAnim, WATCH_ERAS, eraPlaylist, eraOf, storyPlay, storyFor, storyDraw, storyFit, storyPreload, BOARDS, SHEET_ROWS, SKIN_ART, boardId,
-    phaseTick, isBossE, b5Tick, get pausedQA() { return paused; }, get dialogQA() { return dialogOpen; }, comboCheck, dailyAlienId, DA, B5, ngpMenu, progressMenu, dailyAlienMenu, behTick, photoDeco: () => photoDeco, beastType, wristInfo, setWrist: (w) => (wristFor = w), wristDet, wristScan, spriteInfoQA: (r) => spriteInfo(r), galleryMenu, galOpen, feedbackMenu, fbSnapshot, art, bakWrite, bakList, bakMenu, S5, s5Go, s5StartSeal, story5Talk, citizensQA: () => citizens, get sj() { return sj; }, sjOffer, sjDone, rematchStart, rematchMenu, get rm() { return rm; }, RMX, tutEnd, get tutState() { return tutState; }, remoteTargets, hurtTeam, partyOthers, partySize, get netq() { return net; }, musStepQA: (t) => musStep(t), MUS, musBuild, MUS_SONGS, S4, s4Go, story4Talk, s4Near, s4Fx, ULTIMATES, ultOn, ultForm, ALIEN_SCALE, alienHeight, sizeGuard, alienPower, tierDrain, scaleLine, codexCard, ALIENS, F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
+    toTitle, toTitleAsk, whatsNewMenu, get startedQA() { return started; }, hud, phaseTick, isBossE, b5Tick, get pausedQA() { return paused; }, get dialogQA() { return dialogOpen; }, comboCheck, dailyAlienId, DA, B5, ngpMenu, progressMenu, dailyAlienMenu, behTick, photoDeco: () => photoDeco, beastType, wristInfo, setWrist: (w) => (wristFor = w), wristDet, wristScan, spriteInfoQA: (r) => spriteInfo(r), galleryMenu, galOpen, feedbackMenu, fbSnapshot, art, bakWrite, bakList, bakMenu, S5, s5Go, s5StartSeal, story5Talk, citizensQA: () => citizens, get sj() { return sj; }, sjOffer, sjDone, rematchStart, rematchMenu, get rm() { return rm; }, RMX, tutEnd, get tutState() { return tutState; }, remoteTargets, hurtTeam, partyOthers, partySize, get netq() { return net; }, musStepQA: (t) => musStep(t), MUS, musBuild, MUS_SONGS, S4, s4Go, story4Talk, s4Near, s4Fx, ULTIMATES, ultOn, ultForm, ALIEN_SCALE, alienHeight, sizeGuard, alienPower, tierDrain, scaleLine, codexCard, ALIENS, F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
     get enemies() { return enemies; },
     get sagaCineOn() { return sagaCineOn; },
     get scan() { return scan; },

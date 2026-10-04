@@ -344,3 +344,17 @@
 .b5prog > div span { font-size: 11px; color: #c9d8cf; } .b5prog > div b { float: right; font-size: 11px; }
 #photobar .stkbox { display: inline-flex; gap: 4px; flex-wrap: wrap; margin: 0 8px; }
 #photobar .stkbox button { min-width: 32px; padding: 4px 6px; font-size: 14px; }
+/* ===================== 0.31.1 · mastery on the HUD, what's new ===================== */
+.vmast { margin-top: 5px; }
+.vmast span { display: block; font-size: 8px; letter-spacing: .8px; color: #ffd8a8; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vmastbar { height: 4px; margin-top: 3px; background: #070e17; border: 1px solid #ffffff12; overflow: hidden; }
+.vmastbar i { display: block; height: 100%; width: 0; background: #ffa556; transition: width .2s linear; }
+#game .vmast { display: none; }
+#game.hudlite .vmast { display: block; }
+#game.hudlite .vmast.hidden { display: none !important; }
+#wnbtn { position: relative; }
+#wnbtn i { display: none; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-style: normal; font-size: 8px; font-weight: 800; letter-spacing: 1px; background: #c8f387; color: #14241e; padding: 2px 6px; }
+#wnbtn.fresh i { display: inline-block; }
+.dialog .wnhead { margin: 10px 0 4px; font-size: 10px !important; letter-spacing: 1.6px; font-weight: 800; color: #c9ff89 !important; }
+.dialog .wnlist { margin: 0 0 8px; padding-left: 18px; font-size: 12px; line-height: 1.6; color: #dbe8dd; }
+#game.hudlite.vmon #coins, #game.hudlite.vmon #treebtn { top: 108px !important; }

@@ -923,5 +923,20 @@ window.OMNI_EN = Object.assign(window.OMNI_EN || {}, {
 "Nuevos tipos de enemigo: cargador, bomba, invocador y tirador":"New enemy types: charger, bomber, summoner and sniper",
 "Nueva Partida+: rejuega las historias más difícil conservando todo (tras la Historia 05)":"New Game+: replay the stories harder while keeping everything (after Story 05)",
 "Pantalla de progreso con todo lo que puedes completar (Extras)":"Progress screen with everything you can complete (Extras)",
-"Modo foto: pegatinas, marco y texto":"Photo mode: stickers, frame and caption"
+"Modo foto: pegatinas, marco y texto":"Photo mode: stickers, frame and caption",
+"Pausa → MENÚ PRINCIPAL para volver a la pantalla de inicio":"Pause → MAIN MENU to go back to the title screen",
+"NOVEDADES: lee todo lo nuevo desde el menú de inicio o la pausa":"WHAT'S NEW: read everything new from the title screen or the pause menu",
+"Mientras estás transformado, arriba a la izquierda ves la maestría de ese alien":"While transformed, the top-left panel shows that alien's mastery",
+"Volver al menú principal · Novedades · Maestría del alien en pantalla":"Back to main menu · What's new · Alien mastery on screen",
+"MENÚ PRINCIPAL":"MAIN MENU",
+"★ NOVEDADES · v":"★ WHAT'S NEW · v",
+"NUEVO":"NEW",
+"Lo nuevo en esta versión":"New in this version",
+"Versiones anteriores":"Earlier versions",
+"Versión ":"Version ",
+"¿Salir de la sala?":"Leave the room?",
+"Volver al menú principal te desconecta de la partida en co-op. Tu progreso está guardado.":"Going back to the main menu disconnects you from the co-op game. Your progress is saved.",
+"SALIR AL MENÚ":"EXIT TO MENU",
+"VER TODO (":"SEE ALL (",
+"MAESTRÍA ":"MASTERY "
 });
