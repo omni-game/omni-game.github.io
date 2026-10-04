@@ -1,4 +1,4 @@
-window.OMNI_BUILD=58;
+window.OMNI_BUILD=59;
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -1556,12 +1556,13 @@ function drawSensory() {
       );
     }
   ctx.globalAlpha = 1;
+  const ultArt = ultOn() && ultForm().art; // Ultimate Wildmutt has its own sheet (part-22)
   sprite(
-    16,
-    player.attack > 0 ? player.attackFrame : player.moving ? 1 + (Math.floor(player.anim) % 2) : 0,
+    ultArt ? ultForm().row : 16,
+    ultArt ? sheetPose(player) : player.attack > 0 ? player.attackFrame : player.moving ? 1 + (Math.floor(player.anim) % 2) : 0,
     player.x,
     player.y,
-    92,
+    alienHeight('bestia') * (ultArt ? ultScale() : 1),
     player.face,
   );
   ctx.strokeStyle = '#8dea7155';
@@ -2401,6 +2402,7 @@ function combatPose(o, row, f) {
     } else f = o.moving ? 1 + (Math.floor(o.anim) % 2) : 0;
     return { row, f, lift: 0 };
   }
+  if (o === player && typeof ultOn === 'function' && ultOn() && ultForm().art) return { row: ultForm().row, f: sheetPose(o), lift: 0 }; // Ultimate with its own sheet (part-22)
   const sk = skinArt(o); // "new art" skin (part-22): its own poses, same powers
   if (sk) return { row: sk.row, f: skinArtPose(o, sk), lift: o.activeAlien === 'insect' && o.flight > 0 ? 38 + Math.sin(clock * 6) * 5 : 0 };
   const cf = castFrame(o);
@@ -7341,7 +7343,7 @@ const SPECIALS = {
       if (!f) return toast('Este alien aún no tiene forma Ultimate'), playWatchSFX('invalid');
       if (mastery() < rule.minMastery) return toast('Necesitas maestría ' + rule.minMastery + '% para la forma Ultimate'), playWatchSFX('locked');
       if (player.battery < rule.minBattery) return toast('Batería insuficiente para evolucionar'), playWatchSFX('error');
-      playSequence('ultimate', () => applyUltimate(true));
+      playSequence('ultimate', () => { applyUltimate(true); ultBoard(); });
     },
   },
 };
@@ -7349,6 +7351,11 @@ function watchSpecial(id) {
   const w = getWatch();
   if (!omniActive() || !started || paused || !w.specials.some((s) => s.id === id)) return;
   if (SPECIALS[id]) SPECIALS[id].run();
+}
+// 0.28: an Ultimate form with its own illustrated page plays it the first time each session (part-25)
+function ultBoard() {
+  const id = 'ult_' + player.activeAlien;
+  try { if (BOARDS[id] && cineOn && !(net.role || net.peer) && cineWanted(id)) storyPlay(id); } catch (e) {}
 }
 function applyUltimate(on) {
   if (!player.alien) return;
@@ -9766,6 +9773,7 @@ function storyPreload(id) {
 setInterval(() => {
   try {
     if (started && race === 'omni' && player.selected) storyPreload(player.selected);
+    if (started && player.alien && BOARDS['ult_' + player.activeAlien] && typeof ultForm === 'function' && ultForm()) storyImg(BOARDS['ult_' + player.activeAlien].src); // Ultimate page ready before you evolve
   } catch (e) {}
 }, 800);
 let storyRun = null,
@@ -12248,6 +12256,7 @@ function miniFace(g, w, cx, cy, r, glow) {
     const S = (r * 2) / 0.5;
     g.save(); g.beginPath(); g.arc(cx, cy, r * 1.06, 0, 7); g.clip();
     g.drawImage(body, cx - S / 2, cy - (S * body.height) / body.width / 2, S, (S * body.height) / body.width);
+    if (core) { const cr = r * 0.74; g.drawImage(core, cx - cr, cy - cr, cr * 2, cr * 2); } // 0.28: the new body has an empty socket
     g.restore();
   } else if (core) {
     const img = w.id === 'albedo' ? tintedCore(core, '#ff2a2a', 'albedo') : core;
@@ -12261,7 +12270,7 @@ function miniFace(g, w, cx, cy, r, glow) {
   if (art2) {
     g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = 0.28 + 0.18 * pulse;
     g.beginPath(); g.arc(cx, cy, r * 1.06, 0, 7); g.clip();
-    if (body) { const S = (r * 2) / 0.5; g.drawImage(body, cx - S / 2, cy - (S * body.height) / body.width / 2, S, (S * body.height) / body.width); }
+    if (body) { const S = (r * 2) / 0.5, cr = r * 0.74; g.drawImage(body, cx - S / 2, cy - (S * body.height) / body.width / 2, S, (S * body.height) / body.width); if (core) g.drawImage(core, cx - cr, cy - cr, cr * 2, cr * 2); }
     else g.drawImage(w.id === 'albedo' ? tintedCore(core, '#ff2a2a', 'albedo') : core, cx - r, cy - r, r * 2, r * 2);
     const lg = g.createRadialGradient(cx, cy, 0, cx, cy, r);
     lg.addColorStop(0, w.color + '88'); lg.addColorStop(1, w.color + '00');
@@ -14802,6 +14811,7 @@ function moreSettings(back) {
 const watchVolume = () => lsGet('omni-volume-watch', 100) / 100;
 // ---------------- patch notes ----------------
 const CHANGELOG = [
+  ['0.29', 'Arte nuevo para 18 aliens y 6 formas Ultimate · Escenas de transformación nuevas · Omnitrix Recalibrado y recargas del Ultimatrix'],
   ['0.28', 'Botón «!» para informar de fallos con un código'],
   ['0.27', 'Música propia por zona · Co-op de hasta 4 · Tutorial guiado · Galería de jefes · Encargos de vecinos · Historia 05 · Copias automáticas · Carga más rápida'],
   ['0.26', 'HUD limpio · Aliens a escala y con su poder · Historia 04 · Sobrecarga · Descargas en la web · Juego sin internet en la web'],
