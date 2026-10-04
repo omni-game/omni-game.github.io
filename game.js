@@ -1,4 +1,4 @@
-window.OMNI_BUILD=68;window.OMNI_NOTES=["🎃 Halloween hasta el 2 de noviembre: calabazas cada día, fantasmas de noche y recompensas (Extras → HALLOWEEN)", "Registro de misiones con flecha en pantalla que te guía zona a zona (toca el panel de misión)", "Recompensas de maestría al 25, 50, 75 y 100 % para cada alien", "Fijar objetivo: toca un enemigo (o pulsa L) y tus ataques irán a por él", "Arena de oleadas: elige una mejora cada 3 oleadas y un jefe cada 10", "Medallas de oro, plata y bronce por tiempo en la galería de jefes, con cronómetro", "Pantalla de estadísticas: tiempo, daño, jefes, alien favorito y más", "Vibración en móviles al recibir golpes, transformarte y hacer combos (Ajustes)"];
+window.OMNI_BUILD=69;window.OMNI_NOTES=["Base Fontanera: trofeos, tocadiscos, sala de entrenamiento y mejoras (pausa → JUGAR)", "Jefe mundial: el Titán del Vacío aparece en punto y a y media en una zona distinta", "Carreras contrarreloj con fantasma de tu mejor vuelta y medallas (Extras)", "Pesca en el muelle del faro y en la Ribera: 13 especies y algunos aliens pescan distinto", "50 cápsulas de ADN escondidas y 5 logros secretos", "Intercambio en co-op: pescado, calabazas, núcleos o monedas", "Héroe de la semana: un reto nuevo cada lunes con insignia junto a tu nombre", "Repeticiones: los mejores momentos (jefes, combos ×25) para verlos y guardarlos como foto"];
 'use strict';
 (() => {
 const $ = (s) => document.querySelector(s),
@@ -1661,6 +1661,7 @@ function avatarPacket() {
     shield: player.shield,
     motion: player.motion ? { type: player.motion.type, t: player.motion.t, max: player.motion.max } : null,
     alive: true,
+    hero: heroBadge(), // part-68
   };
 }
 function syncEntities(old, next) {
@@ -1794,6 +1795,10 @@ function lanReceive(m) {
   if (m.type === 'hurt' && m.to && net.myPid && m.to !== net.myPid) return; // meant for another guest
   if (m.type === 'hurt' && m.zone === zone && Number.isFinite(m.damage) && m.damage > 0 && m.damage <= 150) {
     hitPlayer(m.damage);
+    return;
+  }
+  if (m.type === 'b7') {
+    b7Receive(m); // trading, world boss (part-68)
     return;
   }
   if (m.type === 'f4') {
@@ -2227,6 +2232,7 @@ function drawRemote(single) {
     }
     if (o.downed) drawDowned(o, o.downed);
     txt((o.pid ? 'JUGADOR ' + ({ P: 2, X1: 3, X2: 4 }[o.pid] || 2) : net.role === 'guest' ? 'ANFITRIÓN' : 'JUGADOR 2') + ' · NV. ' + o.level, o.x, o.y - h - 22, 9, '#92eaff');
+    if (o.hero) txt('⭐ HÉROE DE LA SEMANA', o.x, o.y - h - 34, 8, '#ffd84a'); // part-68
     ctx.fillStyle = '#102b3a';
     ctx.fillRect(o.x - 35, o.y - h - 14, 70, 5);
     ctx.fillStyle = '#89ddec';
@@ -4295,7 +4301,7 @@ function pauseMenu() {
     eras = w && w.eras ? w.eras.map((e) => ERA_NAMES[e]).join(' + ') : '',
     mc = w && player.masterControl && w.masterControl;
   const groups = [
-    ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['REGISTRO DE MISIONES', () => missionLogMenu(pauseMenu)], ['MENÚ PRINCIPAL', toTitleAsk], ['NOVEDADES', () => whatsNewMenu(pauseMenu)], ['MISIONES', missionBoard], ['HISTORIA · ECOS DEL VACÍO', sagaMenu], ['HISTORIA 03 · CAZADOR', s3Menu], ['HISTORIA 04 · SOBRECARGA', s4Menu], ['HISTORIA 05 · ECO DEL ESPECTRO', s5Menu], ['NUEVA PARTIDA+', () => ngpMenu()], ['BOSS RUSH', bossRushMenu], ['GALERÍA DE JEFES', () => rematchMenu()], ['EXTRAS · ARENA · RETOS · LOGROS', extrasMenu], ['MAPA', () => showWorldMap()], ['VIAJE RÁPIDO', () => travelMenu()], ['FAVORES', () => favoursMenu()], ['ARCADE', () => arcadeMenu()], ...(net.peer ? [['REGALAR MONEDAS', giftMenu]] : []), ['MINIJUEGOS / TRABAJOS', jobsMenu], ['MULTIJUGADOR · CROSSPLAY', lanMenu]]],
+    ['JUGAR', [['CONTINUAR', closeDialog, 'main'], ['REGISTRO DE MISIONES', () => missionLogMenu(pauseMenu)], ['BASE FONTANERA', () => baseMenu(pauseMenu)], ['MENÚ PRINCIPAL', toTitleAsk], ['NOVEDADES', () => whatsNewMenu(pauseMenu)], ['MISIONES', missionBoard], ['HISTORIA · ECOS DEL VACÍO', sagaMenu], ['HISTORIA 03 · CAZADOR', s3Menu], ['HISTORIA 04 · SOBRECARGA', s4Menu], ['HISTORIA 05 · ECO DEL ESPECTRO', s5Menu], ['NUEVA PARTIDA+', () => ngpMenu()], ['BOSS RUSH', bossRushMenu], ['GALERÍA DE JEFES', () => rematchMenu()], ['EXTRAS · ARENA · RETOS · LOGROS', extrasMenu], ['MAPA', () => showWorldMap()], ['VIAJE RÁPIDO', () => travelMenu()], ['FAVORES', () => favoursMenu()], ['ARCADE', () => arcadeMenu()], ...(net.peer ? [['REGALAR MONEDAS', giftMenu], ['INTERCAMBIO', () => tradeMenu(pauseMenu)]] : []), ['MINIJUEGOS / TRABAJOS', jobsMenu], ['MULTIJUGADOR · CROSSPLAY', lanMenu]]],
     ['RELOJ Y ALIENS', [['RELOJ / OMNITRIX', () => watchMenu()], ['MEJORAS DE ALIENS', () => upgradeMenu()], ['EQUIPOS DE ALIENS', () => loadoutMenu()], ['MEJORAS DEL RELOJ', () => watchUpgMenu()], ['LABORATORIO DE ADN', () => labMenu()], ['VARIANTES', () => variantMenu()], ['SKINS DE ALIENS', alienSkinMenu], ['ÁRBOL', skillTree], ['GUÍA / ATAQUES', guide]]],
     ['PERSONAJE', [['PERSONAJE / SKIN', skinMenu], ['RAZAS', raceMenu], ['MODO FOTO', photoMode], ['TÍTULOS', () => titlesMenu(pauseMenu)], ['MAESTRÍA', () => masteryMenu(pauseMenu)], ['ESTADÍSTICAS', () => statsMenu(pauseMenu)], ['PRESTIGIO', prestigeMenu], ['MODO STREAMER: ' + (stream.on ? 'SÍ' : 'NO'), streamToggle], ...(stream.on ? [['RULETA DEL CHAT', chatRoulette]] : []), ['MASCOTA: ' + (F1().pet ? 'SÍ' : 'NO'), () => { F1().pet = !F1().pet; save(); pauseMenu(); }], ['RECOMPENSA DIARIA', dailyCalendar]]],
     [
@@ -4439,6 +4445,7 @@ function interact() {
   if (featInteract()) return; // Historia 03 (part-45)
   if (f3Interact()) return; // favours (part-47)
   if (f4Interact()) return; // secrets (part-48)
+  if (b7Interact()) return; // fishing (part-68)
   if (talkExtra()) return;
   if (puzzleInteract()) return;
   if (missionInteract()) return;
@@ -4978,6 +4985,7 @@ function update(dt) {
   b5Tick(dt); // batch 5 (part-65)
   vmTick(dt); // mastery on the HUD (part-66)
   b6Tick(dt); // batch 6 (part-67)
+  b7Tick(dt); // batch 7 (part-68)
   eliteTick();
   sigTick(dt);
   anoditeTick(dt);
@@ -5244,6 +5252,7 @@ function hud() {
   f2Hud(); // part-46
   f3Hud(); // part-47
   f4Hud(); // part-48
+  b7Hud(); // fishing (part-68)
   anoditeHud();
 }
 function spriteInfo(row) {
@@ -5474,6 +5483,7 @@ function draw() {
   featDraw(); // part-45
   f3Draw(); // part-47
   b6Draw(); // pumpkins (part-67)
+  b7Draw(); // capsules, fishing spots, race checkpoints (part-68)
   f4Draw(); // part-48
   const actors = (
     started
@@ -5666,7 +5676,7 @@ function draw() {
     } else {
       const e = a.e;
       let f = e.wind > 0 || e.cast > 0 ? 3 : e.moving ? (Math.floor(e.anim) % 2) + 1 : 0;
-      if (featDrawEnemy(e, f) || f2DrawEnemy(e) || f4DrawEnemy(e, f)) { scanDrawMark(e); continue; }
+      if (featDrawEnemy(e, f) || f2DrawEnemy(e) || f4DrawEnemy(e, f) || b7DrawEnemy(e, f)) { scanDrawMark(e); continue; }
       if (e.sagaKind) { sagaDrawEnemy(e, f); scanDrawMark(e); continue; }
       scanDrawMark(e);
       if (e.ghost) ctx.filter = ghostFilter(e); // Halloween ghosts (part-67)
@@ -5895,6 +5905,7 @@ function draw() {
   ctx.restore();
   weatherDraw(); // part-47
   b6Hud(); // Halloween light, mission arrow, boss timer (part-67)
+  b7Hud2(); // race timer (part-68)
   photoDecoDraw(); // photo stickers (part-65)
   if (flash > 0) {
     ctx.fillStyle = 'rgba(178,255,122,' + flash * 0.8 + ')';
@@ -11494,6 +11505,7 @@ function statEvent(kind, d = {}) {
   try {
     const s = stats();
     b6Event(kind, d); // part-67
+    if (kind === 'transform') b7Transform(); // part-68
     if (kind === 'kill') s.kills++;
     if (kind === 'transform') {
       try { onTransformEvent(d.alien); } catch (e) {} // combo finisher + malfunction (part-47)
@@ -11660,7 +11672,7 @@ function achMenu(back) {
     'LOGROS',
     n + ' / ' + ACHS.length + ' desbloqueados',
     '<div class="achgrid">' +
-      ACHS.map(([id, icon, name, desc]) => '<div class="ach' + (got[id] ? ' got' : '') + '"><span>' + (got[id] ? icon : '🔒') + '</span><b>' + name + '</b><small>' + desc + '</small></div>').join('') +
+      ACHS.map(([id, icon, name, desc, , secret]) => '<div class="ach' + (got[id] ? ' got' : '') + '"><span>' + (got[id] ? icon : secret ? '❓' : '🔒') + '</span><b>' + (secret && !got[id] ? 'Logro secreto' : name) + '</b><small>' + (secret && !got[id] ? '???' : desc) + '</small></div>').join('') +
       '</div>',
     [['VOLVER', back || closeDialog]],
   );
@@ -11726,6 +11738,13 @@ function extrasMenu() {
       ['PROGRESO', () => progressMenu(extrasMenu)],
       ...(hwOn() ? [['🎃 HALLOWEEN', () => halloweenMenu(extrasMenu)]] : []),
       ['ESTADÍSTICAS', () => statsMenu(extrasMenu)],
+      ['JEFE MUNDIAL', () => wbMenu(extrasMenu)],
+      ['CARRERAS', () => raceMenu(extrasMenu)],
+      ['PESCA', () => fishBook(extrasMenu)],
+      ['VENDER PESCADO', () => fishSellMenu(extrasMenu)],
+      ['HÉROE DE LA SEMANA', () => heroMenu(extrasMenu)],
+      ['REPETICIONES', () => replayMenu(extrasMenu)],
+      ['BASE FONTANERA', () => baseMenu(extrasMenu)],
       ['MAESTRÍA', () => masteryMenu(extrasMenu)],
       ['BOSS RUSH', bossRushMenu],
       ['JEFE DE INCURSIÓN (CO-OP)', raidMenu],
@@ -13443,6 +13462,7 @@ function featHit(e, dmg) {
   combo.n++;
   combo.t = 2.5;
   combo.best = Math.max(combo.best, combo.n);
+  if (combo.n === 25) replaySave('Combo ×25'); // part-68
   if (omniActive() && player.alien && !player.ultimate && !watchHasUlt()) F1().ultra = Math.min(100, F1().ultra + Math.min(6, dmg / 12));
   comboShow();
 }
@@ -13456,6 +13476,7 @@ function featKill(e) {
   rematchKill(e); // part-56
   b5Kill(e); // part-65
   b6Kill(e); // part-67
+  b7Kill(e); // part-68
   s5Kill(e); // part-58
   s4Kill(e); // part-50
   if (zone === 6 && F1().s3.step === 2) { F1().s3.kills++; if (F1().s3.kills >= 6) s3Go(3); else hud(); }
@@ -14273,7 +14294,7 @@ function f2Hud() {
   const v = document.querySelector('.vitals');
   if (!t && v) { t = document.createElement('span'); t.id = 'ptitle'; v.append(t); }
   const tt = TITLES.find((x) => x[0] === f.title);
-  if (t) t.textContent = tt && titleOk(tt[0]) ? '« ' + tt[1] + ' »' : '';
+  if (t) t.textContent = (heroBadge() ? '⭐ ' : '') + (tt && titleOk(tt[0]) ? '« ' + tt[1] + ' »' : heroBadge() ? 'HÉROE DE LA SEMANA' : '');
 }
 // ============================================================================================
 // OMNI 0.23 · FEATURE BATCH 3 — world + watch
@@ -14843,6 +14864,7 @@ function moreSettings(back) {
 const watchVolume = () => lsGet('omni-volume-watch', 100) / 100;
 // ---------------- patch notes ----------------
 const CHANGELOG = [
+  ['0.33', 'Base Fontanera · jefe mundial · carreras · pesca · cápsulas de ADN y logros secretos · intercambio · héroe de la semana · repeticiones'],
   ['0.32', 'Halloween · registro de misiones con flecha · recompensas de maestría · fijar objetivo · mejoras y jefes en la arena · medallas de tiempo · estadísticas · vibración'],
   ['0.31.1', 'Volver al menú principal · Novedades · Maestría del alien en pantalla'],
   ['0.31', 'Forma Ultimate para todos los aliens · combos · jefes con fase 2 · alien del día · Nueva Partida+ · tipos de enemigo · progreso · pegatinas de foto'],
@@ -17209,6 +17231,668 @@ function b6DrawTop() { // world, over the actors (part-11)
   }
 }
 function b6Hud() { hwHud(); mlArrow(); rmTimerHud(); } // screen space (part-11)
+// ============================================================================================
+// OMNI 0.33 · BATCH 7
+//  BASE        BASE FONTANERA (pause → JUGAR / Extras): trophy wall, jukebox, training room and upgrades bought with
+//              coins and Titan cores (generator, infirmary, radar, cold store).
+//  WORLD BOSS  the Void Titan turns up twice an hour (minutes 0–9 and 30–39) in a rotating outdoor zone. Everyone in
+//              the zone fights it; it drops a Titan core.
+//  RACES       Extras → CARRERAS: three checkpoint tracks, a ghost of your best run, medals by time.
+//  FISHING     a spot on the Muelles pier and one on the Ribera: bite → tap → reel minigame, 13 fish, some aliens fish
+//              differently (Ripjaws, Heatblast, Big Chill). Sell your catch or trade it.
+//  CAPSULES    50 hidden DNA capsules tucked into corners of every zone, plus 5 secret achievements.
+//  TRADING     co-op: offer fish, pumpkins, cores or coins for something of your partner's (escrowed both ways).
+//  HERO        one rotating weekly target; finishing it gives the ⭐ HÉROE DE LA SEMANA badge (shown in co-op too).
+//  REPLAYS     the last ~4 seconds are kept; a boss kill or a big combo saves the moment to watch again or save.
+// ============================================================================================
+function B7() {
+  const b = (player.b7 = player.b7 && typeof player.b7 === 'object' ? player.b7 : {});
+  for (const k of ['inv', 'fish', 'caps', 'ghosts', 'race', 'wb', 'up', 'sec', 'hw']) if (!b[k] || typeof b[k] !== 'object') b[k] = {};
+  for (const k of ['cores', 'maxTalk', 'titans', 'fishN', 'raceMedals']) b[k] = b[k] || 0;
+  return b;
+}
+// ---------------- near / interact / hud (part-09 interact, part-11 hud) ----------------
+function b7Near() {
+  if (!started) return null;
+  const f = fishSpotHere();
+  if (f && dist(player, f) < 95) return ['🎣 PESCAR', () => fishOpen(f)];
+  return null;
+}
+function b7Interact() { const n = b7Near(); if (!n) return false; n[1](); return true; }
+function b7Hud() { const n = b7Near(); if (n) { $('#talk').classList.remove('hidden'); $('#talk').textContent = n[0]; } }
+let b7LastNear = '';
+setInterval(() => { try { if (!started) return; const n = b7Near(), l = n ? n[0] : ''; if (l !== b7LastNear) { b7LastNear = l; hud(); } } catch (e) {} }, 300);
+// ---------------- fishing ----------------
+const FISH_SPOTS = [{ z: 5, x: 240, y: 770, water: 'sea', name: 'Muelle del faro' }, { z: 2, x: 760, y: 790, water: 'river', name: 'Orilla de la Ribera' }];
+const fishSpotHere = () => FISH_SPOTS.find((s) => s.z === zone) || null;
+const FISH = [
+  // id, name, water, rarity 1-5, value, night only
+  ['sardina', 'Sardina', 'sea', 1, 10], ['caballa', 'Caballa', 'sea', 1, 15], ['lubina', 'Lubina', 'sea', 2, 30], ['pulpo', 'Pulpo', 'sea', 3, 45],
+  ['espada', 'Pez espada', 'sea', 4, 90], ['linterna', 'Pez linterna abisal', 'sea', 4, 150], ['medusa', 'Medusa del Vacío', 'sea', 5, 250, true],
+  ['trucha', 'Trucha', 'river', 1, 12], ['carpa', 'Carpa', 'river', 1, 15], ['barbo', 'Barbo', 'river', 2, 25], ['anguila', 'Anguila', 'river', 3, 50],
+  ['lucio', 'Lucio', 'river', 4, 80], ['luciernaga', 'Pez luciérnaga', 'river', 5, 200, true],
+];
+const RAR = [null, ['COMÚN', '#cfe8d0'], ['NORMAL', '#8de5f3'], ['RARO', '#7aa8ff'], ['ÉPICO', '#c084ff'], ['LEGENDARIO', '#ffd84a']];
+const fishById = (id) => FISH.find((f) => f[0] === id);
+function fishValue(id) { return Math.round(fishById(id)[4] * (1 + 0.25 * (B7().up.cold || 0))); }
+function fishPick(water, bonus) {
+  const night = isNight() || dayMode === 'noche', pool = FISH.filter((f) => f[2] === water && (!f[5] || night));
+  const w = pool.map((f) => Math.pow([0, 10, 5, 2.4, 1, 0.4][f[3]], 1 / (bonus || 1)));
+  let r = Math.random() * w.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < pool.length; i++) if ((r -= w[i]) <= 0) return pool[i];
+  return pool[0];
+}
+let fishG = null;
+function fishOpen(spot) {
+  if (dialogOpen || arc || fishG) return;
+  let el = document.getElementById('fishing');
+  if (!el) { el = document.createElement('div'); el.id = 'fishing'; $('#game').append(el); }
+  el.innerHTML = '<div class="arcbox"><b>PESCA · ' + spot.name.toUpperCase() + '</b><canvas width="520" height="320"></canvas><small id="fishmsg"></small><span class="fishbtns"><button id="fishact" class="main">LANZAR</button><button id="fishsell">VENDER</button><button id="fishbook">CUADERNO</button><button id="fishquit">SALIR</button></span></div>';
+  el.classList.remove('hidden');
+  const c = el.querySelector('canvas');
+  const alien = player.alien && race === 'omni' ? player.activeAlien : null;
+  fishG = { spot, c, g: c.getContext('2d'), state: 'idle', t: 0, alien, bob: 0, hold: false, zoneY: 0.5, fishY: 0.5, fishV: 0, prog: 0, msg: '', catchFish: null, last: performance.now() };
+  photoOn = true; // freeze the world while fishing
+  const act = () => fishAct();
+  el.querySelector('#fishact').onclick = act;
+  el.querySelector('#fishquit').onclick = fishClose;
+  el.querySelector('#fishsell').onclick = () => { fishClose(); fishSellMenu(); };
+  el.querySelector('#fishbook').onclick = () => { fishClose(); fishBook(); };
+  c.onpointerdown = (e) => { e.preventDefault(); if (fishG) { if (fishG.state === 'reel') fishG.hold = true; else act(); } };
+  c.onpointerup = c.onpointercancel = () => { if (fishG) fishG.hold = false; };
+  fishMsg(alien === 'ripjaws' ? 'Ripjaws se mete en el agua: ¡los peces raros se acercan más!' : alien === 'heatblast' ? 'Heatblast hierve el agua: pescas al momento, pero el pez sale cocido (vale la mitad).' : alien === 'bigchill' ? 'Big Chill enfría el agua: los peces se mueven más despacio.' : 'Pulsa LANZAR (o ESPACIO). Cuando pique, ¡toca rápido!');
+  requestAnimationFrame(fishLoop);
+}
+function fishMsg(t) { const m = document.getElementById('fishmsg'); if (m) m.textContent = t; }
+function fishClose() {
+  if (!fishG) return;
+  fishG = null; photoOn = false; last = performance.now();
+  const el = document.getElementById('fishing'); if (el) el.classList.add('hidden');
+}
+function fishAct() {
+  const F = fishG;
+  if (!F) return;
+  if (F.state === 'idle' || F.state === 'caught' || F.state === 'lost') {
+    F.state = 'wait'; F.t = F.alien === 'ripjaws' ? 0.6 : 1.5 + Math.random() * 3.5; F.catchFish = fishPick(F.spot.water, F.alien === 'ripjaws' ? 2 : 1);
+    fishMsg('Esperando a que pique…'); playWatchSFX('select');
+    $('#fishact').textContent = '¡TIRAR!';
+  } else if (F.state === 'bite') {
+    if (F.alien === 'heatblast') return fishLand(true);
+    F.state = 'reel'; F.prog = 0.3; F.fishY = 0.5; F.zoneY = 0.5; F.fishV = 0; F.t = 14;
+    fishMsg('Mantén pulsado para subir la barra verde y que el pez quede dentro.'); $('#fishact').textContent = 'MANTÉN';
+  } else if (F.state === 'wait') { F.state = 'lost'; fishMsg('Demasiado pronto: se ha asustado. Lanza otra vez.'); $('#fishact').textContent = 'LANZAR'; }
+}
+function fishLand(cooked) {
+  const F = fishG, f = F.catchFish, b = B7();
+  b.fish[f[0]] = (b.fish[f[0]] || 0) + 1; b.fishN++;
+  const k = cooked ? 'c:' + f[0] : 'f:' + f[0];
+  b.inv[k] = (b.inv[k] || 0) + 1;
+  F.state = 'caught';
+  fishMsg('¡' + f[1] + (cooked ? ' (cocido)' : '') + '! · ' + RAR[f[3]][0] + ' · vale ' + (cooked ? Math.round(fishValue(f[0]) / 2) : fishValue(f[0])) + ' monedas' + (b.fish[f[0]] === 1 ? ' · ¡NUEVO EN EL CUADERNO!' : ''));
+  $('#fishact').textContent = 'LANZAR';
+  playWatchSFX(f[3] >= 4 ? 'recharged' : 'dna_added'); rumble(f[3] >= 4 ? [40, 30, 80] : 30);
+  heroEvent('fish');
+  save();
+}
+function fishLoop(now) {
+  const F = fishG;
+  if (!F) return;
+  const dt = Math.min(0.05, (now - F.last) / 1000); F.last = now;
+  const g = F.g, W2 = 520, H2 = 320, cold = F.alien === 'bigchill' ? 0.55 : 1;
+  F.bob += dt;
+  if (F.state === 'wait' && (F.t -= dt) <= 0) { F.state = 'bite'; F.t = 0.85; fishMsg('¡PICA! ¡Toca ya!'); rumble([20, 20, 20]); playWatchSFX('warning'); }
+  else if (F.state === 'bite' && (F.t -= dt) <= 0) { F.state = 'lost'; fishMsg('Se escapó… Lanza otra vez.'); $('#fishact').textContent = 'LANZAR'; }
+  else if (F.state === 'reel') {
+    const r = F.catchFish[3], spd = (0.5 + r * 0.35) * cold;
+    F.fishV += (Math.random() - 0.5) * spd * 6 * dt; F.fishV *= 0.97; F.fishY = clamp(F.fishY + F.fishV * dt * 2.2, 0.04, 0.96);
+    if (F.fishY <= 0.04 || F.fishY >= 0.96) F.fishV *= -0.6;
+    F.zoneY = clamp(F.zoneY + (F.hold || F.keyHold ? -0.9 : 0.75) * dt, 0.1, 0.9);
+    const zh = 0.13 + (F.alien === 'bigchill' ? 0.05 : 0);
+    F.prog = clamp(F.prog + (Math.abs(F.fishY - F.zoneY) < zh ? 0.22 : -0.16) * dt * (1.4 - r * 0.12), 0, 1);
+    F.t -= dt;
+    if (F.prog >= 1) fishLand(false);
+    else if (F.prog <= 0 || F.t <= 0) { F.state = 'lost'; fishMsg('¡Se soltó! Lanza otra vez.'); $('#fishact').textContent = 'LANZAR'; }
+  }
+  // draw
+  const night = isNight() || dayMode === 'noche', sky = g.createLinearGradient(0, 0, 0, H2);
+  sky.addColorStop(0, night ? '#0b1530' : '#7cc4ff'); sky.addColorStop(0.42, night ? '#16284a' : '#bfe6ff'); sky.addColorStop(0.43, F.spot.water === 'sea' ? '#0f3d63' : '#1d4a3a'); sky.addColorStop(1, F.spot.water === 'sea' ? '#06213a' : '#0d2a20');
+  g.fillStyle = sky; g.fillRect(0, 0, W2, H2);
+  g.strokeStyle = 'rgba(255,255,255,.15)'; g.lineWidth = 2;
+  for (let i = 0; i < 9; i++) { const y = 150 + i * 18, o = (F.bob * 30 + i * 40) % 60; g.beginPath(); for (let x = -60; x < W2 + 60; x += 30) g.lineTo(x + o, y + Math.sin(x * 0.05 + F.bob * 2 + i) * 2); g.stroke(); }
+  g.fillStyle = '#5a3b1e'; g.fillRect(0, 128, 140, 14); g.fillRect(20, 142, 10, 60); g.fillRect(110, 142, 10, 60); // pier
+  const bx = 330, by = 172 + Math.sin(F.bob * 3) * 3 + (F.state === 'bite' ? 6 + Math.sin(F.bob * 40) * 4 : 0);
+  g.strokeStyle = '#e8e8e8'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(120, 80); g.quadraticCurveTo(240, 60, bx, by - 8); g.stroke();
+  g.strokeStyle = '#3b2a18'; g.lineWidth = 5; g.beginPath(); g.moveTo(70, 126); g.lineTo(120, 80); g.stroke();
+  if (F.state !== 'idle') { g.fillStyle = '#ff4d4d'; g.beginPath(); g.arc(bx, by - 4, 6, Math.PI, 0); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(bx, by - 4, 6, 0, Math.PI); g.fill(); }
+  if (F.state === 'bite') { g.fillStyle = '#ffd84a'; g.font = 'bold 26px Arial'; g.textAlign = 'center'; g.fillText('¡PICA!', bx, by - 30); }
+  if (F.state === 'reel') {
+    const X = 450, Y = 30, Hh = 260, zh = (0.13 + (F.alien === 'bigchill' ? 0.05 : 0)) * 2;
+    g.fillStyle = '#071923'; g.fillRect(X, Y, 34, Hh); g.strokeStyle = '#749286'; g.strokeRect(X, Y, 34, Hh);
+    g.fillStyle = 'rgba(125,255,154,.55)'; g.fillRect(X + 2, Y + (F.zoneY - zh / 2) * Hh, 30, zh * Hh);
+    g.fillStyle = RAR[F.catchFish[3]][1]; g.beginPath(); g.ellipse(X + 17, Y + F.fishY * Hh, 11, 6, 0, 0, 7); g.fill();
+    g.fillStyle = '#071923'; g.fillRect(X + 44, Y, 10, Hh); g.fillStyle = '#ffd84a'; g.fillRect(X + 44, Y + Hh * (1 - F.prog), 10, Hh * F.prog);
+  }
+  if (F.state === 'caught') {
+    const f = F.catchFish; g.save(); g.translate(260, 110); g.fillStyle = RAR[f[3]][1];
+    g.beginPath(); g.ellipse(0, 0, 46, 20, 0, 0, 7); g.fill(); g.beginPath(); g.moveTo(40, 0); g.lineTo(66, -18); g.lineTo(66, 18); g.fill();
+    g.fillStyle = '#071923'; g.beginPath(); g.arc(-26, -5, 4, 0, 7); g.fill();
+    g.fillStyle = '#fff'; g.font = 'bold 16px Arial'; g.textAlign = 'center'; g.fillText(f[1].toUpperCase(), 0, 46); g.restore();
+  }
+  requestAnimationFrame(fishLoop);
+}
+document.addEventListener('keydown', (e) => { if (!fishG) return; if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); if (fishG.state === 'reel') fishG.keyHold = true; else if (!e.repeat) fishAct(); } if (e.key === 'Escape') fishClose(); }, true);
+document.addEventListener('keyup', (e) => { if (fishG && (e.key === ' ' || e.key === 'Enter')) fishG.keyHold = false; }, true);
+function invList() { const b = B7(); return Object.entries(b.inv).filter(([k, n]) => n > 0 && (k.startsWith('f:') || k.startsWith('c:'))); }
+function fishSellMenu(back) {
+  const L = invList(), total = L.reduce((a, [k, n]) => a + n * (k.startsWith('c:') ? Math.round(fishValue(k.slice(2)) / 2) : fishValue(k.slice(2))), 0);
+  showDialog('VENDER PESCADO', L.length ? total + ' monedas por todo' : 'No tienes pescado',
+    L.map(([k, n]) => { const f = fishById(k.slice(2)); return '<div class="xrow"><b>' + f[1] + (k.startsWith('c:') ? ' (cocido)' : '') + ' ×' + n + '</b><small style="color:' + RAR[f[3]][1] + '">' + RAR[f[3]][0] + ' · ' + (k.startsWith('c:') ? Math.round(fishValue(f[0]) / 2) : fishValue(f[0])) + ' monedas cada uno</small></div>'; }).join('') || '<p>Ve a pescar al muelle del faro o a la Ribera.</p>',
+    [...(L.length ? [['VENDER TODO', () => { const b = B7(); for (const [k] of L) b.inv[k] = 0; player.coins = (player.coins || 0) + total; toast('+' + total + ' monedas'); playWatchSFX('dna_added'); save(); hud(); fishSellMenu(back); }]] : []), ['VOLVER', back || closeDialog]]);
+}
+function fishBook(back) {
+  const b = B7();
+  showDialog('CUADERNO DE PESCA', FISH.filter((f) => b.fish[f[0]]).length + ' / ' + FISH.length + ' especies',
+    '<div class="codex">' + FISH.map((f) => '<button class="cx' + (b.fish[f[0]] ? '' : ' locked') + '" style="--c:' + RAR[f[3]][1] + '"><b>' + (b.fish[f[0]] ? f[1] : '???') + '</b><small>' + RAR[f[3]][0] + ' · ' + (f[2] === 'sea' ? 'mar' : 'río') + (f[5] ? ' · de noche' : '') + (b.fish[f[0]] ? ' · ×' + b.fish[f[0]] : '') + '</small></button>').join('') + '</div>',
+    [['VOLVER', back || closeDialog]]);
+}
+TITLES.push(['pescador', 'Maestro pescador', 'Pesca las 13 especies', () => FISH.every((f) => B7().fish[f[0]])]);
+function fishDraw() { // a sign + rod stand at the spot (world, part-11)
+  const s = fishSpotHere();
+  if (!s) return;
+  ctx.save();
+  ctx.fillStyle = '#5a3b1e'; ctx.fillRect(s.x - 3, s.y - 50, 6, 50);
+  ctx.fillStyle = '#e8d6a0'; ctx.fillRect(s.x - 26, s.y - 66, 52, 20); ctx.strokeStyle = '#5a3b1e'; ctx.lineWidth = 2; ctx.strokeRect(s.x - 26, s.y - 66, 52, 20);
+  ctx.restore();
+  txt('🎣 PESCA', s.x, s.y - 52, 9, '#3b2a18');
+}
+// ---------------- capsules + secret achievements ----------------
+const CAP_ZONES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14];
+let capCache = null;
+function capSpots() {
+  if (capCache) return capCache;
+  const out = [];
+  CAP_ZONES.forEach((z, zi) => {
+    const r = REGIONS[z], R = seeded(7777 + z * 191), n = zi < 8 ? 4 : 3, mine = [];
+    for (let tries = 0; mine.length < n && tries < 120; tries++) {
+      const edge = R() < 0.5, x = edge ? (R() < 0.5 ? r.minX + 50 + R() * 140 : r.maxX - 50 - R() * 140) : r.minX + 120 + R() * (r.maxX - r.minX - 240), y = R() < 0.5 ? r.top + 14 + R() * 40 : r.bottom - 14 - R() * 40;
+      if (!isSolid(x, y) && !mine.some((p) => Math.abs(p.x - x) < 220)) mine.push({ z, x: Math.round(x), y: Math.round(y), k: z + ':' + mine.length });
+    }
+    out.push(...mine);
+  });
+  return (capCache = out.slice(0, 50));
+}
+const capGot = () => Object.keys(B7().caps).length;
+function capTick() {
+  for (const c of capSpots()) {
+    if (c.z !== zone || B7().caps[c.k] || Math.hypot(player.x - c.x, player.y - c.y) > 50) continue;
+    B7().caps[c.k] = 1;
+    const n = capGot(), total = capSpots().length;
+    player.coins = (player.coins || 0) + 20;
+    burst(c.x, c.y - 10, 24, '#7dff9a'); playWatchSFX('dna_added'); rumble(25);
+    heroEvent('caps');
+    let extra = '';
+    if (n === 10) { player.coins += 300; extra = ' · +300 monedas'; }
+    if (n === 25) { player.coins += 800; xp(800); extra = ' · +800 monedas · +800 EXP'; }
+    if (n === total) { player.coins += 2500; xp(2500); extra = ' · ¡TODAS! +2500 monedas · +2500 EXP'; }
+    toast('CÁPSULA DE ADN ' + n + ' / ' + total + ' · +20 monedas' + extra);
+    save();
+  }
+}
+function capDraw() {
+  const radar = B7().up.radar ? 600 : 260;
+  for (const c of capSpots()) {
+    if (c.z !== zone || B7().caps[c.k]) continue;
+    const d = Math.hypot(player.x - c.x, player.y - c.y);
+    ctx.save(); ctx.globalAlpha = d < radar ? 0.95 : 0.28;
+    ctx.translate(c.x, c.y - 8 + Math.sin(clock * 3 + c.x) * 2);
+    ctx.fillStyle = '#d8ffe0'; ctx.fillRect(-5, -9, 10, 18); ctx.fillStyle = '#3ddc6a'; ctx.fillRect(-5, -1, 10, 10); ctx.strokeStyle = '#0d3b1c'; ctx.lineWidth = 1.5; ctx.strokeRect(-5, -9, 10, 18);
+    if (d < radar && Math.sin(clock * 6 + c.y) > 0.6) { ctx.fillStyle = '#ffffff'; ctx.fillRect(7, -14, 3, 3); ctx.fillRect(-11, 4, 2, 2); }
+    ctx.restore();
+  }
+}
+const SEC = (id) => !!B7().sec[id];
+ACHS.push(['sec_caps', '🧬', 'Coleccionista secreto', 'Encuentra las 50 cápsulas de ADN', () => capGot() >= 50, true]);
+ACHS.push(['sec_night', '🌙', 'Búho', 'Juega 10 minutos seguidos de noche', () => SEC('night'), true]);
+ACHS.push(['sec_1hp', '❤️', 'Por los pelos', 'Gana una revancha con menos del 10 % de vida', () => SEC('close'), true]);
+ACHS.push(['sec_swap', '⌚', 'Dedos rápidos', 'Transfórmate 10 veces en un minuto', () => SEC('swap'), true]);
+ACHS.push(['sec_max', '👴', 'Pesado', 'Habla con Max 15 veces', () => B7().maxTalk >= 15, true]);
+ACHS.push(['fish_all', '🎣', 'Maestro pescador', 'Pesca las 13 especies', () => FISH.every((f) => B7().fish[f[0]])]);
+ACHS.push(['titan', '🗿', 'Cazatitanes', 'Derrota al Titán del Vacío', () => B7().titans >= 1]);
+{
+  const talk0 = talk;
+  talk = function () { B7().maxTalk++; return talk0.apply(this, arguments); };
+}
+let swapTimes = [], nightRun = 0;
+// ---------------- world boss ----------------
+function wbWindow(d = new Date()) {
+  const m = d.getMinutes(), half = m >= 30 ? 1 : 0, on = m % 30 < 10;
+  const key = dayKey(d) + ':' + d.getHours() + ':' + half, z = OUTDOOR.filter((x) => x !== 1)[(d.getHours() * 2 + half) % (OUTDOOR.length - 1)];
+  const left = on ? (10 - (m % 30)) * 60 - d.getSeconds() : (30 - (m % 30)) * 60 - d.getSeconds();
+  return { on, key, z, left };
+}
+function wbForced() { try { return localStorage.getItem('omni-wb') === '1'; } catch (e) { return false; } }
+let wbWarned = '';
+function wbTick(dt) {
+  if (net.role === 'guest' || !started) return;
+  const w = wbWindow(), forced = wbForced(), on = w.on || forced;
+  const boss = enemies.find((e) => e.wboss && e.alive);
+  if (boss && !on) { boss.alive = false; boss.respawn = 1e9; toast('El Titán del Vacío se retira… vuelve cada media hora'); return; }
+  if (!w.on && w.left <= 60 && wbWarned !== w.key) { wbWarned = w.key; toast('⚠ El TITÁN DEL VACÍO aparecerá en 1 minuto en ' + REGIONS[wbWindow(new Date(Date.now() + 70000)).z].name); }
+  if (!on || (zone !== w.z && !forced) || B7().wb[w.key] || boss || arenaOn() || rush.on || rm.on || rc.on || dun.on) return;
+  const r = region(), x = (r.minX + r.maxX) / 2 + 200, y = (r.top + r.bottom) / 2, hp = Math.round(22000 * (1 + player.level * 0.05));
+  enemies.push({ id: 980, x, y, homeX: x, homeY: y, face: -1, hp, max: hp, boss: true, wboss: true, wkey: w.key, kind: 'enemy', rcd: 2, cast: 0, stun: 0.5, alive: true, respawn: 1e9, cd: 1, wind: 0, anim: 0, hit: 0, moving: false, temp: true, modRolled: true, behRolled: true, ghostRolled: true, ring: 3, slam: 7, call: 12 });
+  toast('🗿 ¡EL TITÁN DEL VACÍO HA LLEGADO A ' + region().name.toUpperCase() + '!');
+  playWatchSFX('warning'); rumble([100, 60, 100]); shake = 0.5;
+}
+function wbBossTick(dt) {
+  if (net.role === 'guest') return;
+  for (const e of enemies) {
+    if (!e.wboss || !e.alive) continue;
+    const half = e.hp < e.max / 2;
+    e.ring -= dt; e.slam -= dt; e.call -= dt;
+    if (e.ring <= 0) { e.ring = half ? 2.2 : 3.2; const n = half ? 16 : 12; for (let k = 0; k < n; k++) { const a = (k / n) * Math.PI * 2 + e.ring; hostileShots.push({ type: 'void', x: e.x, y: e.y - 120, dx: Math.cos(a) * 230, dy: Math.sin(a) * 160, t: 2.6, damage: Math.round(12 * lvDmg()), r: 10 }); } }
+    if (e.slam <= 0) { e.slam = half ? 5 : 7; burst(e.x, e.y, 40, '#a65cff'); shake = 0.35; effects.push({ type: 'ring', x: e.x, y: e.y, t: 0.6, max: 0.6, r: 260 }); for (const t of teamTargets()) if (dist(t, e) < 240) hurtTeam(t, Math.round(26 * lvDmg())); }
+    if (e.call <= 0) { e.call = 16; for (let k = 0; k < 3; k++) { const x = e.x - 200 + k * 200, hp = Math.round(120 * (1 + player.level * 0.05)); enemies.push({ id: 981 + Math.floor(Math.random() * 15), x, y: e.y + 40, homeX: x, homeY: e.y, face: -1, hp, max: hp, kind: 'enemy', rcd: 2, cast: 0, stun: 0.6, alive: true, respawn: 1e9, cd: 1.5, wind: 0, anim: 0, hit: 0, moving: false, temp: true, mini: true, modRolled: true, behRolled: true, ghostRolled: true }); } }
+  }
+}
+function b7DrawEnemy(e, f) {
+  if (!e.wboss) return false;
+  ctx.save();
+  ctx.fillStyle = 'rgba(120,40,200,.25)'; ctx.beginPath(); ctx.ellipse(e.x, e.y, 120, 34, 0, 0, 7); ctx.fill();
+  ctx.filter = 'hue-rotate(200deg) saturate(1.8) brightness(.8) contrast(1.2)';
+  sprite(2, f, e.x, e.y, 300, e.face, e.hit > 0 ? 0.6 : 1);
+  ctx.restore();
+  const by = e.y - 320;
+  txt('JEFE MUNDIAL · TITÁN DEL VACÍO', e.x, by - 10, 12, '#d6b0ff');
+  ctx.fillStyle = '#101522'; ctx.fillRect(e.x - 120, by, 240, 10);
+  ctx.fillStyle = '#a65cff'; ctx.fillRect(e.x - 120, by, 240 * Math.max(0, e.hp / e.max), 10);
+  return true;
+}
+function wbWin(key) {
+  const b = B7();
+  b.wb[key] = 1; b.titans++; b.cores++;
+  xp(1200); player.coins = (player.coins || 0) + 500;
+  toast('🗿 ¡TITÁN DERROTADO! · +1200 EXP · +500 monedas · +1 Núcleo de Titán');
+  playWatchSFX('recharged'); rumble([80, 40, 160]);
+  replaySave('Titán del Vacío');
+  save();
+}
+function wbMenu(back) {
+  const w = wbWindow(), done = B7().wb[w.key], mm = (s) => Math.floor(s / 60) + ' min ' + String(s % 60).padStart(2, '0') + ' s';
+  showDialog('JEFE MUNDIAL', 'Titán del Vacío',
+    '<p>Aparece <b>dos veces cada hora</b> (en punto y a y media) durante 10 minutos, cada vez en una zona distinta. Si estáis en co-op, todos los de la zona pelean juntos.</p>' +
+      '<p class="reward">' + (w.on ? (done ? 'Ya lo derrotaste en esta aparición. Vuelve en ' + mm(w.left + 20 * 60) : '¡AHORA en <b>' + REGIONS[w.z].name + '</b>! Quedan ' + mm(w.left)) : 'Próxima aparición en ' + mm(w.left) + ' · ' + REGIONS[wbWindow(new Date(Date.now() + (w.left + 5) * 1000)).z].name) + '</p>' +
+      '<p>Recompensa: 1200 EXP · 500 monedas · 1 Núcleo de Titán (para mejorar tu base). Titanes derrotados: <b>' + B7().titans + '</b> · Núcleos: <b>' + B7().cores + '</b></p>',
+    [['VOLVER', back || extrasMenu]]);
+}
+// ---------------- races ----------------
+const TRACKS = [['bahia', 'Circuito de la Bahía', 3], ['mercado', 'Sprint del Mercado', 4], ['muelles', 'Vuelta a los Muelles', 5]];
+const rc = { on: false, id: null, z: 0, pts: [], i: 0, t: 0, count: 0, rec: [], recT: 0, ghost: null };
+let trackCache = {};
+function trackPts(id) {
+  if (trackCache[id]) return trackCache[id];
+  const T = TRACKS.find((x) => x[0] === id), r = REGIONS[T[2]], R = seeded(4242 + T[2] * 13), pts = [], n = 8;
+  for (let i = 0; i < n; i++) {
+    const fx = i < n / 2 ? i / (n / 2 - 1) : 1 - (i - n / 2) / (n / 2 - 1), top = i < n / 2;
+    for (let tries = 0; tries < 40; tries++) {
+      const x = r.minX + 140 + fx * (r.maxX - r.minX - 280) + (R() - 0.5) * 80, y = top ? r.top + 30 + R() * 50 : r.bottom - 30 - R() * 50;
+      if (!isSolid(x, y) || tries === 39) { pts.push({ x: Math.round(x), y: Math.round(y) }); break; }
+    }
+  }
+  return (trackCache[id] = pts);
+}
+function trackLen(id) { const p = trackPts(id); let L = 0; for (let i = 1; i < p.length; i++) L += Math.hypot(p[i].x - p[i - 1].x, p[i].y - p[i - 1].y); return L + Math.hypot(p[0].x - p[p.length - 1].x, p[0].y - p[p.length - 1].y); }
+function raceTargets(id) { const L = trackLen(id); return [Math.round(L / 190), Math.round(L / 260), Math.round(L / 360)]; } // bronze, silver, gold
+const raceMedal = (id, t) => { const [b, s, g] = raceTargets(id); return t <= g ? 3 : t <= s ? 2 : t <= b ? 1 : 0; };
+function raceMenu(back) {
+  const R = B7().race;
+  showDialog('CARRERAS', 'Contrarreloj por puntos de control',
+    '<p>Pasa por los 8 puntos en orden y vuelve a la salida. El alien importa: <b>XLR8</b> y los voladores van más rápido; usa también MOVER RÁPIDO (SHIFT). Corres contra el <b>fantasma</b> de tu mejor vuelta.</p>' +
+      TRACKS.map(([id, n, z]) => { const best = R[id], m = best ? raceMedal(id, best) : 0, [b, s, g] = raceTargets(id); return '<div class="xrow"><b>' + n + '</b><small>' + REGIONS[z].name + ' · ' + (best ? 'récord ' + rushFmt(best) + (m ? ' · ' + MEDALS[m][0] : '') : 'sin tiempo') + ' · oro ' + rushFmt(g) + ' · plata ' + rushFmt(s) + ' · bronce ' + rushFmt(b) + '</small><span class="lbtns"><button class="pbtn main" data-race="' + id + '">CORRER</button></span></div>'; }).join(''),
+    [['VOLVER', back || extrasMenu]]);
+  for (const btn of document.querySelectorAll('[data-race]')) btn.onclick = () => raceStart(btn.dataset.race);
+}
+function raceStart(id) {
+  if (net.role === 'guest' && net.peer) return toast('Las carreras son para jugar solo o como anfitrión');
+  if (arenaOn() || rush.on || rm.on || dun.on) return toast('Termina antes lo que estás haciendo');
+  const T = TRACKS.find((x) => x[0] === id);
+  closeDialog();
+  if (zone !== T[2]) enterZone(T[2], 'center');
+  enemies = []; zoneStates[region().id] = enemies;
+  const pts = trackPts(id);
+  Object.assign(rc, { on: true, id, z: T[2], pts, i: 0, t: 0, count: 3, rec: [], recT: 0, ghost: B7().ghosts[id] || null });
+  player.x = pts[pts.length - 1].x; player.y = pts[pts.length - 1].y;
+  toast('CARRERA · ' + T[1] + ' · 3…'); playWatchSFX('warning');
+}
+function raceEnd(why) {
+  if (!rc.on) return;
+  rc.on = false;
+  delete zoneStates[REGIONS[rc.z].id];
+  if (why === 'win') {
+    const R = B7().race, id = rc.id, t = rc.t, prev = R[id], rec = !prev || t < prev, m = raceMedal(id, t), M = B6().medals, k = 'race:' + id, pm = M[k] || 0;
+    if (rec) { R[id] = t; B7().ghosts[id] = rc.rec; }
+    let reward = 0;
+    if (m > pm) { M[k] = m; reward = [0, 60, 120, 250][m] - [0, 60, 120, 250][pm]; player.coins = (player.coins || 0) + reward; if (m === 3) heroEvent('gold'); }
+    showDialog('¡META!', TRACKS.find((x) => x[0] === id)[1] + ' · ' + rushFmt(t),
+      '<p>' + (rec ? '<b>¡NUEVO RÉCORD!</b> Tu fantasma correrá contigo la próxima vez.' : 'Récord: ' + rushFmt(prev)) + '</p><p class="medal">' + (m ? '<b style="color:' + MEDALS[m][1] + '">MEDALLA DE ' + MEDALS[m][0] + '</b>' + (reward ? ' · +' + reward + ' monedas' : '') : 'Sin medalla') + '</p>',
+      [['OTRA VEZ', () => raceStart(id)], ['CARRERAS', () => raceMenu()], ['SALIR', closeDialog]]);
+    playWatchSFX('recharged'); rumble([40, 30, 80]);
+    save();
+  } else if (why) toast('Carrera cancelada');
+  if (zone === rc.z) spawnEnemies();
+}
+function raceTick(dt) {
+  if (!rc.on) return;
+  if (zone !== rc.z) return raceEnd('left');
+  if (rc.count > 0) {
+    const before = Math.ceil(rc.count);
+    rc.count -= dt;
+    const p = rc.pts[rc.pts.length - 1]; player.x = p.x; player.y = p.y;
+    if (Math.ceil(rc.count) !== before) { if (rc.count > 0) toast(Math.ceil(rc.count) + '…'); else { toast('¡YA!'); playWatchSFX('confirm'); rumble(40); } }
+    return;
+  }
+  rc.t += dt;
+  rc.recT -= dt;
+  if (rc.recT <= 0 && rc.rec.length < 1500) { rc.recT = 0.1; rc.rec.push([Math.round(player.x), Math.round(player.y)]); }
+  const p = rc.pts[rc.i];
+  if (Math.hypot(player.x - p.x, player.y - p.y) < 70) {
+    rc.i++; playWatchSFX('select'); rumble(15);
+    if (rc.i >= rc.pts.length) raceEnd('win');
+  }
+  if (rc.t > 300) raceEnd('timeout');
+}
+function raceDraw() {
+  if (!rc.on) return;
+  rc.pts.forEach((p, i) => {
+    if (i < rc.i) return;
+    const next = i === rc.i, last = i === rc.pts.length - 1;
+    ctx.save(); ctx.globalAlpha = next ? 1 : 0.35;
+    ctx.strokeStyle = last ? '#ffd84a' : '#7dff9a'; ctx.lineWidth = next ? 5 : 3;
+    ctx.beginPath(); ctx.ellipse(p.x, p.y, 44 + (next ? Math.sin(clock * 6) * 4 : 0), 18, 0, 0, 7); ctx.stroke();
+    ctx.restore();
+    if (next) txt(last ? 'META' : String(i + 1), p.x, p.y - 30, 14, last ? '#ffd84a' : '#c9ff89');
+  });
+  const g = rc.ghost;
+  if (g && rc.count <= 0) {
+    const k = Math.min(g.length - 1, Math.floor(rc.t * 10));
+    if (k >= 0) { const [x, y] = g[k]; ctx.save(); ctx.globalAlpha = 0.45; ctx.fillStyle = '#8de5f3'; ctx.beginPath(); ctx.ellipse(x, y - 45, 18, 40, 0, 0, 7); ctx.fill(); ctx.restore(); txt('FANTASMA', x, y - 98, 8, '#8de5f3'); }
+  }
+}
+function raceHud() {
+  if (!rc.on || !started) return;
+  const [b, s, g] = raceTargets(rc.id), t = rc.t, m = raceMedal(rc.id, t);
+  ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(5,12,9,.8)'; ctx.fillRect(W / 2 - 120, 92, 240, 40);
+  ctx.font = 'bold 18px Arial'; ctx.fillStyle = rc.count > 0 ? '#ffd84a' : m ? MEDALS[m][1] : '#e8ffd0';
+  ctx.fillText(rc.count > 0 ? String(Math.ceil(rc.count)) : rushFmt(t), W / 2, 106);
+  ctx.font = 'bold 9px Arial'; ctx.fillStyle = '#b8c8c0';
+  ctx.fillText('PUNTO ' + Math.min(rc.i + 1, rc.pts.length) + ' / ' + rc.pts.length + (m ? ' · ' + MEDALS[m][0] + ' antes de ' + rushFmt([0, b, s, g][m]) : ' · sin medalla'), W / 2, 124);
+  ctx.restore();
+  // arrow to the next checkpoint
+  const p = rc.pts[rc.i];
+  if (p && rc.count <= 0) { const z = sceneZoom(), sx = (p.x - cam.x) * z, sy = (p.y - cam.y) * z; if (sx < 30 || sx > W - 30 || sy < 60 || sy > H - 30) { const a = Math.atan2(sy - H / 2, sx - W / 2); ctx.save(); ctx.translate(clamp(W / 2 + Math.cos(a) * 300, 40, W - 40), clamp(H / 2 + Math.sin(a) * 200, 150, H - 150)); ctx.rotate(a); ctx.fillStyle = '#ffd84a'; ctx.beginPath(); ctx.moveTo(18, 0); ctx.lineTo(-8, -12); ctx.lineTo(-8, 12); ctx.fill(); ctx.restore(); } }
+}
+// ---------------- trading (co-op) ----------------
+const TRADE_KEYS = () => {
+  const out = [['coins', 'Monedas', player.coins || 0], ['pump', 'Calabazas', B6().pump], ['core', 'Núcleos de Titán', B7().cores]];
+  for (const [k, n] of invList()) { const f = fishById(k.slice(2)); out.push([k, f[1] + (k.startsWith('c:') ? ' (cocido)' : ''), n]); }
+  return out;
+};
+const tradeName = (k) => (k === 'coins' ? 'monedas' : k === 'pump' ? 'calabazas' : k === 'core' ? 'núcleos de Titán' : fishById(k.slice(2)) ? fishById(k.slice(2))[1] + (k.startsWith('c:') ? ' (cocido)' : '') : k);
+function tradeHas(k, n) { return k === 'coins' ? (player.coins || 0) >= n : k === 'pump' ? B6().pump >= n : k === 'core' ? B7().cores >= n : (B7().inv[k] || 0) >= n; }
+function tradeAdd(k, n) { if (k === 'coins') player.coins = (player.coins || 0) + n; else if (k === 'pump') B6().pump += n; else if (k === 'core') B7().cores += n; else B7().inv[k] = (B7().inv[k] || 0) + n; save(); hud(); }
+const TRADE_WANT = [['coins', 100], ['coins', 500], ['pump', 5], ['core', 1], ...FISH.map((f) => ['f:' + f[0], 1])];
+let tradeOut = null, tradeIn = null;
+function tradeMenu(back) {
+  if (!net.peer) return toast('Conéctate con un compañero primero');
+  const mine = TRADE_KEYS().filter(([, , n]) => n > 0);
+  let give = null, want = null;
+  const draw = () => {
+    showDialog('INTERCAMBIO', 'Ofrece algo a tu compañero',
+      '<h4 class="shoph">Das</h4><div class="codex">' + mine.map(([k, n, have]) => [k === 'coins' ? 100 : 1, k === 'coins' ? 500 : k === 'pump' ? 5 : 0].filter((q) => q && q <= have).map((q) => '<button class="cx' + (give && give[0] === k && give[1] === q ? ' sel' : '') + '" data-tg="' + k + '|' + q + '" style="--c:#ffd84a"><b>' + q + ' ' + n + '</b><small>tienes ' + have + '</small></button>').join('')).join('') + '</div>' +
+        '<h4 class="shoph">Pides</h4><div class="codex">' + TRADE_WANT.map(([k, q]) => '<button class="cx' + (want && want[0] === k && want[1] === q ? ' sel' : '') + '" data-tw="' + k + '|' + q + '" style="--c:#8de5f3"><b>' + q + ' ' + tradeName(k) + '</b></button>').join('') + '</div>' +
+        '<p>Lo que das queda reservado hasta que tu compañero acepte o rechace.</p>',
+      [['ENVIAR OFERTA', () => tradeSend(give, want)], ['VOLVER', back || pauseMenu]]);
+    for (const b of document.querySelectorAll('[data-tg]')) b.onclick = () => { const [k, q] = b.dataset.tg.split('|'); give = [k, +q]; draw(); };
+    for (const b of document.querySelectorAll('[data-tw]')) b.onclick = () => { const [k, q] = b.dataset.tw.split('|'); want = [k, +q]; draw(); };
+  };
+  draw();
+}
+function tradeSend(give, want) {
+  if (!give || !want) return toast('Elige qué das y qué pides');
+  if (tradeOut) return toast('Ya tienes una oferta en marcha');
+  if (!tradeHas(give[0], give[1])) return toast('No tienes suficiente');
+  tradeAdd(give[0], -give[1]); // escrow
+  tradeOut = { id: Date.now() + '' + Math.floor(Math.random() * 999), give, want, t: 30 };
+  lanSend({ type: 'b7', k: 'offer', id: tradeOut.id, give, want });
+  closeDialog(); toast('Oferta enviada · esperando respuesta…');
+}
+function tradeTick(dt) {
+  if (tradeOut && (tradeOut.t -= dt) <= 0) { lanSend({ type: 'b7', k: 'cancel', id: tradeOut.id }); tradeAdd(tradeOut.give[0], tradeOut.give[1]); toast('Tu compañero no respondió · oferta cancelada'); tradeOut = null; }
+}
+function tradeReceive(m) {
+  const ok = (x) => Array.isArray(x) && typeof x[0] === 'string' && Number.isFinite(x[1]) && x[1] > 0 && x[1] <= 5000;
+  if (m.k === 'offer' && ok(m.give) && ok(m.want)) {
+    showDialog('OFERTA DE INTERCAMBIO', 'Tu compañero propone',
+      '<p>Te da <b>' + m.give[1] + ' ' + tradeName(m.give[0]) + '</b> a cambio de <b>' + m.want[1] + ' ' + tradeName(m.want[0]) + '</b>.</p>',
+      [['ACEPTAR', () => { if (!tradeHas(m.want[0], m.want[1])) { lanSend({ type: 'b7', k: 'no', id: m.id }); closeDialog(); return toast('No tienes lo que pide'); } tradeAdd(m.want[0], -m.want[1]); tradeIn = { id: m.id, give: m.give, want: m.want }; lanSend({ type: 'b7', k: 'yes', id: m.id }); closeDialog(); toast('Aceptado · completando…'); }],
+        ['RECHAZAR', () => { lanSend({ type: 'b7', k: 'no', id: m.id }); closeDialog(); }]]);
+  }
+  if (m.k === 'yes' && tradeOut && m.id === tradeOut.id) { tradeAdd(tradeOut.want[0], tradeOut.want[1]); lanSend({ type: 'b7', k: 'final', id: m.id }); toast('¡Intercambio hecho! +' + tradeOut.want[1] + ' ' + tradeName(tradeOut.want[0])); playWatchSFX('recharged'); tradeOut = null; }
+  if (m.k === 'yes' && (!tradeOut || m.id !== tradeOut.id)) lanSend({ type: 'b7', k: 'cancel', id: m.id });
+  if (m.k === 'no' && tradeOut && m.id === tradeOut.id) { tradeAdd(tradeOut.give[0], tradeOut.give[1]); toast('Tu compañero rechazó la oferta'); tradeOut = null; }
+  if (m.k === 'final' && tradeIn && m.id === tradeIn.id) { tradeAdd(tradeIn.give[0], tradeIn.give[1]); toast('¡Intercambio hecho! +' + tradeIn.give[1] + ' ' + tradeName(tradeIn.give[0])); playWatchSFX('recharged'); tradeIn = null; }
+  if (m.k === 'cancel' && tradeIn && m.id === tradeIn.id) { tradeAdd(tradeIn.want[0], tradeIn.want[1]); toast('El intercambio se canceló · recuperas lo tuyo'); tradeIn = null; }
+  if (m.k === 'wbwin' && m.key) wbWin(m.key);
+}
+function b7Receive(m) { tradeReceive(m); }
+// ---------------- hero of the week ----------------
+const HERO_POOL = [
+  ['boss3', 'Derrota 3 jefes sin volver a humano', 3],
+  ['kill150', 'Derrota 150 enemigos esta semana', 150],
+  ['gold2', 'Consigue 2 medallas de oro (revanchas o carreras)', 2],
+  ['wave12', 'Llega a la oleada 12 en la arena', 1],
+  ['fish10', 'Pesca 10 peces', 10],
+  ['caps5', 'Encuentra 5 cápsulas de ADN', 5],
+  ['jobs5', 'Completa 5 encargos de vecinos', 5],
+];
+function weekKey(d = new Date()) { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())), day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day); const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return t.getUTCFullYear() + '-W' + Math.ceil(((t - y0) / 864e5 + 1) / 7); }
+function HERO() {
+  const b = B7(), wk = weekKey();
+  if (b.hw.week !== wk) { let h = 0; for (const c of wk) h = (h * 31 + c.charCodeAt(0)) >>> 0; b.hw = { week: wk, id: HERO_POOL[h % HERO_POOL.length][0], n: 0, done: false, jobs0: SJX().done || 0, streak: 0 }; }
+  return b.hw;
+}
+const heroDef = () => HERO_POOL.find((x) => x[0] === HERO().id);
+const heroBadge = () => { try { return B7().heroWeek === weekKey(); } catch (e) { return false; } };
+function heroEvent(kind) {
+  const h = HERO();
+  if (h.done) return;
+  const map = { kill: 'kill150', fish: 'fish10', caps: 'caps5', gold: 'gold2' };
+  if (map[kind] === h.id) h.n++;
+  if (kind === 'boss' && h.id === 'boss3') { if (player.alien) { h.streak = (h.streak || 0) + 1; h.n = Math.max(h.n, h.streak); } }
+  heroCheck();
+}
+function heroCheck() {
+  const h = HERO(), d = heroDef();
+  if (h.done) return;
+  if (h.id === 'jobs5') h.n = Math.max(0, (SJX().done || 0) - h.jobs0);
+  if (h.id === 'wave12') h.n = arena.on && arena.wave >= 12 ? 1 : h.n;
+  if (h.n >= d[2]) {
+    h.done = true; B7().heroWeek = h.week;
+    player.coins = (player.coins || 0) + 800; xp(800);
+    toast('⭐ ¡HÉROE DE LA SEMANA! · +800 monedas · +800 EXP · insignia hasta el lunes');
+    playWatchSFX('recharged'); rumble([60, 40, 60, 40, 120]);
+    save();
+  }
+}
+function heroMenu(back) {
+  const h = HERO(), d = heroDef();
+  showDialog('HÉROE DE LA SEMANA', h.done ? '⭐ ¡Conseguido esta semana!' : 'Reto de esta semana',
+    '<p class="reward"><b>' + d[1] + '</b><br>' + Math.min(h.n, d[2]) + ' / ' + d[2] + '</p><div class="b5bar"><i style="width:' + Math.min(100, (h.n / d[2]) * 100) + '%"></i></div>' +
+      '<p>Cambia cada lunes. Recompensa: 800 monedas, 800 EXP y la insignia <b>⭐ HÉROE DE LA SEMANA</b> junto a tu nombre (también la ven tus compañeros en co-op).</p>',
+    [['VOLVER', back || extrasMenu]]);
+}
+// ---------------- replays ----------------
+const RP = { ring: [], i: 0, t: 0, moments: [] }, RP_W = 384, RP_H = 216, RP_N = 40;
+function replayTick(dt) {
+  if (!started || lowGfx() || paused) return;
+  if ((RP.t -= dt) > 0) return;
+  RP.t = 0.1;
+  let c = RP.ring[RP.i];
+  if (!c) { c = RP.ring[RP.i] = document.createElement('canvas'); c.width = RP_W; c.height = RP_H; }
+  try { c.getContext('2d').drawImage($('#world'), 0, 0, RP_W, RP_H); c._ok = true; } catch (e) {}
+  RP.i = (RP.i + 1) % RP_N;
+}
+function replaySave(label) {
+  if (lowGfx()) return;
+  setTimeout(() => { // keep a second after the moment too
+    const frames = [];
+    for (let k = 0; k < RP_N; k++) { const c = RP.ring[(RP.i + k) % RP_N]; if (c && c._ok) { const d = document.createElement('canvas'); d.width = RP_W; d.height = RP_H; d.getContext('2d').drawImage(c, 0, 0); frames.push(d); } }
+    if (frames.length < 5) return;
+    RP.moments.unshift({ label, at: new Date(), frames });
+    RP.moments = RP.moments.slice(0, 5);
+    toast('🎬 Momento guardado: ' + label + ' (Extras → REPETICIONES)');
+  }, 900);
+}
+function replayMenu(back) {
+  showDialog('REPETICIONES', RP.moments.length ? RP.moments.length + ' momentos de esta sesión' : 'Todavía no hay momentos',
+    RP.moments.length ? '<div class="codex">' + RP.moments.map((m, i) => '<button class="cx" data-rp="' + i + '" style="--c:#ffd84a"><b>' + m.label + '</b><small>' + m.at.toLocaleTimeString().slice(0, 5) + ' · ' + (m.frames.length / 10).toFixed(1) + ' s</small></button>').join('') + '</div>' : '<p>Derrota a un jefe o haz un combo grande (×25) y el juego guardará los últimos segundos para verlos aquí. Se guardan mientras el juego esté abierto.</p>' + (lowGfx() ? '<p><b>Con gráficos bajos las repeticiones están desactivadas.</b></p>' : ''),
+    [['VOLVER', back || extrasMenu]]);
+  for (const b of document.querySelectorAll('[data-rp]')) b.onclick = () => replayPlay(RP.moments[+b.dataset.rp], back);
+}
+let rpPlay = null;
+function replayPlay(m, back) {
+  closeDialog();
+  let el = document.getElementById('replayv');
+  if (!el) { el = document.createElement('div'); el.id = 'replayv'; $('#game').append(el); }
+  el.innerHTML = '<div class="arcbox"><b>🎬 ' + m.label.toUpperCase() + '</b><canvas width="' + RP_W * 2 + '" height="' + RP_H * 2 + '"></canvas><input type="range" min="0" max="' + (m.frames.length - 1) + '" value="0"><span class="fishbtns"><button data-p>⏸ PAUSA</button><button data-slow>LENTO</button><button data-shot>📷 GUARDAR FOTO</button><button data-x>SALIR</button></span></div>';
+  el.classList.remove('hidden');
+  const c = el.querySelector('canvas'), g = c.getContext('2d'), rng = el.querySelector('input');
+  rpPlay = { m, k: 0, play: true, slow: false, acc: 0, last: performance.now() };
+  photoOn = true;
+  const show = () => { g.imageSmoothingEnabled = true; g.drawImage(m.frames[rpPlay.k], 0, 0, c.width, c.height); rng.value = rpPlay.k; };
+  const loop = (now) => {
+    if (!rpPlay || rpPlay.m !== m) return;
+    const dt = (now - rpPlay.last) / 1000; rpPlay.last = now;
+    if (rpPlay.play) { rpPlay.acc += dt * (rpPlay.slow ? 0.35 : 1); while (rpPlay.acc >= 0.1) { rpPlay.acc -= 0.1; rpPlay.k = (rpPlay.k + 1) % m.frames.length; } }
+    show(); requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+  rng.oninput = () => { rpPlay.k = +rng.value; rpPlay.play = false; el.querySelector('[data-p]').textContent = '▶ SEGUIR'; };
+  el.querySelector('[data-p]').onclick = (e) => { rpPlay.play = !rpPlay.play; e.target.textContent = rpPlay.play ? '⏸ PAUSA' : '▶ SEGUIR'; };
+  el.querySelector('[data-slow]').onclick = (e) => { rpPlay.slow = !rpPlay.slow; e.target.textContent = rpPlay.slow ? 'NORMAL' : 'LENTO'; };
+  el.querySelector('[data-shot]').onclick = () => { try { const a = document.createElement('a'); a.href = c.toDataURL('image/png'); a.download = 'omni-momento-' + Date.now() + '.png'; document.body.append(a); a.click(); a.remove(); toast('Foto guardada en Descargas'); } catch (e) { toast('No se pudo guardar · haz una captura'); } };
+  el.querySelector('[data-x]').onclick = () => { rpPlay = null; photoOn = false; last = performance.now(); el.classList.add('hidden'); replayMenu(back); };
+}
+// ---------------- base ----------------
+const BASE_UP = {
+  gen: ['GENERADOR', 'La batería del reloj se recarga un 10 % más rápido por nivel', 3],
+  med: ['ENFERMERÍA', 'Recuperas vida poco a poco fuera de combate (más por nivel)', 3],
+  radar: ['RADAR', 'Las cápsulas de ADN brillan desde mucho más lejos', 1],
+  cold: ['CÁMARA FRIGORÍFICA', 'El pescado se vende un 25 % más caro por nivel', 2],
+};
+const baseCost = (k, lv) => ({ coins: [400, 900, 1800][lv] || 0, cores: lv >= 2 ? 1 : 0 });
+let jukebox = null;
+{
+  const want0 = musWanted;
+  musWanted = function () { if (jukebox != null && started) return jukebox; return want0(); };
+}
+function baseMenu(back) {
+  const b = B7(), up = b.up;
+  const trophies = RM_BOSSES.filter((B) => { try { return B[2](); } catch (e) { return false; } });
+  showDialog('BASE FONTANERA', 'Tu cuartel secreto',
+    '<div class="basegrid">' +
+      '<div class="basecard"><h4>🏆 TROFEOS</h4><p>' + trophies.length + ' jefes derrotados · ' + medalCount() + ' medallas de oro · ' + b.titans + ' titanes</p><button class="pbtn" data-b="trophy">VER VITRINA</button></div>' +
+      '<div class="basecard"><h4>🎵 TOCADISCOS</h4><p>Suena: <b>' + (jukebox == null ? 'automático (la música de la zona)' : jukebox === 'title' ? 'Menú' : REGIONS[jukebox].name) + '</b></p><button class="pbtn" data-b="juke">ELEGIR CANCIÓN</button></div>' +
+      '<div class="basecard"><h4>🥊 SALA DE ENTRENAMIENTO</h4><p>Un muñeco para probar el daño de cada alien.</p><button class="pbtn" data-b="train">' + (enemies.some((e) => e.dummy) ? 'QUITAR MUÑECO' : 'PONER MUÑECO') + '</button></div>' +
+      '<div class="basecard"><h4>🔧 MEJORAS</h4><p>Monedas: <b>' + (player.coins || 0) + '</b> · Núcleos de Titán: <b>' + b.cores + '</b></p><button class="pbtn" data-b="up">MEJORAR</button></div>' +
+      '</div>',
+    [['VOLVER', back || pauseMenu]]);
+  const go = { trophy: () => baseTrophies(back), juke: () => baseJuke(back), train: () => { trainingToggle(); }, up: () => baseUpgrades(back) };
+  for (const x of document.querySelectorAll('[data-b]')) x.onclick = go[x.dataset.b];
+}
+function baseTrophies(back) {
+  const M = B6().medals, R = B7().race;
+  showDialog('VITRINA DE TROFEOS', 'Base Fontanera',
+    '<div class="codex">' + RM_BOSSES.map((B) => { let ok = false; try { ok = B[2](); } catch (e) {} const md = [1, 2, 3].map((k) => M[B[0] + ':' + k] || 0), best = Math.max(0, ...md); return '<button class="cx' + (ok ? '' : ' locked') + '" style="--c:' + (best ? MEDALS[best][1] : '#ff9a6a') + '"><b>' + (ok ? B[1] : '???') + '</b><small>' + (ok ? (best ? 'mejor medalla: ' + MEDALS[best][0] : 'derrotado') : 'sin derrotar') + '</small></button>'; }).join('') +
+      TRACKS.map(([id, n]) => { const m = M['race:' + id] || 0; return '<button class="cx' + (R[id] ? '' : ' locked') + '" style="--c:' + (m ? MEDALS[m][1] : '#8de5f3') + '"><b>🏁 ' + n + '</b><small>' + (R[id] ? rushFmt(R[id]) + (m ? ' · ' + MEDALS[m][0] : '') : 'sin correr') + '</small></button>'; }).join('') +
+      '<button class="cx' + (B7().titans ? '' : ' locked') + '" style="--c:#a65cff"><b>🗿 Titán del Vacío</b><small>' + B7().titans + ' derrotados</small></button></div>',
+    [['VOLVER', () => baseMenu(back)]]);
+}
+function baseJuke(back) {
+  const songs = Object.keys(MUS_SONGS).filter((k) => k !== 'title').map(Number).filter((z) => REGIONS[z]);
+  showDialog('TOCADISCOS', 'Elige la música', '<div class="codex"><button class="cx" data-j="auto" style="--c:#7dff9a"><b>AUTOMÁTICO</b><small>la de cada zona</small></button><button class="cx" data-j="title" style="--c:#7dff9a"><b>Menú principal</b></button>' + songs.map((z) => '<button class="cx" data-j="' + z + '" style="--c:#7dff9a"><b>' + REGIONS[z].name + '</b></button>').join('') + '</div><p>La canción elegida suena en todas partes hasta que vuelvas a AUTOMÁTICO.</p>',
+    [['VOLVER', () => baseMenu(back)]]);
+  for (const x of document.querySelectorAll('[data-j]')) x.onclick = () => { const v = x.dataset.j; jukebox = v === 'auto' ? null : v === 'title' ? 'title' : +v; toast(jukebox == null ? 'Música automática' : '♫ ' + (jukebox === 'title' ? 'Menú principal' : REGIONS[jukebox].name)); baseMenu(back); };
+}
+function baseUpgrades(back) {
+  const b = B7(), up = b.up;
+  showDialog('MEJORAS DE LA BASE', 'Monedas: ' + (player.coins || 0) + ' · Núcleos: ' + b.cores,
+    Object.entries(BASE_UP).map(([k, [n, d, max]]) => { const lv = up[k] || 0, c = baseCost(k, lv); return '<div class="xrow"><b>' + n + ' · nivel ' + lv + ' / ' + max + '</b><small>' + d + '</small><span class="lbtns">' + (lv < max ? '<button class="pbtn main" data-up="' + k + '">' + c.coins + ' monedas' + (c.cores ? ' + ' + c.cores + ' núcleo' : '') + '</button>' : '<button class="pbtn" disabled>AL MÁXIMO</button>') + '</span></div>'; }).join('') +
+      '<p>Los Núcleos de Titán se consiguen derrotando al Titán del Vacío (JEFE MUNDIAL).</p>',
+    [['VOLVER', () => baseMenu(back)]]);
+  for (const x of document.querySelectorAll('[data-up]')) x.onclick = () => {
+    const k = x.dataset.up, lv = up[k] || 0, c = baseCost(k, lv);
+    if ((player.coins || 0) < c.coins) return toast('Te faltan monedas');
+    if (b.cores < c.cores) return toast('Necesitas un Núcleo de Titán');
+    player.coins -= c.coins; b.cores -= c.cores; up[k] = lv + 1;
+    toast(BASE_UP[k][0] + ' · nivel ' + up[k]); playWatchSFX('recharged'); save(); hud(); baseUpgrades(back);
+  };
+}
+function baseTick(dt) {
+  const up = B7().up;
+  if (up.gen && !player.alien && player.battery < 100) player.battery = Math.min(100, player.battery + rechargeRate() * 0.1 * up.gen * dt);
+  if (up.med && !player.downed && (player.regenWait || 0) <= 0 && player.hp < maxHP()) player.hp = Math.min(maxHP(), player.hp + maxHP() * 0.004 * up.med * dt);
+}
+// ---------------- tick / draw / kill hooks ----------------
+let b7WasAlien = false;
+function b7Tick(dt) {
+  if (!started) return;
+  wbTick(dt); wbBossTick(dt);
+  raceTick(dt);
+  capTick();
+  tradeTick(dt);
+  replayTick(dt);
+  baseTick(dt);
+  if (b7WasAlien && !player.alien) { const h = HERO(); if (h.id === 'boss3' && !h.done) h.streak = 0; }
+  b7WasAlien = !!player.alien;
+  if (isNight() || dayMode === 'noche') { nightRun += dt; if (nightRun > 600 && !SEC('night')) { B7().sec.night = 1; achCheck(); } } else nightRun = 0;
+  if (Math.random() < dt) heroCheck();
+}
+function b7Draw() { capDraw(); fishDraw(); raceDraw(); } // world, under the actors
+function wbHud() {
+  const e = enemies.find((x) => x.wboss && x.alive);
+  if (!e || !started) return;
+  ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(10,4,20,.82)'; ctx.fillRect(W / 2 - 170, 132, 340, 30);
+  ctx.font = 'bold 10px Arial'; ctx.fillStyle = '#d6b0ff'; ctx.fillText('🗿 TITÁN DEL VACÍO · ' + Math.ceil(wbWindow().left / 60) + ' MIN', W / 2, 141);
+  ctx.fillStyle = '#1b1030'; ctx.fillRect(W / 2 - 160, 149, 320, 8); ctx.fillStyle = '#a65cff'; ctx.fillRect(W / 2 - 160, 149, 320 * Math.max(0, e.hp / e.max), 8);
+  ctx.restore();
+}
+function b7Hud2() { raceHud(); wbHud(); } // screen
+function b7Kill(e) {
+  if (e.wboss) { wbWin(e.wkey); if (net.peer) lanSend({ type: 'b7', k: 'wbwin', key: e.wkey }); }
+  if (isBossE(e) && !e.decoy && !e.mini) { heroEvent('boss'); if (!e.wboss) replaySave(e.zboss || (e.mech && 'Robot Mk II') || (e.hunter && 'Kraal') || (e.sagaKind === 'specter' && 'El Espectro') || 'Jefe'); }
+  heroEvent('kill');
+}
+function b7Transform() {
+  const now = performance.now();
+  swapTimes = swapTimes.filter((t) => now - t < 60000); swapTimes.push(now);
+  if (swapTimes.length >= 10 && !SEC('swap')) { B7().sec.swap = 1; save(); }
+}
+{
+  const end0 = rematchEnd; // "Por los pelos": win a rematch under 10 % health
+  rematchEnd = function (why) { if (why === 'win' && rm.on && player.hp < maxHP() * 0.1) B7().sec.close = 1; const g = rm.on && why === 'win' ? medalFor(rm.id, rm.tier, rm.t) : 0; const r = end0.apply(this, arguments); if (g === 3) heroEvent('gold'); return r; };
+}
+{
+  const ml0 = mlEntries; // world boss + hero in the mission log (part-67)
+  mlEntries = function () {
+    const L = ml0();
+    try { const w = wbWindow(); if (w.on && !B7().wb[w.key]) L.unshift({ key: 'wb', cat: 'JEFE MUNDIAL · AHORA', title: 'Titán del Vacío', text: 'Quedan ' + Math.ceil(w.left / 60) + ' min', z: w.z, pts: ML_PTS_ENEMIES }); } catch (e) {}
+    try { const h = HERO(), d = heroDef(); if (!h.done) L.push({ key: 'hero', cat: 'HÉROE DE LA SEMANA', title: d[1], text: Math.min(h.n, d[2]) + ' / ' + d[2], z: null, pts: null }); } catch (e) {}
+    return L;
+  };
+}
 applyWatchTheme();
 resize();
 boot();
@@ -17219,7 +17903,7 @@ if (window.__game)
     missionBoard, missionAccept, activeMission, MS, MISSIONS, coopOn, coopState, coopShare, coopTickMissions, COOP_SITES,
     arenaStart, arenaEnd, arena, arenaBest, statEvent, stats, daily, dailyMenu, achMenu, achCheck, ACHS, codexMenu, codexCard, codexIds, extrasMenu, difficultyMenu, diffCfg, diffKey, DIFFS, PAD, padPoll, padHelp,
     watchAnim, WATCH_ERAS, eraPlaylist, eraOf, storyPlay, storyFor, storyDraw, storyFit, storyPreload, BOARDS, SHEET_ROWS, SKIN_ART, boardId,
-    B6, mlEntries, mlTracked, mlTarget, missionLogMenu, zoneHop, statsMenu, masteryMenu, halloweenMenu, hwOn, hwSpots, hwDay, lockAt, lockCycle, get lockT() { return lockT; }, ap, rmTargets, medalFor, b6Dmg, b6Taken, mTier, get arena() { return arena; }, arenaStart, arenaWaveClear, arenaSpawnWave, rematchEnd, get rmQA() { return rm; }, toTitle, toTitleAsk, whatsNewMenu, get startedQA() { return started; }, hud, phaseTick, isBossE, b5Tick, get pausedQA() { return paused; }, get dialogQA() { return dialogOpen; }, comboCheck, dailyAlienId, DA, B5, ngpMenu, progressMenu, dailyAlienMenu, behTick, photoDeco: () => photoDeco, beastType, wristInfo, setWrist: (w) => (wristFor = w), wristDet, wristScan, spriteInfoQA: (r) => spriteInfo(r), galleryMenu, galOpen, feedbackMenu, fbSnapshot, art, bakWrite, bakList, bakMenu, S5, s5Go, s5StartSeal, story5Talk, citizensQA: () => citizens, get sj() { return sj; }, sjOffer, sjDone, rematchStart, rematchMenu, get rm() { return rm; }, RMX, tutEnd, get tutState() { return tutState; }, remoteTargets, hurtTeam, partyOthers, partySize, get netq() { return net; }, musStepQA: (t) => musStep(t), MUS, musBuild, MUS_SONGS, S4, s4Go, story4Talk, s4Near, s4Fx, ULTIMATES, ultOn, ultForm, ALIEN_SCALE, alienHeight, sizeGuard, alienPower, tierDrain, scaleLine, codexCard, ALIENS, F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
+    B7, fishOpen, fishClose, fishAct, get fishG() { return fishG; }, fishLand, fishSellMenu, fishBook, FISH, FISH_SPOTS, capSpots, capGot, wbWindow, wbMenu, raceStart, raceEnd, raceMenu, get rc() { return rc; }, trackPts, raceTargets, tradeMenu, tradeReceive, HERO, heroMenu, heroEvent, heroBadge, RP, replaySave, replayMenu, replayPlay, baseMenu, baseUpgrades, baseJuke, baseTrophies, get jukebox() { return jukebox; }, isSolidQA: (x, y) => isSolid(x, y), achMenu, ACHS, B6, mlEntries, mlTracked, mlTarget, missionLogMenu, zoneHop, statsMenu, masteryMenu, halloweenMenu, hwOn, hwSpots, hwDay, lockAt, lockCycle, get lockT() { return lockT; }, ap, rmTargets, medalFor, b6Dmg, b6Taken, mTier, get arena() { return arena; }, arenaStart, arenaWaveClear, arenaSpawnWave, rematchEnd, get rmQA() { return rm; }, toTitle, toTitleAsk, whatsNewMenu, get startedQA() { return started; }, hud, phaseTick, isBossE, b5Tick, get pausedQA() { return paused; }, get dialogQA() { return dialogOpen; }, comboCheck, dailyAlienId, DA, B5, ngpMenu, progressMenu, dailyAlienMenu, behTick, photoDeco: () => photoDeco, beastType, wristInfo, setWrist: (w) => (wristFor = w), wristDet, wristScan, spriteInfoQA: (r) => spriteInfo(r), galleryMenu, galOpen, feedbackMenu, fbSnapshot, art, bakWrite, bakList, bakMenu, S5, s5Go, s5StartSeal, story5Talk, citizensQA: () => citizens, get sj() { return sj; }, sjOffer, sjDone, rematchStart, rematchMenu, get rm() { return rm; }, RMX, tutEnd, get tutState() { return tutState; }, remoteTargets, hurtTeam, partyOthers, partySize, get netq() { return net; }, musStepQA: (t) => musStep(t), MUS, musBuild, MUS_SONGS, S4, s4Go, story4Talk, s4Near, s4Fx, ULTIMATES, ultOn, ultForm, ALIEN_SCALE, alienHeight, sizeGuard, alienPower, tierDrain, scaleLine, codexCard, ALIENS, F4, team, teamPress, raidStart, giftSend, duelAsk, duel, arcadePlay, arcadeEnd, get arc() { return arc; }, remapMenu, moreSettings, slotsMenu, notesMenu, voidexFound, stream, streamToggle, chatRoulette, F3, favoursMenu, wev, wx, eventTick, zoneBossCheck, badgeSpots, badgeTotal, travelMenu, loadoutMenu, watchUpgMenu, labMenu, variantMenu, onTransformEvent, isNight, weatherDmg, drainRate, F2, dmgMod, perfectDodgeCheck, featSlow, towerStart, dun, trainingToggle, dummyDps, weeklyMenu, WK, prestigeMenu, titlesMenu, shopMenu, collectionMenu, LEVEL_CAP, hostileShots, F1, upgradeMenu, ultraFire, combo, rush, bossRushStart, emoteSend, photoMode, photoExit, dailyLogin, transferMenu, story3Talk, s3Go, pet, upgDmg, multiplier, transform, damageEnemy, SG, sagaGo, sagaTalkVera, sagaInteract, sagaNear, VERA, DRAVEN, VALVES, enterZone, BX, scanStart, bestiaryMenu, gfxCycle, lowGfx, absorb, grantAlien, alienUnlocked, REGIONS,
     get enemies() { return enemies; },
     get sagaCineOn() { return sagaCineOn; },
     get scan() { return scan; },
