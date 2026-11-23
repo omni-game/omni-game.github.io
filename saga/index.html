@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#07070f">
+<title>Zenith Burst</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Rajdhani:wght@500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="vignette"></div>
+
+<!-- TITLE -->
+<section id="title" class="screen show">
+  <div class="logo"><span>ZENITH</span><b>BURST</b></div>
+  <p class="sub">A 3D anime arena fighter</p>
+  <p class="press">Press any key or tap to start</p>
+</section>
+
+<!-- MAIN MENU -->
+<section id="menu" class="screen">
+  <div class="logo small"><span>ZENITH</span><b>BURST</b></div>
+  <nav class="menu-list">
+    <button data-go="story">Story Campaign<small>Episodes, choices and What-If battles</small></button>
+    <button data-go="select">Battle<small>Fight the CPU with any unlocked fighter</small></button>
+    <button data-go="training">Training<small>Practise combos on a dummy with infinite ki</small></button>
+    <button data-go="fighters">Fighters<small>Roster, forms and move lists</small></button>
+    <button data-go="controls">Controls</button>
+    <button data-go="settings">Settings</button>
+    <a class="omni" href="../index.html">&#9664; Back to OMNI</a>
+  </nav>
+  <div class="progress" id="menuProgress"></div>
+</section>
+
+<!-- STORY -->
+<section id="story" class="screen">
+  <header><button class="back" data-go="menu">&#9664;</button><h2>Story Campaign</h2>
+    <label class="diff">Difficulty <select id="storyDiff"><option value="0">Normal</option><option value="1">Hard</option></select></label></header>
+  <div id="sagas"></div>
+</section>
+
+<!-- BRIEFING -->
+<section id="brief" class="screen">
+  <header><button class="back" data-go="story">&#9664;</button><h2 id="briefSaga"></h2></header>
+  <div class="brief-card">
+    <h3 id="briefName"></h3>
+    <div class="vs"><span id="briefP"></span><i>VS</i><span id="briefE"></span></div>
+    <p id="briefGoal" class="goal"></p>
+    <p id="briefStage" class="muted"></p>
+    <p id="briefTip" class="tip"></p>
+    <div id="briefStars" class="stars"></div>
+    <button class="primary" id="briefStart">Begin Episode</button>
+  </div>
+</section>
+
+<!-- BATTLE SELECT -->
+<section id="select" class="screen">
+  <header><button class="back" data-go="menu">&#9664;</button><h2 id="selectTitle">Battle</h2></header>
+  <div class="select-grid">
+    <div class="pick"><h4>Your fighter</h4><div class="roster" id="rosterP"></div></div>
+    <div class="pick"><h4 id="oppLabel">Opponent</h4><div class="roster" id="rosterE"></div></div>
+  </div>
+  <div class="options">
+    <label>Stage <select id="optStage"></select></label>
+    <label id="optDiffWrap">CPU <select id="optDiff"><option value="0.25">Easy</option><option value="0.5" selected>Normal</option><option value="0.75">Hard</option><option value="0.95">Legend</option></select></label>
+    <label id="optDummyWrap">Dummy <select id="optDummy"><option value="dummy">Stand still</option><option value="0.15">Fight back (weak)</option><option value="0.5">Fight back (normal)</option></select></label>
+    <button class="primary" id="selectStart">FIGHT!</button>
+  </div>
+</section>
+
+<!-- FIGHTERS -->
+<section id="fighters" class="screen">
+  <header><button class="back" data-go="menu">&#9664;</button><h2>Fighters</h2></header>
+  <div class="roster wide" id="rosterF"></div>
+  <div class="fighter-info" id="fighterInfo"></div>
+</section>
+
+<!-- CONTROLS -->
+<section id="controls" class="screen">
+  <header><button class="back" data-go="menu">&#9664;</button><h2>Controls</h2></header>
+  <div class="ctl">
+    <table>
+      <tr><th>Action</th><th>Keyboard</th><th>Gamepad</th></tr>
+      <tr><td>Move / strafe around enemy</td><td>W A S D</td><td>Left stick</td></tr>
+      <tr><td>Fly up / down</td><td>Space / C</td><td>Right stick &#8597; or D-pad</td></tr>
+      <tr><td>Dash (tap = step / hold = boost)</td><td>Shift</td><td>A</td></tr>
+      <tr><td>Rush combo (tap up to 5x)</td><td>J</td><td>X</td></tr>
+      <tr><td>Smash (hold to charge, breaks guard)</td><td>K</td><td>B</td></tr>
+      <tr><td>Ki blast</td><td>L</td><td>Y</td></tr>
+      <tr><td>Charge ki (keep holding at full = SPARKING)</td><td>I</td><td>LB</td></tr>
+      <tr><td>Guard (press just before a hit = VANISH)</td><td>O</td><td>RB</td></tr>
+      <tr><td>Super 1 / Super 2</td><td>U + J / U + K</td><td>RT + X / RT + B</td></tr>
+      <tr><td>Ultimate (only while Sparking)</td><td>U + L</td><td>RT + Y</td></tr>
+      <tr><td>Burst out of combos (2 skill orbs)</td><td>U + O</td><td>RT + RB</td></tr>
+      <tr><td>Transform (costs skill orbs)</td><td>T</td><td>D-pad &#8596;</td></tr>
+      <tr><td>Chase a flying enemy (40 ki)</td><td>J right after a knockback</td><td>X</td></tr>
+      <tr><td>Recover when knocked away</td><td>O or Shift</td><td>RB or A</td></tr>
+      <tr><td>Beam clash</td><td colspan="2">Mash any attack button!</td></tr>
+      <tr><td>Pause</td><td>Esc / P</td><td>Start</td></tr>
+    </table>
+    <p class="muted">On touch screens, on-screen buttons appear during battle. Tap <b>SUPER</b> to arm it, then tap Rush / Smash / Blast / Guard.</p>
+  </div>
+</section>
+
+<!-- SETTINGS -->
+<section id="settings" class="screen">
+  <header><button class="back" data-go="menu">&#9664;</button><h2>Settings</h2></header>
+  <div class="ctl">
+    <label class="row">Sound effects <input type="range" id="volSfx" min="0" max="1" step="0.05"></label>
+    <label class="row">Music <input type="range" id="volMusic" min="0" max="1" step="0.05"></label>
+    <label class="row">Graphics <select id="quality"><option value="high">High</option><option value="low">Low (faster)</option></select></label>
+    <button id="resetSave" class="danger">Reset story progress</button>
+  </div>
+</section>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div class="side p1"><div class="port" id="h1port"></div><div class="bars"><div class="nm"><b id="h1name"></b><i id="h1form"></i></div><div class="hp"><i id="h1hp"></i><s id="h1hpd"></s></div><div class="ki" id="h1ki"></div><div class="orbs" id="h1orbs"></div></div></div>
+  <div class="timer" id="htimer">&#8734;</div>
+  <div class="side p2"><div class="port" id="h2port"></div><div class="bars"><div class="nm"><b id="h2name"></b><i id="h2form"></i></div><div class="hp"><i id="h2hp"></i><s id="h2hpd"></s></div><div class="ki" id="h2ki"></div><div class="orbs" id="h2orbs"></div></div></div>
+  <div class="combo c1" id="combo1"></div>
+  <div class="combo c2" id="combo2"></div>
+  <div id="banner"></div>
+  <div id="toast"></div>
+  <div id="goal"></div>
+  <div id="mash" class="hidden"><b>MASH!</b><div><i id="mashBar"></i></div></div>
+  <div id="superList" class="hidden"></div>
+  <div id="hint">J Rush · K Smash · L Blast · I Charge · O Guard · Shift Dash · U+J/K Super · U+L Ultimate · T Transform · Esc Pause</div>
+  <button id="pauseBtn">&#10074;&#10074;</button>
+</div>
+<div id="letterbox"><i></i><i></i></div>
+<div id="flash"></div>
+
+<!-- TOUCH -->
+<div id="touch" class="hidden">
+  <div class="stick"><i></i></div>
+  <div class="vert"><button data-btn="rise">&#9650;</button><button data-btn="sink">&#9660;</button></div>
+  <div class="acts">
+    <button data-btn="rush" class="big">RUSH</button>
+    <button data-btn="smash">SMASH</button>
+    <button data-btn="blast">BLAST</button>
+    <button data-btn="guard">GUARD</button>
+    <button data-btn="charge">CHARGE</button>
+    <button data-btn="dash">DASH</button>
+  </div>
+  <div class="tops"><button data-btn="mod" data-toggle class="mod">SUPER</button><button data-btn="transform">TRANS</button></div>
+</div>
+
+<!-- DIALOGUE -->
+<div id="dialog" class="hidden"><div class="box"><div class="who"><span class="dport" id="dport"></span><b id="dname"></b></div><p id="dtext"></p><small>&#9654; tap / Enter</small></div><button id="dskip">Skip &#9193;</button></div>
+
+<!-- CHOICE -->
+<div id="choice" class="overlay hidden"><div class="panel"><h3 id="choicePrompt"></h3><div id="choiceOpts"></div></div></div>
+
+<!-- PAUSE -->
+<div id="pause" class="overlay hidden"><div class="panel">
+  <h3>Paused</h3>
+  <button id="pResume" class="primary">Resume</button>
+  <button id="pRestart">Restart</button>
+  <button id="pMoves">Move list</button>
+  <button id="pQuit">Quit to menu</button>
+  <div id="pMoveList" class="hidden"></div>
+</div></div>
+
+<!-- RESULTS -->
+<div id="results" class="overlay hidden"><div class="panel">
+  <h2 id="resTitle"></h2>
+  <div id="resStars" class="stars big"></div>
+  <ul id="resList"></ul>
+  <div id="resUnlocks"></div>
+  <div class="row-btns"><button id="resNext" class="primary">Continue</button><button id="resRetry">Retry</button><button id="resQuit">Menu</button></div>
+</div></div>
+
+<script src="lib/three.min.js"></script>
+<script src="data.js"></script>
+<script src="audio.js"></script>
+<script src="input.js"></script>
+<script src="fighter.js"></script>
+<script src="battle.js"></script>
+<script src="ui.js"></script>
+</body>
+</html>
