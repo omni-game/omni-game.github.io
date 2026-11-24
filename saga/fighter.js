@@ -94,7 +94,7 @@
   // ---- Aura shader: layered flames with fbm noise ----
   const AURA_VS = `varying vec3 vN; varying vec3 vV; varying vec3 vP;
     void main(){ vec4 mv = modelViewMatrix*vec4(position,1.0); vN = normalize(normalMatrix*normal); vV = normalize(-mv.xyz); vP = position; gl_Position = projectionMatrix*mv; }`;
-  const AURA_FS = `uniform vec3 uColor; uniform float uTime; uniform float uPower; varying vec3 vN; varying vec3 vV; varying vec3 vP;
+  const AURA_FS = `uniform vec3 uColor; uniform vec3 uColor2; uniform float uTime; uniform float uPower; varying vec3 vN; varying vec3 vV; varying vec3 vP;
     float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     float n(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
       return mix(mix(h(i), h(i+vec2(1,0)), f.x), mix(h(i+vec2(0,1)), h(i+vec2(1,1)), f.x), f.y); }
@@ -106,7 +106,8 @@
       float tongues = smoothstep(0.35, 0.8, f + (0.6 - vP.y) * 0.35);
       float fade = smoothstep(1.0, 0.1, vP.y) * smoothstep(-1.0, -0.5, vP.y);
       float alpha = clamp(rim * tongues * fade * uPower, 0.0, 1.0);
-      vec3 col = mix(uColor, vec3(1.0), tongues * 0.45) * (1.6 + tongues * 1.4);
+      vec3 base = mix(uColor2, uColor, smoothstep(0.15, 0.85, tongues));
+      vec3 col = mix(base, vec3(1.0), tongues * 0.35) * (1.6 + tongues * 1.4);
       gl_FragColor = vec4(col * alpha, alpha);
     }`;
 
@@ -380,7 +381,7 @@
         o.add(ol);
       }
       // ---- aura ----
-      this.auraU = { uColor: { value: new T.Color(0xffffff) }, uTime: { value: 0 }, uPower: { value: 0 } };
+      this.auraU = { uColor: { value: new T.Color(0xffffff) }, uColor2: { value: new T.Color(0xffffff) }, uTime: { value: 0 }, uPower: { value: 0 } };
       const auraMat = new T.ShaderMaterial({ uniforms: this.auraU, vertexShader: AURA_VS, fragmentShader: AURA_FS, transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide });
       this.aura = new T.Mesh(new T.SphereGeometry(1, 32, 24), auraMat);
       this.aura.position.y = 1.15;
@@ -416,6 +417,16 @@
       this.eyeMat.emissiveIntensity = i > 0 ? 0.8 : 0;
       this.hair.scale.setScalar(f.hairScale || 1);
       this.auraU.uColor.value.setHex(f.aura);
+      this.auraU.uColor2.value.setHex(f.aura2 == null ? f.aura : f.aura2);
+      // glowing halo behind the head for divine forms
+      if (!this.halo) {
+        this.halo = new T.Mesh(new T.TorusGeometry(0.27, 0.014, 10, 56), new T.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }));
+        this.halo.position.set(0, 0.16, -0.24);
+        this.halo.rotation.x = -0.25;
+        this.head.add(this.halo);
+      }
+      this.halo.visible = !!f.halo;
+      if (f.halo) this.halo.material.color.setHex(f.halo).multiplyScalar(2.2);
       this.root.scale.setScalar(this.baseScale * (f.scale || 1));
       this.setDamage(this.damage);
     }
@@ -520,6 +531,7 @@
       this.hair.rotation.x = Math.sin(this.t * 7) * 0.02 * (0.3 + this.auraPower);
       this.auraPower += (aura - this.auraPower) * (1 - Math.exp(-dt * 8));
       this.auraU.uTime.value = this.t;
+      if (this.halo && this.halo.visible) this.halo.rotation.z = this.t * 0.6;
       this.auraU.uPower.value = this.auraPower;
       this.aura.visible = this.auraPower > 0.02;
       const fl = 1 + Math.sin(this.t * 31) * 0.02 + this.auraPower * 0.22;

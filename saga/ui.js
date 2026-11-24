@@ -8,7 +8,7 @@
 
   // ---------------- save data
   const SAVE_KEY = 'zenith-burst-save-v1';
-  const DEFAULT = () => ({ cleared: {}, chars: ['kairo', 'rhen', 'mira'], forms: {}, diff: 0, vol: { sfx: 0.7, music: 0.35 }, quality: 'high' });
+  const DEFAULT = () => ({ cleared: {}, chars: ['kairo', 'rhen', 'mira'], forms: {}, wins: {}, diff: 0, vol: { sfx: 0.7, music: 0.35 }, quality: 'high' });
   let save = load();
   function load() {
     try {
@@ -23,10 +23,19 @@
   }
   // Forms that must be earned in Story mode (index of the first locked form).
   const LOCKS = { kairo: 1, rhen: 1, mira: 2 };
+  // A form is usable once its story unlock is earned (if it has one) and its mastery requirement is met
+  // (mastery forms need that many Battle-mode wins with the fighter).
+  const formLock = (id, i) => {
+    const f = ZB.byId(id).forms[i];
+    if (LOCKS[id] != null && i >= LOCKS[id] && (save.forms[id] || 0) < i && !f.mastery) return 'Unlock in Story';
+    if (f.mastery && ((save.wins || {})[id] || 0) < f.mastery) return `Win ${f.mastery} battles with ${ZB.byId(id).name}`;
+    return null;
+  };
   const maxFormFor = (id) => {
     const def = ZB.byId(id);
-    if (LOCKS[id] == null) return def.forms.length - 1;
-    return Math.max(LOCKS[id] - 1, save.forms[id] || 0);
+    let m = 0;
+    for (let i = 1; i < def.forms.length && !formLock(id, i); i++) m = i;
+    return m;
   };
   const REQ = { e2: ['e1'], e3: ['e2'], e4: ['e3'], e5: ['e4'], w1: ['e4'], e6: ['e5', 'w1'], e7: ['e6'], e8: ['e7'], e9: ['e8'], e10: ['e9'], e11: ['e10'], e12: ['e11'] };
   const NEXT = { e1: 'e2', e2: 'e3', e3: 'e4', e5: 'e6', w1: 'e6', e6: 'e7', e7: 'e8', e8: 'e9', e9: 'e10', e10: 'e11', e11: 'e12' };
@@ -273,7 +282,8 @@
     info.innerHTML = `<h3 style="color:${hex(def.forms[selFForm].aura)}">${esc(def.name)}</h3><div class="muted">${esc(def.title)}</div>
       <p>${esc(def.bio)}</p>
       <div><span class="stat">HP <b>${def.hp}</b></span><span class="stat">Speed <b>${Math.round(def.spd * 100)}</b></span><span class="stat">Power <b>${Math.round(def.pow * 100)}</b></span>${def.kiRegen ? '<span class="stat"><b>Trait:</b> self-recharging ki</span>' : ''}</div>
-      <div class="forms">${def.forms.map((f, i) => `<button data-f="${i}" class="${i === selFForm ? 'on' : ''}" ${i > mf ? 'disabled title="Unlock in Story"' : ''}>${esc(f.name)}${i > mf ? ' \u{1F512}' : ''}</button>`).join('')}</div>
+      <div class="forms">${def.forms.map((f, i) => `<button data-f="${i}" class="${i === selFForm ? 'on' : ''}" ${i > mf ? `disabled title="${esc(formLock(selF, i) || 'Unlock earlier forms first')}"` : ''}>${esc(f.name)}${i > mf ? ' \u{1F512}' : ''}</button>`).join('')}</div>
+      ${def.forms.some((f) => f.mastery) ? `<div class="muted">Mastery: ${(save.wins || {})[selF] || 0} Battle wins \u00b7 ${def.forms.filter((f) => f.mastery).map((f) => `${esc(f.name)} at ${f.mastery}`).join(', ')}</div>` : ''}
       <div class="forms anims"><span class="muted">Animations:</span>${ANIMS.map(([k, n]) => `<button data-a="${k}" class="${k === selAnim ? 'on' : ''}">${n}</button>`).join('')}</div>
       <div class="moves">${def.supers.map((s, i) => `<div><b>${esc(s.name)}</b><small>Super ${i + 1} · U+${i ? 'K' : 'J'} · ${TYPE[s.type]} · ${s.cost / 100} ki bars</small></div>`).join('')}
       <div><b>${esc(def.ultimate.name)}</b><small>Ultimate · U+L · ${TYPE[def.ultimate.type]} · needs Sparking</small></div></div>`;
@@ -545,7 +555,19 @@
     } else if (opts.mode === 'story') {
       showResults(false, 0, [], [], ZB.episodeById(opts.ep));
     } else {
-      showResults(res.win, null, [[`Time: ${Math.round(res.time)}s`, true], [`HP left: ${Math.round(res.hpRatio * 100)}%`, res.win]], []);
+      // mastery: Battle-mode wins unlock a fighter's top forms
+      const unlocks = [];
+      if (res.win && opts.mode === 'versus') {
+        const id = opts.p1.id, before = maxFormFor(id);
+        save.wins = save.wins || {};
+        save.wins[id] = (save.wins[id] || 0) + 1;
+        persist();
+        const after = maxFormFor(id);
+        for (let i = before + 1; i <= after; i++) unlocks.push(`New form: ${ZB.byId(id).name} \u2014 ${ZB.byId(id).forms[i].name}`);
+        const next = ZB.byId(id).forms.find((f, i) => i > after && f.mastery);
+        if (next) unlocks.push(`Mastery: ${save.wins[id]}/${next.mastery} wins for ${next.name}`);
+      }
+      showResults(res.win, null, [[`Time: ${Math.round(res.time)}s`, true], [`HP left: ${Math.round(res.hpRatio * 100)}%`, res.win]], unlocks);
     }
   }
   function showResults(win, nStars, list, unlocks, ep, first) {
@@ -620,7 +642,7 @@
     el.innerHTML = [
       ['J', 'Rush combo (tap up to 5 times)'], ['K', 'Smash — hold to charge, breaks guard'], ['L', 'Ki blast'], ['I (hold)', 'Charge ki — keep holding at full for SPARKING'],
       ['O', 'Guard — tap right before a hit to VANISH'], ['Shift', 'Step dodge / hold to boost'], ['J after knockback', 'Vanish chase (40 ki)'],
-      ['U+J', d.supers[0].name], ['U+K', d.supers[1].name], ['U+L', d.ultimate.name + ' (Sparking only)'], ['U+O', 'Burst — escape combos (2 orbs)'], ['T', 'Transform (skill orbs)'],
+      ['U+J', d.supers[0].name], ['U+K', d.supers[1].name], ['U+L', d.ultimate.name + ' (Sparking only)'], ['U+O', 'Burst — escape combos (2 orbs)'], ['T', 'Transform (skill orbs)'], ['U+T', 'Jump to your highest affordable form (+1 orb)'],
     ].map(([k, t]) => `<div><b>${esc(k)}</b> — ${esc(t)}</div>`).join('');
     el.classList.toggle('hidden');
   });

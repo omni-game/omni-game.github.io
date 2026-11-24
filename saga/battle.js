@@ -141,6 +141,18 @@
       best.life = best.max = life || 0.35;
       best.l.intensity = peak;
     }
+    // signature particles for advanced forms
+    formParticles(form, c, dt, boost) {
+      const kind = form.particles, n = dt * 22 * boost;
+      for (let i = 0; i < 4 && Math.random() < n - i; i++) {
+        const p = q2.copy(c).add(q1.set(rand(-0.7, 0.7), rand(-1.2, 1.0), rand(-0.7, 0.7)));
+        if (kind === 'embers') this.spawn(p, q1.set(rand(-0.6, 0.6), rand(2.5, 5), rand(-0.6, 0.6)), Math.random() < 0.5 ? 0xff5a1a : 0xffb040, rand(0.08, 0.16), rand(0.6, 1.2), { drag: 0.6 });
+        else if (kind === 'stars') this.spawn(p, q1.set(0, rand(0.1, 0.5), 0), Math.random() < 0.3 ? 0xffffff : form.aura, rand(0.1, 0.22), rand(0.25, 0.6), { grow: -0.2 });
+        else if (kind === 'petals') this.spawn(p.setY(p.y + 0.8), q1.set(rand(1, 2.5), rand(-1.2, -0.4), rand(-0.8, 0.8)), Math.random() < 0.5 ? 0xff9ac8 : 0xffd6e8, rand(0.1, 0.16), rand(0.9, 1.6), { drag: 0.4 });
+        else if (kind === 'sparks') this.spawn(p, q1.set(rand(-6, 6), rand(-3, 6), rand(-6, 6)), form.aura, rand(0.05, 0.1), rand(0.1, 0.22), { drag: 3 });
+        else if (kind === 'void') this.smokeAt(p, q1.set(rand(-0.4, 0.4), rand(0.6, 1.6), rand(-0.4, 0.4)), new T.Color(0x14081e), rand(0.5, 0.9), rand(0.8, 1.4), 0.6);
+      }
+    }
     // a jagged electric arc near `center`, flickering for a few frames
     bolt(center, color, size) {
       if (!this.bolts) this.bolts = [];
@@ -374,6 +386,7 @@
         const nf = f.def.forms[f.form + 1];
         if (!this.lockForms && nf && f.form < f.maxForm && f.skill >= (nf.cost || 2) && (hpR < 0.8 || Math.random() < 0.15)) {
           inp.transformP = true;
+          inp.mod = f.skill >= 4 && Math.random() < 0.5;
           return inp;
         }
         // ultimate
@@ -660,7 +673,7 @@
       switch (f.state) {
         case 'free': {
           if (inp.transformP) {
-            if (this.tryTransform(f, o)) break;
+            if (this.tryTransform(f, o, !!inp.mod)) break;
           }
           if (inp.mod && (inp.rushP || inp.smashP || inp.blastP)) {
             this.useSuper(f, o, inp.rushP ? 0 : inp.smashP ? 1 : 2);
@@ -1075,7 +1088,18 @@
       ZB.audio.play('spark');
       this.banner(f, 'SPARKING!', 'spark');
     }
-    tryTransform(f, o) {
+    tryTransform(f, o, jump) {
+      if (jump) {
+        // skip straight to the highest form the skill orbs can pay for (its cost + 1 for skipping)
+        for (let k = f.maxForm; k > f.form + 1; k--) {
+          const c = (f.def.forms[k].cost || 2) + 1;
+          if (f.skill >= c) {
+            f.skill -= c;
+            this.startTransform(f, k);
+            return true;
+          }
+        }
+      }
       const nf = f.def.forms[f.form + 1];
       if (!nf || f.form >= f.maxForm) {
         this.say(f, f.form >= f.def.forms.length - 1 ? 'Already at max form' : 'Form locked — unlock it in Story');
@@ -1705,6 +1729,7 @@
       // forms with lightning crackle with electric arcs
       const lc = m.form.lightning;
       if (lc && s !== 'ko' && Math.random() < (dt || 0) * (s === 'charge' || s === 'transform' ? 30 : 9)) this.fx.bolt(f.c, lc, 1.3 * m.root.scale.y);
+      if (m.form.particles && s !== 'ko') this.fx.formParticles(m.form, f.c, dt || 0, s === 'charge' || s === 'transform' ? 3 : 1);
       m.update(dt || 0.0001, aura);
     }
     updateCamera(dt) {
@@ -1839,6 +1864,7 @@
       for (const { model, o } of this.models) {
         if (o.spin) model.root.rotation.y += dt * 0.6;
         if (model.form.lightning && Math.random() < dt * 10) this.fx.bolt(t1.set(o.x || 0, 1.35, 0), model.form.lightning, 1.2);
+        if (model.form.particles) this.fx.formParticles(model.form, t2.set(o.x || 0, 1.35, 0), dt, 1);
         if (o.clip) {
           // preview: loop the clip with a short hold at the end
           o.clipT = (o.clipT || 0) + dt / (o.clipDur || 1);

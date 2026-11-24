@@ -15,6 +15,8 @@ ZB.ROSTER = [
       { name: 'Ascended Fury', hair: 0xffe066, aura: 0xffe36b, mult: 1.33, hairScale: 1.35, eyes: 0x15a89a, spark: true, cost: 2 },
       { name: 'Zenith', hair: 0xe3ecff, aura: 0xdfe8ff, mult: 1.55, hairScale: 1.2, eyes: 0x9aa7ff, spark: true, cost: 3 },
       { name: 'Zenith Unbound', hair: 0xb9d8ff, aura: 0x8fd0ff, mult: 1.75, hairScale: 1.3, eyes: 0xd6efff, spark: true, lightning: 0xbfe8ff, glowEyes: true, cost: 4 },
+      { name: 'Starforged', hair: 0x4a63ff, aura: 0x7f8cff, aura2: 0xe6ecff, mult: 1.85, hairScale: 1.3, eyes: 0xbfd0ff, spark: true, particles: 'stars', glowEyes: true, mastery: 3, cost: 4 },
+      { name: 'Eclipse', hair: 0x141018, aura: 0xff2440, aura2: 0x2a0610, mult: 1.95, hairScale: 1.35, eyes: 0xff3050, spark: true, particles: 'embers', lightning: 0xff4060, glowEyes: true, halo: 0xff3050, mastery: 6, cost: 5 },
     ],
     supers: [
       { name: 'Solar Lance', type: 'beam', dmg: 1900, cost: 200, color: 0x4fc3ff },
@@ -32,6 +34,8 @@ ZB.ROSTER = [
       { name: 'Ascended', hair: 0xffd23a, aura: 0xffcc33, mult: 1.2, hairScale: 1.12, eyes: 0x15a89a, cost: 2 },
       { name: 'Crimson Zenith', hair: 0xff3b4e, aura: 0xff2d48, mult: 1.5, hairScale: 1.25, eyes: 0xff9aa5, spark: true, cost: 3 },
       { name: 'Crimson Overdrive', hair: 0xff1f3d, aura: 0xff4060, mult: 1.68, hairScale: 1.35, eyes: 0xffd0d6, spark: true, lightning: 0xff6a80, glowEyes: true, cost: 4 },
+      { name: 'Royal Ascension', hair: 0xd9a6ff, aura: 0xc27bff, aura2: 0xfff0ff, mult: 1.78, hairScale: 1.3, eyes: 0xf0d8ff, spark: true, particles: 'stars', halo: 0xe6c2ff, glowEyes: true, mastery: 3, cost: 4 },
+      { name: 'Ashen Emperor', hair: 0x8e8e94, aura: 0xff7a2a, aura2: 0x3a1a0a, mult: 1.9, hairScale: 1.4, eyes: 0xffb060, spark: true, particles: 'embers', lightning: 0xffa040, glowEyes: true, mastery: 6, cost: 5 },
     ],
     supers: [
       { name: 'Ashfall Volley', type: 'volley', dmg: 1500, cost: 150, color: 0xffd24a },
@@ -49,6 +53,8 @@ ZB.ROSTER = [
       { name: 'Gale Mode', hair: 0x2a1b14, aura: 0x58f0a7, mult: 1.18, cost: 2 },
       { name: 'Tempest', hair: 0x7af5c9, aura: 0x41ffb0, mult: 1.34, hairScale: 1.1, spark: true, cost: 2 },
       { name: 'Divine Tempest', hair: 0xd6fff0, aura: 0x9dffd8, mult: 1.55, hairScale: 1.2, eyes: 0x41ffb0, spark: true, lightning: 0xb8ffe6, glowEyes: true, cost: 3 },
+      { name: 'Sakura Gale', hair: 0xffb7d5, aura: 0xff9ac8, aura2: 0xffffff, mult: 1.65, hairScale: 1.2, eyes: 0xff6fa8, spark: true, particles: 'petals', glowEyes: true, mastery: 3, cost: 4 },
+      { name: 'Storm Sovereign', hair: 0x3dd6ff, aura: 0x2fb6ff, aura2: 0xd8f6ff, mult: 1.8, hairScale: 1.35, eyes: 0x9ff0ff, spark: true, particles: 'sparks', lightning: 0x9ff0ff, glowEyes: true, mastery: 6, cost: 5 },
     ],
     supers: [
       { name: 'Crescent Disk', type: 'disk', dmg: 1600, cost: 160, color: 0x7dffcf },
@@ -65,6 +71,8 @@ ZB.ROSTER = [
       { name: 'Standard', hair: 0x23262e, aura: 0x9ff3ff, mult: 1.0 },
       { name: 'Overclock', hair: 0x23262e, aura: 0x00e5ff, mult: 1.28, eyes: 0xff3355, spark: true, cost: 2 },
       { name: 'Overclock MAX', hair: 0x23262e, aura: 0xff2d55, mult: 1.48, eyes: 0xff2d55, skin: 0xe8b6be, spark: true, lightning: 0xff5577, glowEyes: true, cost: 3 },
+      { name: 'Prototype Zero', hair: 0x101216, aura: 0x00ffb0, aura2: 0x003a28, mult: 1.6, skin: 0x2a2e36, eyes: 0x00ffb0, spark: true, particles: 'sparks', lightning: 0x60ffd0, glowEyes: true, mastery: 3, cost: 4 },
+      { name: 'Singularity', hair: 0xf4f4ff, aura: 0xd8d8ff, aura2: 0x120a2a, mult: 1.75, skin: 0xf4f4ff, eyes: 0x8a6bff, spark: true, particles: 'void', halo: 0xb8a8ff, glowEyes: true, mastery: 6, cost: 5 },
     ],
     supers: [
       { name: 'Photon Barrage', type: 'volley', dmg: 1500, cost: 150, color: 0x6fe9ff },
@@ -82,6 +90,8 @@ ZB.ROSTER = [
       { name: 'True Form', hair: 0x8a4fb3, aura: 0xc04dff, mult: 1.22, cost: 2 },
       { name: 'Gilded Form', hair: 0xf0c12a, aura: 0xffcf3a, mult: 1.45, skin: 0xf3c54a, spark: true, cost: 3 },
       { name: 'Abyssal Form', hair: 0x1a1024, aura: 0x9a2cff, mult: 1.62, skin: 0x3a2a4e, eyes: 0xff2d6a, spark: true, lightning: 0xc070ff, glowEyes: true, scale: 1.06, cost: 4 },
+      { name: 'Crystal Form', hair: 0x9fd8ff, aura: 0x7fd8ff, aura2: 0xffffff, mult: 1.72, skin: 0xcdeaff, eyes: 0x3a9bff, spark: true, particles: 'stars', glowEyes: true, mastery: 3, cost: 4 },
+      { name: 'Emperor Supreme', hair: 0x1a1024, aura: 0xffd24a, aura2: 0x2a1a00, mult: 1.88, skin: 0xfff0c8, eyes: 0xff2d6a, spark: true, particles: 'embers', lightning: 0xffe27a, halo: 0xffd24a, glowEyes: true, scale: 1.08, mastery: 6, cost: 5 },
     ],
     supers: [
       { name: 'Doom Needles', type: 'volley', dmg: 1500, cost: 150, color: 0xff4fa5 },
@@ -98,7 +108,9 @@ ZB.ROSTER = [
       { name: 'Restrained', hair: 0x1a1a1a, aura: 0xb9ffb0, mult: 1.0 },
       { name: 'Berserk', hair: 0x8dff6a, aura: 0x6dff4a, mult: 1.25, hairScale: 1.2, eyes: 0xffffff, cost: 2 },
       { name: 'Cataclysm', hair: 0xb6ff5c, aura: 0x9dff3a, mult: 1.45, hairScale: 1.4, eyes: 0xffffff, spark: true, scale: 1.12, cost: 3 },
-      { name: 'Primal Titan', hair: 0xe6ff7a, aura: 0xd2ff4a, mult: 1.62, hairScale: 1.55, eyes: 0xffffff, skin: 0xc98f6a, spark: true, scale: 1.24, lightning: 0xe9ff9a, glowEyes: true, cost: 4 },
+      { name: 'Primal Titan', hair: 0xe6ff7a, aura: 0xd2ff4a, mult: 1.62, hairScale: 1.4, eyes: 0xffffff, skin: 0xc98f6a, spark: true, scale: 1.24, lightning: 0xe9ff9a, glowEyes: true, cost: 4 },
+      { name: 'Legend Beast', hair: 0x7affd6, aura: 0x3affc0, aura2: 0x0a3a2a, mult: 1.75, hairScale: 1.42, eyes: 0xffffff, skin: 0xc98f6a, spark: true, particles: 'sparks', lightning: 0x9fffe6, glowEyes: true, scale: 1.26, mastery: 3, cost: 4 },
+      { name: 'World Breaker', hair: 0xfafafa, aura: 0xff4a2a, aura2: 0x2a0800, mult: 1.92, hairScale: 1.48, eyes: 0xff5a3a, skin: 0xb07a58, spark: true, particles: 'embers', lightning: 0xff7a50, glowEyes: true, scale: 1.32, mastery: 6, cost: 5 },
     ],
     supers: [
       { name: 'Gigant Meteor', type: 'bomb', dmg: 1900, cost: 200, color: 0x8dff6a },
@@ -115,6 +127,8 @@ ZB.ROSTER = [
       { name: 'Jolly', hair: 0xe882b4, aura: 0xff9ad1, mult: 1.0 },
       { name: 'Ravenous', hair: 0xd85aa0, aura: 0xff4fb0, mult: 1.3, skin: 0xd85aa0, slim: true, spark: true, cost: 2 },
       { name: 'Pure Chaos', hair: 0xff8fd0, aura: 0xff2fa0, mult: 1.5, skin: 0xf2a6d4, eyes: 0xff2fa0, spark: true, lightning: 0xff7ac8, glowEyes: true, scale: 0.92, cost: 3 },
+      { name: 'Sweet Tooth', hair: 0xffd0e8, aura: 0xffb3e0, aura2: 0xffffff, mult: 1.62, skin: 0xffd0e8, eyes: 0xff4fb0, spark: true, particles: 'petals', glowEyes: true, mastery: 3, cost: 4 },
+      { name: 'Primordial', hair: 0x8a2a6a, aura: 0xff00a8, aura2: 0x1a0012, mult: 1.82, skin: 0x8a2a6a, eyes: 0xffd0f0, spark: true, particles: 'void', lightning: 0xff5ac8, glowEyes: true, scale: 1.05, mastery: 6, cost: 5 },
     ],
     supers: [
       { name: 'Sugar Ray', type: 'beam', dmg: 1800, cost: 190, color: 0xff7ac8 },
@@ -131,6 +145,8 @@ ZB.ROSTER = [
       { name: 'Godly Calm', hair: 0x9d86c9, aura: 0xa66bff, mult: 1.0 },
       { name: 'Unbound', hair: 0x9d86c9, aura: 0x7a2dff, mult: 1.25, spark: true, cost: 3 },
       { name: 'Unmaker Ascendant', hair: 0x9d86c9, aura: 0x5a1dff, mult: 1.45, skin: 0x7d66b0, eyes: 0xb6f6ff, spark: true, lightning: 0xb08aff, glowEyes: true, cost: 4 },
+      { name: 'Destroyer Unleashed', hair: 0x9d86c9, aura: 0x3a0aff, aura2: 0x0a0018, mult: 1.6, skin: 0x5a468a, eyes: 0xb6f6ff, spark: true, particles: 'void', lightning: 0x8a5aff, glowEyes: true, mastery: 3, cost: 4 },
+      { name: 'Cosmic Judge', hair: 0xb8c8ff, aura: 0x9ff3ff, aura2: 0x0a1a3a, mult: 1.78, skin: 0xb8c8ff, eyes: 0xffffff, spark: true, particles: 'stars', halo: 0x9ff3ff, glowEyes: true, mastery: 6, cost: 5 },
     ],
     supers: [
       { name: 'Erasure Sphere', type: 'bomb', dmg: 2100, cost: 220, color: 0xb98aff },
@@ -146,6 +162,8 @@ ZB.ROSTER = [
     forms: [
       { name: 'Serene', hair: 0xf4f6ff, aura: 0xe8f1ff, mult: 1.0 },
       { name: 'Unveiled', hair: 0xffffff, aura: 0xffffff, mult: 1.28, eyes: 0xe8f6ff, spark: true, lightning: 0xffffff, glowEyes: true, cost: 4 },
+      { name: 'Radiant', hair: 0xfff6d0, aura: 0xfff0b0, aura2: 0xffffff, mult: 1.45, eyes: 0xffe6a0, spark: true, particles: 'stars', glowEyes: true, mastery: 3, cost: 4 },
+      { name: 'Absolute', hair: 0xe8f6ff, aura: 0xc8f6ff, aura2: 0x1a2a3a, mult: 1.62, eyes: 0xc8f6ff, spark: true, particles: 'sparks', lightning: 0xe8f6ff, glowEyes: true, mastery: 6, cost: 5 },
     ],
     supers: [
       { name: 'Prism Lance', type: 'beam', dmg: 2100, cost: 200, color: 0xe8f1ff },
