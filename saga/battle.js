@@ -1757,7 +1757,16 @@
       this.offsetX = 0;
     }
     show(list) {
-      // list: [{id, form, x, yaw, aura}]
+      // list: [{id, form, x, yaw, aura}] -- meshes are sculpted in the background if needed
+      this.list = list;
+      const req = (this.req = (this.req || 0) + 1);
+      if (list.every((o) => ZB.models.ready(o.id))) return this.build(list);
+      this.build([]);
+      ZB.models.ensure(list.map((o) => o.id)).then(() => {
+        if (req === this.req) this.build(list);
+      });
+    }
+    build(list) {
       for (const m of this.models) {
         this.scene.remove(m.model.root);
         m.model.dispose();

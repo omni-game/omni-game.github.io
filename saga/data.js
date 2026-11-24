@@ -1,6 +1,6 @@
 'use strict';
 // ZENITH BURST — game data: fighters, stages and the story campaign.
-window.ZB = window.ZB || {};
+globalThis.ZB = globalThis.ZB || {};
 
 // Super move types (see battle.js): beam, rush, volley, bomb, disk, nova.
 ZB.ROSTER = [

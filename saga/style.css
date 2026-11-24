@@ -258,3 +258,8 @@ body.touch #superList { bottom: 230px; }
   .combo { font-size: 28px; top: 90px; }
   #fighters .roster.wide { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); }
 }
+
+#loading { position: fixed; right: 16px; bottom: 16px; z-index: 11; display: none; align-items: center; gap: 10px; background: rgba(10, 10, 25, 0.8); border: 1px solid var(--line); border-radius: 20px; padding: 8px 14px; font-weight: 700; color: var(--muted); }
+#loading.show { display: flex; }
+#loading i { width: 16px; height: 16px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, 0.2); border-top-color: var(--gold); animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

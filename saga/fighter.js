@@ -87,7 +87,7 @@
     const h = grp(0, 0, 0, head);
     const cap = (sx, sy, sz, tilt) => {
       const m = mk(new T.SphereGeometry(0.218, 24, 14, 0, Math.PI * 2, 0, Math.PI * 0.6), mat, 0, 0.03, -0.015, h);
-      m.scale.set(sx || 1.03, sy || 1, sz || 1.05);
+      m.scale.set((sx || 1.03) * 0.8, (sy || 1) * 0.92, (sz || 1.05) * 0.9);
       m.rotation.x = -(tilt == null ? 0.55 : tilt);
       return m;
     };
@@ -129,14 +129,15 @@
       S(-0.09, 0.15, 0.15, 1.3, 0.55, 0.05, 0.22, -0.2);
     } else if (style === 'visor') {
       const helm = mk(new T.SphereGeometry(0.222, 24, 14, 0, Math.PI * 2, 0, Math.PI * 0.56), M.metal, 0, 0.025, -0.01, h);
-      helm.scale.set(1.02, 0.95, 1.05);
+      helm.scale.set(0.8, 0.9, 0.88);
       const vis = new T.Mesh(new T.CylinderGeometry(0.215, 0.215, 0.05, 28, 1, true, -1.1, 2.2), new T.MeshStandardMaterial({ color: 0x000000, emissive: def.colors.eyes, emissiveIntensity: 2.2, side: T.DoubleSide }));
       vis.position.set(0, 0.015, 0.005);
+      vis.scale.set(0.8, 1, 0.88);
       h.add(vis);
       mk(new T.CylinderGeometry(0.012, 0.012, 0.16, 8), M.metal, 0.215, 0.1, 0, h).rotation.z = -0.3;
     } else if (style === 'horns') {
       const dome = mk(sph(0.21, 24, 16), mat, 0, 0.06, -0.02, h);
-      dome.scale.set(1.02, 0.9, 1.06);
+      dome.scale.set(0.82, 0.86, 0.92);
       for (const s of [-1, 1]) {
         const horn = mk(strand(0.045, 0.34, 0.35, 1), M.horn, s * 0.14, 0.12, -0.02, h);
         horn.rotation.set(-0.2, 0, s * -0.95);
@@ -155,7 +156,7 @@
         const ear = mk(strand(0.05, 0.3, 0.1, 0.35), M.skin, s * 0.19, 0.02, -0.01, h);
         ear.rotation.set(-0.25, 0, s * -1.25);
       }
-      const crown = mk(new T.CylinderGeometry(0.17, 0.2, 0.09, 24, 1, true), M.gold, 0, 0.17, -0.01, h);
+      const crown = mk(new T.CylinderGeometry(0.145, 0.168, 0.09, 24, 1, true), M.gold, 0, 0.17, -0.01, h);
       crown.rotation.x = -0.15;
       crown.material.side = T.DoubleSide;
       mk(new T.OctahedronGeometry(0.035), new T.MeshStandardMaterial({ color: 0x000000, emissive: 0x8af3ff, emissiveIntensity: 2 }), 0, 0.19, 0.19, h);
@@ -170,157 +171,141 @@
     return h;
   }
 
+  // GLSL value noise used to cut holes in torn clothing
+  const TEAR_GLSL = `uniform float uTear; varying vec3 vBindPos;
+    float th(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+    float tn(vec3 p){ vec3 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
+      return mix(mix(mix(th(i), th(i+vec3(1,0,0)), f.x), mix(th(i+vec3(0,1,0)), th(i+vec3(1,1,0)), f.x), f.y),
+                 mix(mix(th(i+vec3(0,0,1)), th(i+vec3(1,0,1)), f.x), mix(th(i+vec3(0,1,1)), th(i+vec3(1,1,1)), f.x), f.y), f.z); }`;
+  function tearable(mat) {
+    const u = { value: 0 };
+    mat.userData.uTear = u;
+    mat.onBeforeCompile = (sh) => {
+      sh.uniforms.uTear = u;
+      sh.vertexShader = 'varying vec3 vBindPos;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vBindPos = position;');
+      sh.fragmentShader = TEAR_GLSL + '\n' + sh.fragmentShader.replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+        if (uTear > 0.0) {
+          float n = tn(vBindPos * 6.5) * 0.6 + tn(vBindPos * 17.0) * 0.3 + tn(vBindPos * 45.0) * 0.1;
+          if (n < uTear) discard;
+          diffuseColor.rgb *= mix(0.22, 1.0, smoothstep(uTear, uTear + 0.035, n));
+        }`,
+      );
+    };
+    mat.customProgramCacheKey = () => 'tear';
+    return mat;
+  }
+  const bone = (p, parent) => {
+    const b = new T.Bone();
+    b.position.set(p[0], p[1], p[2]);
+    if (parent) parent.add(b);
+    return b;
+  };
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+
   class Model {
     constructor(def, formIdx) {
       this.def = def;
-      const c = def.colors, bt = def.body, armored = !!ARMORED[def.id], robot = def.hair === 'visor';
+      const c = def.colors, armored = !!ARMORED[def.id], robot = def.hair === 'visor';
       this.root = new T.Group();
       const M = (this.mats = {
-        skin: robot ? std(c.skin, 0.32, 0.75) : std(c.skin, 0.55),
-        gi: std(c.gi, 0.88),
-        gi2: armored ? std(c.gi2, 0.32, 0.35) : std(c.gi2, 0.85),
+        skin: robot ? std(c.skin, 0.3, 0.8) : std(c.skin, 0.5, 0, { vertexColors: true }),
+        gi: std(c.gi, 0.9),
+        gi2: armored ? std(c.gi2, 0.3, 0.45) : std(c.gi2, 0.85),
         belt: std(c.belt, armored ? 0.35 : 0.8, armored ? 0.5 : 0),
         boots: std(c.boots, armored ? 0.3 : 0.55, armored ? 0.35 : 0.05),
         hair: std(0x222222, 0.42, 0.05),
         metal: std(0xb9c2cf, 0.25, 0.85),
         horn: std(0xece6da, 0.4),
         gold: std(0xd9b45a, 0.28, 0.9),
-        lips: std(0x7a3b33, 0.6),
-        white: std(0xf7f7f7, 0.15),
-        dark: std(0x101010, 0.3),
+        white: std(0xf7f7f7, 0.12),
+        dark: std(0x080808, 0.2),
       });
-      this.eyeMat = new T.MeshStandardMaterial({ color: c.eyes, roughness: 0.15, emissive: 0x000000 });
-      this.base = { gi: M.gi.color.clone(), gi2: M.gi2.color.clone(), belt: M.belt.color.clone(), boots: M.boots.color.clone(), skin: M.skin.color.clone() };
-      const slim = bt === 'slim', bulky = bt === 'bulky', blob = bt === 'blob';
-      const W = bulky ? 1.28 : slim ? 0.86 : 1, aw = bulky ? 0.11 : slim ? 0.068 : 0.085, lw = bulky ? 0.13 : slim ? 0.085 : 0.1;
-      this.tears = [];
-      this.tilt = grp(0, 1.0, 0, this.root);
-      this.chest = grp(0, 0, 0, this.tilt);
-      // ---- torso ----
-      if (blob) {
-        this.belly = mk(sph(0.56, 32, 24), M.skin, 0, 0.2, 0.03, this.chest);
-        this.belly.scale.set(1, 0.95, 0.92);
-        mk(new T.TorusGeometry(0.5, 0.06, 10, 36), M.belt, 0, -0.1, 0, this.chest).rotation.x = Math.PI / 2;
-        mk(torso([[-0.45, 0], [-0.44, 0.38], [-0.3, 0.5], [-0.12, 0.52], [-0.05, 0]], 1, 0.85), M.gi, 0, 0, 0, this.chest);
-        const vest = mk(torso([[-0.0, 0.53], [0.25, 0.57], [0.5, 0.42], [0.62, 0.2], [0.66, 0]], 1, 0.9), M.gi2, 0, 0, -0.06, this.chest);
-        vest.scale.set(1.02, 1, 0.9);
-        this.tears.push({ m: vest, at: 0.55 });
-      } else {
-        const prof = [[-0.2, 0], [-0.19, 0.24], [-0.1, 0.27], [0.04, 0.25], [0.16, 0.24], [0.3, 0.27], [0.46, 0.31], [0.58, 0.33], [0.68, 0.3], [0.75, 0.2], [0.79, 0.09], [0.8, 0]];
-        // skin underneath (visible where the gi tears)
-        mk(torso(prof.map(([y, r]) => [y, r * 0.96]), W, 0.62), M.skin, 0, 0, 0, this.chest);
-        const top = mk(torso(prof, W, 0.64), M.gi, 0, 0, 0, this.chest);
-        this.tears.push({ m: top, at: 0.3, partial: true });
-        // pectorals / chest plate
-        for (const s of [-1, 1]) {
-          const pec = mk(sph(0.13, 18, 12), armored ? M.gi2 : M.gi, s * 0.12 * W, 0.53, 0.115, this.chest);
-          pec.scale.set(1.15 * W, 0.8, 0.55);
-        }
-        if (armored) {
-          const plate = mk(torso([[0.2, 0.2], [0.4, 0.29], [0.6, 0.33], [0.72, 0.28], [0.78, 0.1]], W * 1.04, 0.72), M.gi2, 0, 0, 0.01, this.chest);
-          this.tears.push({ m: plate, at: 0.5 });
-        } else {
-          // V-neck undershirt
-          const v = mk(new T.CircleGeometry(0.11, 3), M.gi2, 0, 0.64, 0.214 * W, this.chest);
-          v.rotation.z = Math.PI / 2;
-          v.scale.set(1.3, 0.9 * W, 1);
-          v.rotation.x = -0.15;
-        }
-        // belt with knot and tails
-        const belt = mk(new T.TorusGeometry(0.255 * W, 0.035, 10, 40), M.belt, 0, 0.0, 0, this.chest);
-        belt.rotation.x = Math.PI / 2;
-        belt.scale.set(1, 0.64 / 1, 1);
-        belt.scale.y = 0.64;
-        mk(new T.BoxGeometry(0.08, 0.06, 0.05), M.belt, 0.05, 0.0, 0.17, this.chest);
-        for (const s of [-1, 1]) mk(limb(0.025, 0.02, 0.18), M.belt, 0.05 + s * 0.025, -0.02, 0.17, this.chest).rotation.z = s * 0.12;
-      }
-      // ---- neck + head ----
-      mk(limb(0.068, 0.085, 0.16), M.skin, 0, 0.92, 0, this.chest);
-      if (!blob) {
-        // trapezius slope
-        const trap = mk(sph(0.16, 18, 10), M.gi, 0, 0.75, -0.02, this.chest);
-        trap.scale.set(1.6 * W, 0.45, 0.8);
-      }
-      this.head = grp(0, blob ? 0.85 : 1.0, 0.01, this.chest);
-      const cran = mk(sph(0.2, 28, 22), M.skin, 0, 0.02, -0.01, this.head);
-      cran.scale.set(0.9, 1.04, 1.0);
-      const jaw = mk(sph(0.15, 24, 16), M.skin, 0, -0.075, 0.045, this.head);
-      jaw.scale.set(0.86, 0.82, 0.92);
-      const nose = mk(new T.ConeGeometry(0.022, 0.07, 10), M.skin, 0, -0.025, 0.2, this.head);
-      nose.rotation.x = Math.PI / 2.4;
-      if (def.hair !== 'god') for (const s of [-1, 1]) mk(sph(0.045, 12, 10), M.skin, s * 0.178, -0.01, 0.0, this.head).scale.set(0.35, 0.75, 0.5);
-      this.irises = [];
-      for (const s of [-1, 1]) {
-        const eye = grp(s * 0.068, 0.015, 0.165, this.head);
-        const scl = mk(sph(0.034, 16, 12), M.white, 0, 0, 0, eye);
-        scl.scale.set(1.25, 0.72, 0.45);
-        const iris = mk(new T.CircleGeometry(0.019, 20), this.eyeMat, 0, 0, 0.016, eye);
-        mk(new T.CircleGeometry(0.009, 16), M.dark, 0, 0, 0.017, eye);
-        mk(new T.CircleGeometry(0.004, 8), M.white, 0.006, 0.006, 0.018, eye);
-        eye.rotation.y = s * 0.18;
-        this.irises.push(iris);
-        const brow = mk(limb(0.011, 0.007, 0.075, 0, 6), M.hair, s * 0.03, 0.075, 0.185, this.head);
-        brow.rotation.z = s * (Math.PI / 2 + 0.25);
-        brow.castShadow = false;
-      }
-      mk(new T.BoxGeometry(0.06, 0.009, 0.01), M.lips, 0, -0.105, 0.175, this.head);
-      this.hairStyle = def.hair;
-      this.hair = buildHair(def.hair, this.head, M.hair, def, M);
-      // ---- arms ----
+      this.eyeMat = new T.MeshStandardMaterial({ color: c.eyes, roughness: 0.1, emissive: 0x000000 });
+      this.base = { gi: M.gi.color.clone(), gi2: M.gi2.color.clone(), belt: M.belt.color.clone(), boots: M.boots.color.clone(), gold: M.gold.color.clone(), skin: M.skin.color.clone() };
+      // ---- skeleton (bone order matches sculpt.js skin weights) ----
+      const J = ZB.sculpt.joints(def);
+      this.J = J;
+      this.tilt = bone(J.tilt, this.root);
+      this.chest = bone([0, 0, 0], this.tilt);
+      this.head = bone(sub(J.head, J.tilt), this.chest);
       this.arms = [];
-      for (const s of [-1, 1]) {
-        const sx = blob ? 0.53 : 0.29 * W + aw + 0.02;
-        const sh = grp(s * sx, blob ? 0.38 : 0.66, 0, this.chest);
-        mk(sph(aw * 1.3, 18, 14), M.skin, 0, -0.02, 0, sh);
-        const delt = mk(sph(aw * 1.42, 18, 14), armored ? M.gi2 : M.gi, 0, 0, 0, sh);
-        delt.scale.set(1, 1.05, 1);
-        this.tears.push({ m: delt, at: s < 0 ? 0.55 : 0.35 });
-        mk(limb(aw * 1.08, aw * 0.82, 0.34, aw * 0.18), M.skin, 0, -0.06, 0, sh);
-        if (!armored) {
-          const sleeve = mk(limb(aw * 1.42, aw * 1.3, 0.12), M.gi, 0, -0.04, 0, sh);
-          this.tears.push({ m: sleeve, at: s < 0 ? 0.55 : 0.35 });
-        }
-        const el = grp(0, -0.42, 0, sh);
-        mk(sph(aw * 0.85, 14, 10), M.skin, 0, 0, 0, el);
-        mk(limb(aw * 0.95, aw * 0.68, 0.3, aw * 0.15), M.skin, 0, -0.02, 0, el);
-        mk(limb(aw * 0.95, aw * 0.95, 0.07), armored ? M.gold : M.gi2, 0, -0.24, 0, el);
-        const fist = grp(0, -0.4, 0.01, el);
-        const palm = mk(sph(aw * 0.95, 16, 12), M.skin, 0, 0, 0, fist);
-        palm.scale.set(0.85, 1.05, 1.1);
-        const kn = mk(new T.CapsuleGeometry(aw * 0.42, aw * 0.9, 4, 10), M.skin, 0, -aw * 0.35, aw * 0.55, fist);
-        kn.rotation.z = Math.PI / 2;
-        const th = mk(new T.CapsuleGeometry(aw * 0.28, aw * 0.6, 4, 8), M.skin, -s * aw * 0.6, aw * 0.1, aw * 0.6, fist);
-        th.rotation.x = 0.6;
-        this.arms.push({ sh, el, fist, s });
-      }
-      // ---- legs ----
       this.legs = [];
-      const legLen = blob ? 0.36 : 0.46;
-      if (!blob) {
-        const seat = mk(sph(0.27, 24, 16), M.gi, 0, -0.14, -0.01, this.tilt);
-        seat.scale.set(1.05 * W, 0.62, 0.72);
-      }
+      const bones = [this.tilt, this.chest, this.head];
+      const shs = [], els = [], fists = [], hips = [], kns = [];
       for (const s of [-1, 1]) {
-        const hip = grp(s * (blob ? 0.2 : 0.14 * W), -0.14, 0, this.tilt);
-        mk(limb(lw * 1.45, lw * 1.05, legLen, lw * 0.15), M.gi, 0, 0, 0, hip);
-        const kn = grp(0, -legLen, 0, hip);
-        mk(sph(lw * 1.08, 14, 10), M.gi, 0, 0, 0, kn);
-        mk(limb(lw * 1.08, lw * 0.85, legLen * 0.78, lw * 0.1), M.gi, 0, 0, 0, kn);
-        mk(limb(lw * 0.9, lw * 0.95, 0.16), M.boots, 0, -legLen * 0.72, 0, kn);
-        const foot = mk(new T.CapsuleGeometry(lw * 0.72, lw * 1.6, 6, 12), M.boots, 0, -legLen * 0.97, 0.06, kn);
-        foot.rotation.x = Math.PI / 2;
-        foot.scale.set(1.05, 1, 0.75);
+        // bones start in the sculpt's A-pose; poses later set absolute rotations
+        const sh = bone(sub(J.sh(s), J.tilt), this.chest), el = bone(J.loc.el, sh), fist = bone(J.loc.fist, el);
+        sh.rotation.z = s * J.a0;
+        shs.push(sh); els.push(el); fists.push(fist);
+        this.arms.push({ sh, el, fist, s });
+        const hip = bone(sub(J.hip(s), J.tilt), this.tilt), kn = bone(J.loc.kn, hip);
+        hip.rotation.z = s * J.b0;
+        hips.push(hip); kns.push(kn);
         this.legs.push({ hip, kn, s });
       }
-      if (blob) this.tilt.position.y = 0.85;
-      // robe / cape for the god and the herald
-      if (def.hair === 'god' || def.hair === 'halo') {
-        const robe = mk(new T.CylinderGeometry(0.28 * W, 0.5, 0.72, 28, 1, true), M.gi, 0, -0.42, 0, this.tilt);
-        robe.material = M.gi.clone();
-        robe.material.side = T.DoubleSide;
-        this.robeMat = robe.material;
-        mk(new T.TorusGeometry(0.29 * W, 0.03, 8, 32), M.gold, 0, -0.06, 0, this.tilt).rotation.x = Math.PI / 2;
+      bones.push(...shs, ...els, ...fists, ...hips, ...kns);
+      this.root.updateMatrixWorld(true);
+      this.skeleton = new T.Skeleton(bones);
+      // ---- sculpted skin + clothing ----
+      this.clothMats = [];
+      this.meshes = [];
+      for (const p of ZB.models.get(def.id)) {
+        const g = new T.BufferGeometry();
+        g.setAttribute('position', new T.BufferAttribute(p.pos, 3));
+        g.setAttribute('normal', new T.BufferAttribute(p.nrm, 3));
+        g.setAttribute('skinIndex', new T.Uint16BufferAttribute(p.si, 4));
+        g.setAttribute('skinWeight', new T.BufferAttribute(p.sw, 4));
+        g.setIndex(new T.BufferAttribute(p.idx, 1));
+        if (p.mat === 'skin') {
+          // vertex colour tint: lips and a little warmth on the cheeks
+          const n = p.pos.length / 3, col = new Float32Array(n * 3).fill(1);
+          if (p.lips) {
+            for (let v = 0; v < n; v++) {
+              const dx = (p.pos[v * 3] - p.lips[0]) / 0.045, dy = (p.pos[v * 3 + 1] - p.lips[1]) / 0.022, dz = (p.pos[v * 3 + 2] - p.lips[2]) / 0.03;
+              const lip = Math.max(0, 1 - Math.sqrt(dx * dx + dy * dy + dz * dz));
+              const cx = (Math.abs(p.pos[v * 3]) - 0.085) / 0.05, cy = (p.pos[v * 3 + 1] - (p.lips[1] + 0.08)) / 0.04;
+              const blush = Math.max(0, 1 - Math.sqrt(cx * cx + cy * cy)) * 0.12;
+              col[v * 3] = 1 - lip * 0.15;
+              col[v * 3 + 1] = 1 - lip * 0.45 - blush * 0.6;
+              col[v * 3 + 2] = 1 - lip * 0.45 - blush * 0.5;
+            }
+          }
+          g.setAttribute('color', new T.BufferAttribute(col, 3));
+        }
+        let mat = M[p.mat];
+        if (p.tear) {
+          mat = tearable(mat.clone());
+          this.clothMats.push({ mat, key: p.mat, tear: p.tear });
+        }
+        const mesh = new T.SkinnedMesh(g, mat);
+        mesh.castShadow = mesh.receiveShadow = true;
+        mesh.frustumCulled = false;
+        this.root.add(mesh);
+        mesh.bind(this.skeleton, mesh.matrixWorld);
+        this.meshes.push(mesh);
       }
+      // ---- eyes and brows (rigid on the head bone) ----
+      const hz = 0;
+      this.irises = [];
+      for (const s of [-1, 1]) {
+        const eye = grp(s * 0.068, 0.015, hz + 0.152, this.head);
+        const scl = mk(sph(0.028, 18, 14), M.white, 0, 0, -0.004, eye);
+        scl.scale.set(1.12, 0.72, 0.62);
+        mk(new T.CircleGeometry(0.0128, 24), this.eyeMat, 0, -0.001, 0.0137, eye);
+        mk(new T.CircleGeometry(0.0062, 18), M.dark, 0, -0.001, 0.0139, eye);
+        mk(new T.CircleGeometry(0.0028, 8), M.white, 0.004, 0.003, 0.0141, eye);
+        eye.rotation.y = s * 0.16;
+        // upper eyelid line
+        const lid = mk(new T.TorusGeometry(0.03, 0.004, 6, 16, Math.PI), M.dark, 0, 0.002, 0.004, eye);
+        lid.scale.set(1.08, 0.62, 1);
+        const brow = mk(limb(0.008, 0.005, 0.07, 0, 6), M.hair, s * 0.032, 0.058, hz + 0.18, this.head);
+        brow.rotation.z = s * (Math.PI / 2 + 0.22);
+        brow.castShadow = false;
+      }
+      this.hairStyle = def.hair;
+      this.hair = buildHair(def.hair, this.head, M.hair, def, M);
       // ---- aura ----
       this.auraU = { uColor: { value: new T.Color(0xffffff) }, uTime: { value: 0 }, uPower: { value: 0 } };
       const auraMat = new T.ShaderMaterial({ uniforms: this.auraU, vertexShader: AURA_VS, fragmentShader: AURA_FS, transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide });
@@ -333,7 +318,7 @@
       this.pose = defaultPose();
       this.target = defaultPose();
       this.t = Math.random() * 10;
-      this.baseScale = bulky ? 1.1 : blob ? 1.05 : slim ? 0.98 : 1;
+      this.baseScale = 1;
       this.damage = 0;
       this.setForm(formIdx || 0);
     }
@@ -343,7 +328,6 @@
       this.formIdx = i;
       const M = this.mats;
       M.hair.color.setHex(f.hair);
-      // transformed hair glows faintly so the bloom catches it
       const glow = i > 0 && f.hair !== this.def.forms[0].hair;
       M.hair.emissive.setHex(glow ? f.hair : 0x000000);
       M.hair.emissiveIntensity = glow ? 0.35 : 0;
@@ -354,24 +338,18 @@
       this.hair.scale.setScalar(f.hairScale || 1);
       this.auraU.uColor.value.setHex(f.aura);
       this.root.scale.setScalar(this.baseScale * (f.scale || 1));
-      if (this.belly) this.belly.scale.set(f.slim ? 0.72 : 1, 0.95, f.slim ? 0.72 : 0.92);
       this.setDamage(this.damage);
     }
-    // 0 = fresh, 1 = beaten up: clothes darken and tear, skin gets bruised and dirty.
+    // 0 = fresh, 1 = beaten up: clothes get dirty and rip open, skin gets scuffed.
     setDamage(d) {
       this.damage = d;
       const M = this.mats, dirt = new T.Color(0x3a2e24);
-      for (const k of ['gi', 'gi2', 'belt', 'boots']) M[k].color.copy(this.base[k]).lerp(dirt, d * 0.32);
-      M.skin.color.copy(this.base.skin).lerp(new T.Color(0x7a4a40), d * 0.18);
-      M.gi.roughness = 0.88 + d * 0.1;
-      if (this.robeMat) this.robeMat.color.copy(M.gi.color);
-      for (const t of this.tears) {
-        if (t.partial) {
-          // tattered top: the cloth shrinks to reveal the chest underneath
-          const k = Math.max(0, (d - t.at) / (1 - t.at));
-          t.m.scale.set(1 - k * 0.04, 1 - k * 0.22, 1 - k * 0.04);
-          t.m.position.y = -k * 0.04;
-        } else t.m.visible = d < t.at;
+      for (const k of ['gi', 'gi2', 'belt', 'boots']) M[k].color.copy(this.base[k]).lerp(dirt, d * 0.3);
+      M.skin.color.copy(this.base.skin).lerp(new T.Color(0x8a5a4c), d * 0.15);
+      const rip = Math.max(0, (d - 0.2) / 0.8);
+      for (const cm of this.clothMats) {
+        cm.mat.color.copy(M[cm.key].color);
+        cm.mat.userData.uTear.value = rip > 0 ? 0.18 + rip * 0.3 * cm.tear : 0;
       }
     }
     setPose(name) {
@@ -387,7 +365,7 @@
       const k = 1 - Math.exp(-dt * 16), P = this.pose, Tg = this.target;
       for (const key in Tg) P[key] += (Tg[key] - P[key]) * k;
       const breath = Math.sin(this.t * 2.4);
-      this.tilt.position.y = (this.belly ? 0.85 : 1.0) + breath * 0.04 * P.bob;
+      this.tilt.position.y = this.J.tilt[1] + breath * 0.04 * P.bob;
       this.chest.rotation.x = P.chest;
       this.chest.rotation.y = P.twist;
       this.chest.scale.set(1, 1 + breath * 0.008, 1 + breath * 0.012);

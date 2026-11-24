@@ -85,6 +85,8 @@
       const stars = Object.values(save.cleared).reduce((a, b) => a + b, 0);
       $('#menuProgress').textContent = `Story ${done}/${eps.length} episodes · ${stars}★ · Fighters ${save.chars.length}/${ZB.ROSTER.length}`;
       ZB.audio.music(2);
+      // sculpt the unlocked fighters in the background so battles start instantly
+      setTimeout(() => ZB.models.prefetch(save.chars), 1500);
     },
     story() {
       showcase.show([]);
@@ -279,7 +281,7 @@
         renderFighters();
       }),
     );
-    if (!showcase.models[0] || showcase.models[0].o.id !== selF) showcase.show([{ id: selF, form: selFForm, x: 0, yaw: 0, spin: true }]);
+    if (!showcase.list || !showcase.list[0] || showcase.list[0].id !== selF) showcase.show([{ id: selF, form: selFForm, x: 0, yaw: 0, spin: true }]);
   }
 
   // ---------------- settings
@@ -451,7 +453,16 @@
   }
 
   // ---------------- battle lifecycle
+  let launchReq = 0;
   function launch(opts) {
+    const ids = [opts.p1.id, opts.p2.id];
+    if (!ids.every((id) => ZB.models.ready(id))) {
+      const req = ++launchReq;
+      hideScreens();
+      ZB.models.ensure(ids).then(() => req === launchReq && launch(opts));
+      return;
+    }
+    launchReq++;
     endBattle();
     hideScreens();
     showcase.show([]);
@@ -613,5 +624,5 @@
     }
   }
   requestAnimationFrame(frame);
-  ZB.debug = { launch, get battle() { return battle; } };
+  ZB.debug = { launch, showcase, get battle() { return battle; } };
 })();
