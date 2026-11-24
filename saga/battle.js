@@ -141,6 +141,32 @@
       best.life = best.max = life || 0.35;
       best.l.intensity = peak;
     }
+    // a jagged electric arc near `center`, flickering for a few frames
+    bolt(center, color, size) {
+      if (!this.bolts) this.bolts = [];
+      let b = this.bolts.find((x) => x.life <= 0);
+      if (!b) {
+        if (this.bolts.length >= 16) return;
+        const g = new T.BufferGeometry();
+        g.setAttribute('position', new T.BufferAttribute(new Float32Array(8 * 3), 3));
+        b = { line: new T.Line(g, new T.LineBasicMaterial({ color: 0xffffff, transparent: true, blending: T.AdditiveBlending, depthWrite: false })), life: 0 };
+        b.line.renderOrder = 11;
+        b.line.frustumCulled = false;
+        this.scene.add(b.line);
+        this.bolts.push(b);
+      }
+      const s = size || 1, a = q1.set(rand(-0.5, 0.5), rand(-0.9, 0.9), rand(-0.5, 0.5)).multiplyScalar(s).add(center);
+      const dir = q2.set(rand(-1, 1), rand(-1, 1), rand(-1, 1)).normalize().multiplyScalar(rand(0.35, 0.7) * s);
+      const pa = b.line.geometry.attributes.position;
+      for (let i = 0; i < 8; i++) {
+        const t = i / 7, j = i === 0 || i === 7 ? 0 : 0.12 * s;
+        pa.setXYZ(i, a.x + dir.x * t + rand(-j, j), a.y + dir.y * t + rand(-j, j), a.z + dir.z * t + rand(-j, j));
+      }
+      pa.needsUpdate = true;
+      b.line.material.color.setHex(color).multiplyScalar(2.5);
+      b.line.visible = true;
+      b.life = rand(0.05, 0.11);
+    }
     ring(pos, r, color, normal, growth) {
       const m = new T.Mesh(new T.TorusGeometry(1, 0.08, 6, 40), addMat(color, 0.9));
       m.position.copy(pos);
@@ -210,6 +236,9 @@
         p.size += p.grow * dt;
         p.s.scale.setScalar(p.size);
         p.s.material.opacity = Math.min(0.85, (p.life / p.max) * 1.4);
+      }
+      if (this.bolts) for (const b of this.bolts) {
+        if (b.life > 0 && (b.life -= dt) <= 0) b.line.visible = false;
       }
       for (let i = this.rings.length - 1; i >= 0; i--) {
         const r = this.rings[i];
@@ -1143,6 +1172,7 @@
         t.vel.copy(h.dir).multiplyScalar(h.kb);
       } else if (!h.noState) {
         this.set(t, 'hitstun', h.stun || 0.35);
+        t.hitVar = Math.random() < 0.5 ? 1 : 0;
         if (h.dir) t.vel.copy(h.dir).multiplyScalar(h.push || 2);
       }
       if (!h.noFx) {
@@ -1658,7 +1688,23 @@
       else if (s === 'ko') { pose = 'ko'; aura = 0; m.tilt.rotation.x = f.pos.y < 0.3 ? -1.5 : -f.spin; }
       else if (s === 'win') pose = 'victory';
       if (f.poseT > 0 && f.poseName && (s === 'free' || s === 'volley' || s === 'rushCombo')) pose = f.poseName;
-      m.setPose(pose);
+      // keyframed clips for moves that have them
+      const prog = (d) => Math.min(1, f.st / Math.max(0.001, d));
+      const idx = ZB.ROSTER.indexOf(f.def);
+      let clip = null, ct = 0;
+      if (this.intro > 0 && s === 'free') { clip = ['introCrack', 'introPoint', 'introStance'][idx % 3]; ct = 1 - this.intro / 2.2; }
+      else if (s === 'attack') { clip = ['jab', 'cross', 'roundhouse', 'uppercut', 'hammer'][f.combo]; ct = prog(f.dur); }
+      else if (s === 'smashCharge') { clip = 'smashWindup'; ct = prog(f.dur); }
+      else if (s === 'smash') { clip = 'smashHit'; ct = prog(f.dur); }
+      else if (s === 'chaseHit') { clip = 'knee'; ct = prog(0.32); }
+      else if (s === 'hitstun' || s === 'stagger') { clip = f.hitVar ? 'hurtGut' : 'hurtHead'; ct = prog(f.dur); }
+      else if (s === 'transform') { clip = 'powerup'; ct = prog(f.dur); }
+      else if (s === 'win') { clip = ['winPump', 'winCross', 'winFlex'][idx % 3]; ct = f.st * 0.6; }
+      if (clip) m.setClip(clip, ct);
+      else m.setPose(pose);
+      // forms with lightning crackle with electric arcs
+      const lc = m.form.lightning;
+      if (lc && s !== 'ko' && Math.random() < (dt || 0) * (s === 'charge' || s === 'transform' ? 30 : 9)) this.fx.bolt(f.c, lc, 1.3 * m.root.scale.y);
       m.update(dt || 0.0001, aura);
     }
     updateCamera(dt) {
@@ -1792,6 +1838,13 @@
       this.t += dt;
       for (const { model, o } of this.models) {
         if (o.spin) model.root.rotation.y += dt * 0.6;
+        if (model.form.lightning && Math.random() < dt * 10) this.fx.bolt(t1.set(o.x || 0, 1.35, 0), model.form.lightning, 1.2);
+        if (o.clip) {
+          // preview: loop the clip with a short hold at the end
+          o.clipT = (o.clipT || 0) + dt / (o.clipDur || 1);
+          if (o.clipT > 1.4) o.clipT = 0;
+          model.setClip(o.clip, ZB.CLIPS[o.clip] && ZB.CLIPS[o.clip].loop ? o.clipT : Math.min(1, o.clipT));
+        } else if (o.pose !== 'charge') model.setPose(o.pose || 'idle');
         model.update(dt, o.aura == null ? (o.form > 0 ? 0.5 : 0.25) : o.aura);
         if (Math.random() < dt * 12) this.fx.spawn(t1.set((o.x || 0) + rand(-1, 1), rand(0, 0.5), rand(-1, 1)), t2.set(0, rand(2, 5), 0), model.form.aura, rand(0.2, 0.5), 0.8);
       }

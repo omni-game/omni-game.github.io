@@ -14,6 +14,7 @@ ZB.ROSTER = [
       { name: 'Ascended', hair: 0xffd23a, aura: 0xffc933, mult: 1.18, hairScale: 1.15, eyes: 0x15a89a, cost: 2 },
       { name: 'Ascended Fury', hair: 0xffe066, aura: 0xffe36b, mult: 1.33, hairScale: 1.35, eyes: 0x15a89a, spark: true, cost: 2 },
       { name: 'Zenith', hair: 0xe3ecff, aura: 0xdfe8ff, mult: 1.55, hairScale: 1.2, eyes: 0x9aa7ff, spark: true, cost: 3 },
+      { name: 'Zenith Unbound', hair: 0xb9d8ff, aura: 0x8fd0ff, mult: 1.75, hairScale: 1.3, eyes: 0xd6efff, spark: true, lightning: 0xbfe8ff, glowEyes: true, cost: 4 },
     ],
     supers: [
       { name: 'Solar Lance', type: 'beam', dmg: 1900, cost: 200, color: 0x4fc3ff },
@@ -30,6 +31,7 @@ ZB.ROSTER = [
       { name: 'Base', hair: 0x141420, aura: 0xd9c8ff, mult: 1.0 },
       { name: 'Ascended', hair: 0xffd23a, aura: 0xffcc33, mult: 1.2, hairScale: 1.12, eyes: 0x15a89a, cost: 2 },
       { name: 'Crimson Zenith', hair: 0xff3b4e, aura: 0xff2d48, mult: 1.5, hairScale: 1.25, eyes: 0xff9aa5, spark: true, cost: 3 },
+      { name: 'Crimson Overdrive', hair: 0xff1f3d, aura: 0xff4060, mult: 1.68, hairScale: 1.35, eyes: 0xffd0d6, spark: true, lightning: 0xff6a80, glowEyes: true, cost: 4 },
     ],
     supers: [
       { name: 'Ashfall Volley', type: 'volley', dmg: 1500, cost: 150, color: 0xffd24a },
@@ -46,6 +48,7 @@ ZB.ROSTER = [
       { name: 'Base', hair: 0x2a1b14, aura: 0xc8ffe4, mult: 1.0 },
       { name: 'Gale Mode', hair: 0x2a1b14, aura: 0x58f0a7, mult: 1.18, cost: 2 },
       { name: 'Tempest', hair: 0x7af5c9, aura: 0x41ffb0, mult: 1.34, hairScale: 1.1, spark: true, cost: 2 },
+      { name: 'Divine Tempest', hair: 0xd6fff0, aura: 0x9dffd8, mult: 1.55, hairScale: 1.2, eyes: 0x41ffb0, spark: true, lightning: 0xb8ffe6, glowEyes: true, cost: 3 },
     ],
     supers: [
       { name: 'Crescent Disk', type: 'disk', dmg: 1600, cost: 160, color: 0x7dffcf },
@@ -61,6 +64,7 @@ ZB.ROSTER = [
     forms: [
       { name: 'Standard', hair: 0x23262e, aura: 0x9ff3ff, mult: 1.0 },
       { name: 'Overclock', hair: 0x23262e, aura: 0x00e5ff, mult: 1.28, eyes: 0xff3355, spark: true, cost: 2 },
+      { name: 'Overclock MAX', hair: 0x23262e, aura: 0xff2d55, mult: 1.48, eyes: 0xff2d55, skin: 0xe8b6be, spark: true, lightning: 0xff5577, glowEyes: true, cost: 3 },
     ],
     supers: [
       { name: 'Photon Barrage', type: 'volley', dmg: 1500, cost: 150, color: 0x6fe9ff },
@@ -77,6 +81,7 @@ ZB.ROSTER = [
       { name: 'Sealed Form', hair: 0x26182e, aura: 0xd27bff, mult: 1.0 },
       { name: 'True Form', hair: 0x8a4fb3, aura: 0xc04dff, mult: 1.22, cost: 2 },
       { name: 'Gilded Form', hair: 0xf0c12a, aura: 0xffcf3a, mult: 1.45, skin: 0xf3c54a, spark: true, cost: 3 },
+      { name: 'Abyssal Form', hair: 0x1a1024, aura: 0x9a2cff, mult: 1.62, skin: 0x3a2a4e, eyes: 0xff2d6a, spark: true, lightning: 0xc070ff, glowEyes: true, scale: 1.06, cost: 4 },
     ],
     supers: [
       { name: 'Doom Needles', type: 'volley', dmg: 1500, cost: 150, color: 0xff4fa5 },
@@ -93,6 +98,7 @@ ZB.ROSTER = [
       { name: 'Restrained', hair: 0x1a1a1a, aura: 0xb9ffb0, mult: 1.0 },
       { name: 'Berserk', hair: 0x8dff6a, aura: 0x6dff4a, mult: 1.25, hairScale: 1.2, eyes: 0xffffff, cost: 2 },
       { name: 'Cataclysm', hair: 0xb6ff5c, aura: 0x9dff3a, mult: 1.45, hairScale: 1.4, eyes: 0xffffff, spark: true, scale: 1.12, cost: 3 },
+      { name: 'Primal Titan', hair: 0xe6ff7a, aura: 0xd2ff4a, mult: 1.62, hairScale: 1.55, eyes: 0xffffff, skin: 0xc98f6a, spark: true, scale: 1.24, lightning: 0xe9ff9a, glowEyes: true, cost: 4 },
     ],
     supers: [
       { name: 'Gigant Meteor', type: 'bomb', dmg: 1900, cost: 200, color: 0x8dff6a },
@@ -108,6 +114,7 @@ ZB.ROSTER = [
     forms: [
       { name: 'Jolly', hair: 0xe882b4, aura: 0xff9ad1, mult: 1.0 },
       { name: 'Ravenous', hair: 0xd85aa0, aura: 0xff4fb0, mult: 1.3, skin: 0xd85aa0, slim: true, spark: true, cost: 2 },
+      { name: 'Pure Chaos', hair: 0xff8fd0, aura: 0xff2fa0, mult: 1.5, skin: 0xf2a6d4, eyes: 0xff2fa0, spark: true, lightning: 0xff7ac8, glowEyes: true, scale: 0.92, cost: 3 },
     ],
     supers: [
       { name: 'Sugar Ray', type: 'beam', dmg: 1800, cost: 190, color: 0xff7ac8 },
@@ -123,6 +130,7 @@ ZB.ROSTER = [
     forms: [
       { name: 'Godly Calm', hair: 0x9d86c9, aura: 0xa66bff, mult: 1.0 },
       { name: 'Unbound', hair: 0x9d86c9, aura: 0x7a2dff, mult: 1.25, spark: true, cost: 3 },
+      { name: 'Unmaker Ascendant', hair: 0x9d86c9, aura: 0x5a1dff, mult: 1.45, skin: 0x7d66b0, eyes: 0xb6f6ff, spark: true, lightning: 0xb08aff, glowEyes: true, cost: 4 },
     ],
     supers: [
       { name: 'Erasure Sphere', type: 'bomb', dmg: 2100, cost: 220, color: 0xb98aff },
@@ -137,6 +145,7 @@ ZB.ROSTER = [
     hp: 16000, spd: 1.16, pow: 1.2,
     forms: [
       { name: 'Serene', hair: 0xf4f6ff, aura: 0xe8f1ff, mult: 1.0 },
+      { name: 'Unveiled', hair: 0xffffff, aura: 0xffffff, mult: 1.28, eyes: 0xe8f6ff, spark: true, lightning: 0xffffff, glowEyes: true, cost: 4 },
     ],
     supers: [
       { name: 'Prism Lance', type: 'beam', dmg: 2100, cost: 200, color: 0xe8f1ff },
@@ -384,7 +393,7 @@ ZB.CAMPAIGN = [
           ['valdris', 'I will spare Teralune. For now. Wake me when you get stronger.'],
           ['nar', 'Kairo reached ZENITH. Valdris is now playable.'],
         ],
-        unlock: { chars: ['valdris'], forms: { kairo: 3 } },
+        unlock: { chars: ['valdris'], forms: { kairo: 3, rhen: 3, mira: 3 } },
       },
       {
         id: 'e12', name: 'Secret: The Herald’s Trial', player: 'kairo', pForm: 3, enemy: 'oriel', stage: 'arena', ai: 0.85, goal: 'win', secret: true,
@@ -399,7 +408,7 @@ ZB.CAMPAIGN = [
           ['oriel', 'And that is why you will keep growing. Thank you for the dance.'],
           ['nar', 'TRUE ENDING. Oriel is now playable. Thank you for playing ZENITH BURST!'],
         ],
-        unlock: { chars: ['oriel'] },
+        unlock: { chars: ['oriel'], forms: { kairo: 4 } },
       },
     ],
   },

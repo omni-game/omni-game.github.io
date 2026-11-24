@@ -407,6 +407,7 @@
       this.base.skin.setHex(f.skin || this.def.colors.skin);
       this.eyeMat.color.setHex(f.eyes || this.def.colors.eyes);
       this.eyeColor = f.eyes || this.def.colors.eyes;
+      this.glowEyes = !!f.glowEyes;
       if (this.face) {
         this.face.eyeKind = '';
         for (const b of this.face.brows) b.m.color.setHex(f.hair);
@@ -433,6 +434,23 @@
     setPose(name) {
       const p = POSES[name] || POSES.idle;
       Object.assign(this.target, defaultPose(), p);
+      this.snap = 16;
+    }
+    // Keyframed animation: sample clip `name` at normalised time t (0..1) into the pose target.
+    setClip(name, t) {
+      const c = CLIPS[name];
+      if (!c) return this.setPose(name);
+      if (c.loop) t = ((t % 1) + 1) % 1;
+      t = Math.max(0, Math.min(1, t));
+      const k = c.keys;
+      let i = 0;
+      while (i < k.length - 2 && t > k[i + 1][0]) i++;
+      const [t0, a] = k[i], [t1, b] = k[i + 1];
+      let u = t1 > t0 ? Math.max(0, Math.min(1, (t - t0) / (t1 - t0))) : 1;
+      u = u * u * (3 - 2 * u);
+      const A = keyPose(a), B = keyPose(b), Tg = this.target;
+      for (const key in A) Tg[key] = A[key] + (B[key] - A[key]) * u;
+      this.snap = c.snap || 30;
     }
     handWorld(out, side) {
       const a = this.arms[side === 'l' ? 1 : 0];
@@ -440,7 +458,7 @@
     }
     update(dt, aura) {
       this.t += dt;
-      const k = 1 - Math.exp(-dt * 16), P = this.pose, Tg = this.target;
+      const k = 1 - Math.exp(-dt * (this.snap || 16)), P = this.pose, Tg = this.target;
       for (const key in Tg) P[key] += (Tg[key] - P[key]) * k;
       const breath = Math.sin(this.t * 2.4);
       this.tilt.position.y = this.J.tilt[1] + breath * 0.04 * P.bob;
@@ -475,7 +493,12 @@
       const eyeKind = P.pain > 0.55 ? 'squeeze' : F.blink > 0 ? 'closed' : P.angry > 0.55 ? 'angry' : 'open';
       if (eyeKind !== F.eyeKind) {
         F.eyeKind = eyeKind;
-        for (const e of F.eyes) e.m.map = ZB.face.eye(eyeKind, this.eyeColor);
+        for (const e of F.eyes) {
+          e.m.map = ZB.face.eye(eyeKind, this.eyeColor);
+          // glowing-eyed forms: the drawn eye is pushed past white so the bloom catches it
+          e.m.color.setScalar(this.glowEyes ? 1.8 : 1);
+          e.m.toneMapped = !this.glowEyes;
+        }
       }
       const mouthKind = P.open > 0.55 ? 'shout' : P.pain > 0.5 ? 'pain' : P.angry > 0.8 ? 'grit' : P.open > 0.2 && P.angry < 0.1 ? 'smile' : 'neutral';
       if (mouthKind !== F.mouthKind) {
@@ -532,6 +555,75 @@
     victory: { hand: 1, open: 0.35, angry: 0,  chest: -0.05, aRx: -2.9, aRs: 0.15, eR: -0.1, aLx: 0.1, aLs: 0.15, eL: -0.3, lRx: 0, kR: 0.1, lLx: 0, kL: 0.1 },
     ko: { hand: 0.3, pain: 0.7, open: 0.25, angry: 0,  chest: -0.8, head: -0.6, aRx: 0.3, aRs: 1.1, eR: -0.2, aLx: 0.3, aLs: 1.1, eL: -0.2, lRx: 0.2, kR: 0.2, lLx: -0.2, kL: 0.4, bob: 0 },
   };
+  // ---- keyframed clips: [time 0..1, pose name or {base, ...overrides}] ----
+  function keyPose(k) {
+    if (typeof k === 'string') return Object.assign(defaultPose(), POSES[k] || {});
+    return Object.assign(defaultPose(), POSES[k.p] || {}, k);
+  }
+  const GUARD_UP = { aRx: -0.95, aRs: 0.15, eR: -2.0, aLx: -0.95, aLs: 0.15, eL: -2.0, angry: 0.7, hand: 1, bob: 0 };
+  const CLIPS = {
+    // five-hit rush combo
+    jab: { keys: [[0, GUARD_UP], [0.22, { p: 'punchR', twist: 0.55 }], [0.6, { p: 'punchR', twist: 0.5 }], [1, GUARD_UP]] },
+    cross: { keys: [[0, GUARD_UP], [0.22, { p: 'punchL', twist: -0.6, chest: 0.28 }], [0.6, { p: 'punchL', twist: -0.55 }], [1, GUARD_UP]] },
+    roundhouse: { keys: [
+      [0, Object.assign({}, GUARD_UP, { twist: -0.55, lRx: -0.7, kR: 1.7 })],
+      [0.3, { p: 'kick', twist: 0.75, lRx: -1.25, lRs: 0.95, kR: 0.08, open: 0.4 }],
+      [0.62, { p: 'kick', twist: 0.7, lRx: -1.2, lRs: 0.9, kR: 0.15 }],
+      [1, GUARD_UP]] },
+    uppercut: { keys: [
+      [0, { chest: 0.4, twist: -0.3, aRx: 0.45, eR: -1.9, aLx: -0.9, eL: -2.0, lRx: -0.35, kR: 1.0, lLx: -0.6, kL: 1.1, angry: 1, hand: 1, bob: 0 }],
+      [0.3, { chest: -0.35, twist: 0.35, head: -0.25, aRx: -2.75, aRs: 0.08, eR: -0.35, aLx: -0.5, eL: -1.6, lRx: 0.25, kR: 0.15, lLx: -0.15, kL: 0.4, angry: 1, open: 0.7, hand: 1, bob: 0 }],
+      [0.65, { chest: -0.3, head: -0.2, aRx: -2.7, eR: -0.4, aLx: -0.5, eL: -1.6, angry: 1, open: 0.5, hand: 1, bob: 0 }],
+      [1, GUARD_UP]] },
+    hammer: { snap: 26, keys: [
+      [0, { p: 'raise', hand: 1, angry: 1, open: 0.6, aRs: 0.05, aLs: 0.05, eR: -1.4, eL: -1.4 }],
+      [0.4, { chest: 0.75, head: 0.15, aRx: -1.2, aLx: -1.2, aRs: -0.25, aLs: -0.25, eR: -0.25, eL: -0.25, lRx: 0.4, kR: 0.5, lLx: -0.7, kL: 0.8, hand: 1, angry: 1, open: 0.95, bob: 0 }],
+      [0.75, { chest: 0.7, aRx: -1.15, aLx: -1.15, aRs: -0.25, aLs: -0.25, eR: -0.3, eL: -0.3, hand: 1, angry: 1, open: 0.6, bob: 0 }],
+      [1, GUARD_UP]] },
+    // charged smash
+    smashWindup: { keys: [[0, GUARD_UP], [1, { p: 'smashWind', twist: -1.05, aRx: 1.3, chest: -0.12, lRx: 0.45, kR: 0.7, lLx: -0.7, kL: 0.9, angry: 1, hand: 1 }]] },
+    smashHit: { snap: 34, keys: [[0, { p: 'smashWind', twist: -1.0, aRx: 1.25 }], [0.28, { p: 'smash', twist: 0.85, chest: 0.45, open: 0.8 }], [0.7, { p: 'smash', twist: 0.75 }], [1, GUARD_UP]] },
+    // vanish chase: flying knee
+    knee: { snap: 34, keys: [
+      [0, { lRx: -0.4, kR: 2.3, chest: 0.2, aRx: -0.6, aLx: -0.6, angry: 1, bob: 0 }],
+      [0.3, { lRx: -1.8, kR: 2.2, lLx: 0.5, kL: 0.4, chest: 0.45, aRx: -1.3, aLx: -1.3, eR: -1.4, eL: -1.4, aRs: 0.1, aLs: 0.1, angry: 1, open: 0.5, hand: 1, bob: 0 }],
+      [1, { lRx: -1.7, kR: 2.1, chest: 0.4, aRx: -1.2, aLx: -1.2, eR: -1.4, eL: -1.4, angry: 1, bob: 0 }]] },
+    // hit reactions
+    hurtHead: { keys: [[0, { p: 'hurt', head: -0.8, chest: -0.55, twist: 0.3 }], [0.35, { p: 'hurt', head: -0.6, chest: -0.45 }], [1, { p: 'idle', pain: 0.6, angry: 0 }]] },
+    hurtGut: { keys: [
+      [0, { chest: 0.85, head: 0.35, aRx: -0.55, aLx: -0.55, aRs: -0.35, aLs: -0.35, eR: -1.9, eL: -1.9, lRx: -0.55, kR: 1.2, lLx: -0.5, kL: 1.1, pain: 1, open: 0.7, hand: 0.6, bob: 0 }],
+      [0.45, { chest: 0.7, head: 0.25, aRx: -0.5, aLx: -0.5, aRs: -0.3, aLs: -0.3, eR: -1.8, eL: -1.8, lRx: -0.4, kR: 0.9, lLx: -0.4, kL: 0.9, pain: 1, open: 0.4, bob: 0 }],
+      [1, { p: 'idle', pain: 0.6, angry: 0 }]] },
+    // transformation: clench, then erupt
+    powerup: { keys: [
+      [0, { chest: 0.55, head: 0.35, aRx: -0.25, aLx: -0.25, aRs: 0.25, aLs: 0.25, eR: -2.2, eL: -2.2, lRx: -0.45, kR: 1.0, lLx: -0.45, kL: 1.0, hand: 1, angry: 1, open: 0, bob: 0 }],
+      [0.45, { chest: 0.6, head: 0.4, aRx: -0.2, aLx: -0.2, aRs: 0.3, aLs: 0.3, eR: -2.3, eL: -2.3, lRx: -0.5, kR: 1.1, lLx: -0.5, kL: 1.1, hand: 1, angry: 1, open: 0.3, bob: 0 }],
+      [0.58, { p: 'transform', chest: -0.4, head: -0.35 }],
+      [1, { p: 'transform' }]] },
+    // pre-fight intros
+    introCrack: { keys: [
+      [0, { aRx: -1.25, aLx: -1.25, aRs: -0.45, aLs: -0.45, eR: -1.55, eL: -1.55, head: 0.25, angry: 0.3, hand: 0.6, lLx: 0, kL: 0.1, lRx: 0, kR: 0.1 }],
+      [0.45, { aRx: -1.3, aLx: -1.3, aRs: -0.5, aLs: -0.5, eR: -1.5, eL: -1.5, twist: 0.25, head: 0.1, angry: 0.5, hand: 0.6 }],
+      [0.75, GUARD_UP], [1, GUARD_UP]] },
+    introPoint: { keys: [
+      [0, 'idle'], [0.3, { aRx: -1.55, aRs: 0.25, eR: -0.05, aLx: 0.2, aLs: 0.2, eL: -0.4, hand: 0.35, open: 0.5, angry: 0.8, head: -0.05 }],
+      [0.75, { aRx: -1.5, aRs: 0.2, eR: -0.05, aLx: 0.2, aLs: 0.2, eL: -0.4, hand: 0.35, angry: 0.9 }], [1, GUARD_UP]] },
+    introStance: { keys: [
+      [0, { chest: -0.1, aRx: 0.05, eR: -0.3, aLx: 0.05, eL: -0.3, angry: 0 }],
+      [0.55, { chest: 0.28, twist: -0.3, lRx: 0.55, kR: 1.0, lLx: -0.95, kL: 1.25, aRx: -1.1, aRs: 0.1, eR: -1.9, aLx: -0.35, aLs: 0.65, eL: -1.1, angry: 0.9, hand: 0.8, bob: 0.2 }],
+      [1, { chest: 0.28, twist: -0.3, lRx: 0.55, kR: 1.0, lLx: -0.95, kL: 1.25, aRx: -1.1, aRs: 0.1, eR: -1.9, aLx: -0.35, aLs: 0.65, eL: -1.1, angry: 0.9, hand: 0.8, bob: 0.2 }]] },
+    // victory celebrations (looping)
+    winPump: { loop: true, snap: 12, keys: [[0, 'victory'], [0.5, { p: 'victory', aRx: -2.35, eR: -0.9, open: 0.8 }], [1, 'victory']] },
+    winCross: { loop: true, snap: 10, keys: [
+      [0, { aRx: -1.35, aRs: -0.75, eR: -1.75, aLx: -1.2, aLs: -0.7, eL: -1.8, head: 0.1, angry: 0.2, open: 0.3, hand: 1, lRx: 0, kR: 0.1, lLx: 0, kL: 0.1 }],
+      [0.5, { aRx: -1.35, aRs: -0.75, eR: -1.75, aLx: -1.2, aLs: -0.7, eL: -1.8, head: 0.28, angry: 0.2, open: 0.3, hand: 1, lRx: 0, kR: 0.1, lLx: 0, kL: 0.1 }],
+      [1, { aRx: -1.35, aRs: -0.75, eR: -1.75, aLx: -1.2, aLs: -0.7, eL: -1.8, head: 0.1, angry: 0.2, open: 0.3, hand: 1, lRx: 0, kR: 0.1, lLx: 0, kL: 0.1 }]] },
+    winFlex: { loop: true, snap: 10, keys: [
+      [0, { aRx: -0.2, aRs: 1.45, eR: -2.1, aLx: -0.2, aLs: 1.45, eL: -2.1, chest: -0.1, open: 0.35, angry: 0, hand: 1, lRx: 0, kR: 0.1, lLx: 0, kL: 0.1 }],
+      [0.5, { aRx: -0.3, aRs: 1.5, eR: -2.3, aLx: -0.3, aLs: 1.5, eL: -2.3, chest: -0.2, open: 0.8, angry: 0.4, hand: 1, lRx: 0, kR: 0.1, lLx: 0, kL: 0.1 }],
+      [1, { aRx: -0.2, aRs: 1.45, eR: -2.1, aLx: -0.2, aLs: 1.45, eL: -2.1, chest: -0.1, open: 0.35, angry: 0, hand: 1, lRx: 0, kR: 0.1, lLx: 0, kL: 0.1 }]] },
+  };
+  ZB.CLIPS = CLIPS;
   ZB.Model = Model;
   ZB.std = std;
   ZB.toon = (color) => std(color, 0.85);

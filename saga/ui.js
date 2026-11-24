@@ -257,6 +257,9 @@
 
   // ---------------- fighters
   let selF = 'kairo', selFForm = 0;
+  let selAnim = 'idle';
+  const ANIMS = [['idle', 'Stance'], ['jab', 'Jab'], ['cross', 'Cross'], ['roundhouse', 'Kick'], ['uppercut', 'Uppercut'], ['hammer', 'Hammer'], ['smashHit', 'Smash'], ['knee', 'Flying knee'], ['powerup', 'Power up'], ['introCrack', 'Intro 1'], ['introPoint', 'Intro 2'], ['introStance', 'Intro 3'], ['winPump', 'Victory 1'], ['winCross', 'Victory 2'], ['winFlex', 'Victory 3'], ['hurtGut', 'Hit']];
+  const ANIM_DUR = { jab: 0.45, cross: 0.45, roundhouse: 0.6, uppercut: 0.6, hammer: 0.7, smashHit: 0.6, knee: 0.5, powerup: 1.6, introCrack: 2, introPoint: 2, introStance: 2, winPump: 1.6, winCross: 2.4, winFlex: 2, hurtGut: 0.6 };
   const TYPE = { beam: 'Energy beam', rush: 'Rush combo', volley: 'Ki barrage', bomb: 'Giant sphere', disk: 'Homing disk', nova: 'Area explosion' };
   function renderFighters() {
     const el = $('#rosterF');
@@ -271,8 +274,24 @@
       <p>${esc(def.bio)}</p>
       <div><span class="stat">HP <b>${def.hp}</b></span><span class="stat">Speed <b>${Math.round(def.spd * 100)}</b></span><span class="stat">Power <b>${Math.round(def.pow * 100)}</b></span>${def.kiRegen ? '<span class="stat"><b>Trait:</b> self-recharging ki</span>' : ''}</div>
       <div class="forms">${def.forms.map((f, i) => `<button data-f="${i}" class="${i === selFForm ? 'on' : ''}" ${i > mf ? 'disabled title="Unlock in Story"' : ''}>${esc(f.name)}${i > mf ? ' \u{1F512}' : ''}</button>`).join('')}</div>
+      <div class="forms anims"><span class="muted">Animations:</span>${ANIMS.map(([k, n]) => `<button data-a="${k}" class="${k === selAnim ? 'on' : ''}">${n}</button>`).join('')}</div>
       <div class="moves">${def.supers.map((s, i) => `<div><b>${esc(s.name)}</b><small>Super ${i + 1} · U+${i ? 'K' : 'J'} · ${TYPE[s.type]} · ${s.cost / 100} ki bars</small></div>`).join('')}
       <div><b>${esc(def.ultimate.name)}</b><small>Ultimate · U+L · ${TYPE[def.ultimate.type]} · needs Sparking</small></div></div>`;
+    info.querySelectorAll('[data-a]').forEach((b) =>
+      b.addEventListener('click', () => {
+        selAnim = b.dataset.a;
+        ZB.audio.play('ui');
+        const m = showcase.models[0];
+        if (m) {
+          m.o.clip = selAnim === 'idle' ? null : selAnim;
+          m.o.clipT = 0;
+          m.o.clipDur = ANIM_DUR[selAnim] || 1;
+          m.o.spin = selAnim === 'idle';
+          if (!m.o.spin) m.model.root.rotation.y = 0.35;
+        }
+        renderFighters();
+      }),
+    );
     info.querySelectorAll('[data-f]').forEach((b) =>
       b.addEventListener('click', () => {
         selFForm = +b.dataset.f;
@@ -281,7 +300,10 @@
         renderFighters();
       }),
     );
-    if (!showcase.list || !showcase.list[0] || showcase.list[0].id !== selF) showcase.show([{ id: selF, form: selFForm, x: 0, yaw: 0, spin: true }]);
+    if (!showcase.list || !showcase.list[0] || showcase.list[0].id !== selF) {
+      selAnim = 'idle';
+      showcase.show([{ id: selF, form: selFForm, x: 0, yaw: 0, spin: true }]);
+    }
   }
 
   // ---------------- settings
