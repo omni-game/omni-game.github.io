@@ -148,7 +148,7 @@ ZB.ROSTER = [
 ZB.byId = (id) => ZB.ROSTER.find((r) => r.id === id);
 
 ZB.STAGES = [
-  { id: 'wasteland', name: 'Crimson Wasteland', sky: [0xf6b26b, 0xe2614a], ground: 0xa0552c, ground2: 0x7a3d1f, fog: 0xe9906a, props: 'mesa', sun: 0xfff0d0 },
+  { id: 'wasteland', name: 'Crimson Wasteland', sky: [0xf6b26b, 0xe2614a], ground: 0xb98a5e, ground2: 0x93603f, fog: 0xe3a780, props: 'mesa', sun: 0xfff0d0 },
   { id: 'city', name: 'Ruined Metropolis', sky: [0x9bb4cc, 0x55657a], ground: 0x5b5f66, ground2: 0x43464c, fog: 0x8495a8, props: 'city', sun: 0xffffff },
   { id: 'glacier', name: 'Frozen Expanse', sky: [0xbfe6ff, 0x4f8fd1], ground: 0xe6f2fb, ground2: 0xb9d6ee, fog: 0xc8e2f6, props: 'ice', sun: 0xffffff },
   { id: 'realm', name: 'Celestial Realm', sky: [0x3a1d6e, 0x0d0624], ground: 0x2a1650, ground2: 0x1a0d36, fog: 0x2a1650, props: 'crystal', sun: 0xd8c8ff },

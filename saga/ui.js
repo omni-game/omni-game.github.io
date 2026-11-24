@@ -39,7 +39,11 @@
   const canvas = $('#gl');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
   function applyQuality() {
+    ZB.quality = save.quality;
     renderer.setPixelRatio(save.quality === 'low' ? 1 : Math.min(devicePixelRatio || 1, 1.75));
     renderer.shadowMap.enabled = save.quality !== 'low';
     renderer.setSize(innerWidth, innerHeight, false);

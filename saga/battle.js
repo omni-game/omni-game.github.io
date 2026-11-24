@@ -47,9 +47,24 @@
         scene.add(s);
         this.sprites.push({ s, vel: v3(), life: 0, max: 1, size: 1, grow: 0, grav: 0, drag: 0, alive: false });
       }
+      this.smokes = [];
+      for (let i = 0; i < 160; i++) {
+        const s = new T.Sprite(new T.SpriteMaterial({ map: ZB.tex.smokeTex(), transparent: true, depthWrite: false, fog: true }));
+        s.visible = false;
+        s.renderOrder = 9;
+        scene.add(s);
+        this.smokes.push({ s, vel: v3(), life: 0, max: 1, size: 1, grow: 0, grav: 0, drag: 0, alive: false, smoke: true });
+      }
+      this.sIdx = 0;
+      this.lights = [];
+      for (let i = 0; i < 4; i++) {
+        const l = new T.PointLight(0xffffff, 0, 30, 2);
+        scene.add(l);
+        this.lights.push({ l, life: 0, max: 1, peak: 0 });
+      }
       this.rings = [];
       this.debris = [];
-      this.debrisGeo = new T.BoxGeometry(1, 1, 1);
+      this.debrisGeo = new T.DodecahedronGeometry(0.6, 0);
       this.debrisMats = {};
       this.idx = 0;
     }
@@ -89,13 +104,42 @@
         this.spawn(pos, q1, i % 2 ? color : 0xffeedd, rand(0.3, 0.8) * Math.sqrt(r), rand(0.3, 0.8), { drag: 2.5, grow: 0.6 });
       }
       this.ring(pos, r * 0.5, color, null, r * 9);
+      this.light(pos, color, 4 + r * 4, 12 + r * 10, 0.25 + r * 0.12);
+      if (r > 0.8) for (let i = 0; i < Math.round(r * 3); i++) this.smokeAt(q2.copy(pos).add(q1.set(rand(-r, r), rand(-r, r), rand(-r, r))), q1.set(rand(-2, 2), rand(1, 3), rand(-2, 2)), new T.Color(0x6b6560), r * rand(1.2, 2), rand(1.5, 3), r * 1.2);
     }
-    dust(pos, n, color) {
+    dust(pos, n, color, size) {
+      const c = new T.Color(color || 0xc8b49a).lerp(new T.Color(0xd8d0c4), 0.35);
       for (let i = 0; i < n; i++) {
-        q1.set(rand(-1, 1), rand(0, 0.5), rand(-1, 1)).normalize().multiplyScalar(rand(4, 12));
-        const p = this.spawn(q2.set(pos.x, 0.3, pos.z), q1, color || 0xc8b49a, rand(0.8, 1.8), rand(0.5, 1.1), { drag: 2, grow: 2 });
-        if (p) p.s.material.blending = T.NormalBlending;
+        q1.set(rand(-1, 1), rand(0.05, 0.6), rand(-1, 1)).normalize().multiplyScalar(rand(3, 11) * (size || 1));
+        this.smokeAt(q2.set(pos.x + rand(-0.5, 0.5), 0.4 + Math.max(0, pos.y * 0.2), pos.z + rand(-0.5, 0.5)), q1, c, rand(1.2, 2.6) * (size || 1), rand(1.2, 2.6), 1.6 * (size || 1));
       }
+    }
+    smokeAt(pos, vel, color, size, life, grow) {
+      this.sIdx = (this.sIdx + 1) % this.smokes.length;
+      const p = this.smokes[this.sIdx];
+      p.alive = true;
+      p.s.visible = true;
+      p.s.position.copy(pos);
+      p.vel.copy(vel);
+      p.s.material.color.copy(color);
+      p.s.material.rotation = Math.random() * 6.28;
+      p.size = size;
+      p.s.scale.setScalar(size);
+      p.life = p.max = life;
+      p.grow = grow || 1;
+      p.grav = -0.6;
+      p.drag = 1.8;
+      return p;
+    }
+    light(pos, color, peak, dist, life) {
+      let best = this.lights[0];
+      for (const L of this.lights) if (L.life <= 0 || L.l.intensity < best.l.intensity) best = L;
+      best.l.position.copy(pos);
+      best.l.color.setHex(color);
+      best.l.distance = dist || 30;
+      best.peak = peak;
+      best.life = best.max = life || 0.35;
+      best.l.intensity = peak;
     }
     ring(pos, r, color, normal, growth) {
       const m = new T.Mesh(new T.TorusGeometry(1, 0.08, 6, 40), addMat(color, 0.9));
@@ -107,7 +151,7 @@
       this.rings.push({ m, life: 0.45, max: 0.45, growth: growth || 30 });
     }
     rubble(pos, color, n, power) {
-      if (!this.debrisMats[color]) this.debrisMats[color] = ZB.toon(color);
+      if (!this.debrisMats[color]) this.debrisMats[color] = ZB.std(color, 0.95);
       for (let i = 0; i < n; i++) {
         let d = this.debris.find((x) => !x.alive);
         if (!d) {
@@ -128,6 +172,29 @@
       }
     }
     update(dt) {
+      for (const L of this.lights) {
+        if (L.life > 0) {
+          L.life -= dt;
+          L.l.intensity = Math.max(0, L.peak * (L.life / L.max));
+        } else L.l.intensity = 0;
+      }
+      for (const p of this.smokes) {
+        if (!p.alive) continue;
+        p.life -= dt;
+        if (p.life <= 0) {
+          p.alive = false;
+          p.s.visible = false;
+          continue;
+        }
+        p.vel.y -= p.grav * dt;
+        p.vel.multiplyScalar(Math.exp(-p.drag * dt));
+        p.s.position.addScaledVector(p.vel, dt);
+        p.size += p.grow * dt;
+        p.s.scale.setScalar(p.size);
+        p.s.material.rotation += dt * 0.3;
+        const t = p.life / p.max;
+        p.s.material.opacity = Math.min(1, (1 - t) * 6) * t * 0.75;
+      }
       for (const p of this.sprites) {
         if (!p.alive) continue;
         p.life -= dt;
@@ -175,118 +242,6 @@
         }
       }
     }
-  }
-
-  // ------------------------------------------------------------------ Stage
-  function buildStage(scene, st) {
-    const props = [];
-    // sky dome
-    const sky = new T.Mesh(
-      new T.SphereGeometry(900, 24, 16),
-      new T.ShaderMaterial({
-        side: T.BackSide, depthWrite: false, fog: false,
-        uniforms: { top: { value: new T.Color(st.sky[1]) }, bot: { value: new T.Color(st.sky[0]) } },
-        vertexShader: 'varying float h; void main(){ h = normalize(position).y; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
-        fragmentShader: 'uniform vec3 top; uniform vec3 bot; varying float h; void main(){ gl_FragColor = vec4(mix(bot, top, smoothstep(-0.05, 0.6, h)), 1.0); }',
-      }),
-    );
-    scene.add(sky);
-    scene.fog = new T.Fog(st.fog, 140, 650);
-    if (st.props === 'realm' || st.props === 'crystal' || st.props === 'arena') {
-      const g = new T.BufferGeometry(), pts = [];
-      for (let i = 0; i < 800; i++) {
-        t1.set(rand(-1, 1), rand(0.05, 1), rand(-1, 1)).normalize().multiplyScalar(850);
-        pts.push(t1.x, t1.y, t1.z);
-      }
-      g.setAttribute('position', new T.Float32BufferAttribute(pts, 3));
-      scene.add(new T.Points(g, new T.PointsMaterial({ color: 0xffffff, size: 2, fog: false })));
-    }
-    // ground
-    const gg = new T.PlaneGeometry(1400, 1400, 90, 90);
-    gg.rotateX(-Math.PI / 2);
-    const pos = gg.attributes.position, cols = [], ca = new T.Color(st.ground), cb = new T.Color(st.ground2), cc = new T.Color();
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i), z = pos.getZ(i), r = Math.hypot(x, z);
-      const n = Math.sin(x * 0.05) * Math.cos(z * 0.06) + Math.sin(x * 0.013 + z * 0.02) * 0.8;
-      if (r > 230) pos.setY(i, (r - 230) * 0.08 * (1.2 + n));
-      cc.copy(ca).lerp(cb, clamp(0.5 + n * 0.4 + Math.random() * 0.15, 0, 1));
-      if (st.props === 'arena' && r < 48) cc.copy(r > 45 ? cb : ca).multiplyScalar(1 + (Math.floor(r / 6) % 2) * 0.08);
-      cols.push(cc.r, cc.g, cc.b);
-    }
-    gg.setAttribute('color', new T.Float32BufferAttribute(cols, 3));
-    gg.computeVertexNormals();
-    const ground = new T.Mesh(gg, new T.MeshLambertMaterial({ vertexColors: true }));
-    ground.receiveShadow = true;
-    scene.add(ground);
-
-    const addProp = (mesh, x, z, r, y0, y1, color) => {
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      scene.add(mesh);
-      props.push({ mesh, x, z, r, y0, y1, alive: true, color });
-    };
-    const ring = (n, rMin, rMax, fn) => {
-      for (let i = 0; i < n; i++) {
-        const a = rand(0, Math.PI * 2), r = rand(rMin, rMax);
-        fn(Math.cos(a) * r, Math.sin(a) * r, i);
-      }
-    };
-    if (st.props === 'mesa') {
-      const cols2 = [0xa0552c, 0x8b4524, 0xb8683a];
-      ring(34, 35, 200, (x, z, i) => {
-        const h = rand(8, 30), r = rand(4, 10), c = cols2[i % 3];
-        const m = new T.Mesh(new T.CylinderGeometry(r * 0.8, r, h, 7), ZB.toon(c));
-        m.position.set(x, h / 2, z);
-        m.rotation.y = rand(0, 3);
-        addProp(m, x, z, r, 0, h, c);
-      });
-      ring(30, 20, 200, (x, z) => {
-        const s = rand(1.5, 4), m = new T.Mesh(new T.DodecahedronGeometry(s, 0), ZB.toon(0x7a4022));
-        m.position.set(x, s * 0.5, z);
-        addProp(m, x, z, s, 0, s * 1.4, 0x7a4022);
-      });
-    } else if (st.props === 'city') {
-      ring(60, 30, 210, (x, z, i) => {
-        const h = rand(10, 42), w = rand(6, 12), d = rand(6, 12), c = [0x7d8590, 0x9aa1aa, 0x6a707a, 0xb0a998][i % 4];
-        const m = new T.Mesh(new T.BoxGeometry(w, h, d), ZB.toon(c));
-        m.position.set(x, h / 2, z);
-        m.rotation.y = rand(0, 3);
-        // window strips
-        const win = new T.Mesh(new T.BoxGeometry(w * 1.01, h * 0.8, d * 0.4), ZB.toon(0x2e3d52));
-        win.position.y = h * 0.05;
-        m.add(win);
-        addProp(m, x, z, Math.max(w, d) * 0.6, 0, h, c);
-      });
-    } else if (st.props === 'ice') {
-      ring(45, 25, 200, (x, z) => {
-        const h = rand(6, 26), r = rand(2.5, 7), c = [0xcdeafc, 0xa7d3f5, 0xe8f6ff][Math.floor(rand(0, 3))];
-        const m = new T.Mesh(new T.ConeGeometry(r, h, 5), ZB.toon(c));
-        m.position.set(x, h / 2, z);
-        m.rotation.set(rand(-0.2, 0.2), rand(0, 3), rand(-0.2, 0.2));
-        addProp(m, x, z, r, 0, h, c);
-      });
-    } else if (st.props === 'crystal') {
-      ring(40, 25, 200, (x, z, i) => {
-        const s = rand(2, 6), y = i % 2 ? rand(6, 40) : s, c = [0xb98aff, 0x7ad6ff, 0xff8ad8][i % 3];
-        const m = new T.Mesh(new T.OctahedronGeometry(s, 0), ZB.toon(c));
-        m.position.set(x, y, z);
-        m.scale.y = 1.8;
-        addProp(m, x, z, s, y - s * 1.8, y + s * 1.8, c);
-      });
-    } else if (st.props === 'arena') {
-      for (let i = 0; i < 10; i++) {
-        const a = (i / 10) * Math.PI * 2, x = Math.cos(a) * 55, z = Math.sin(a) * 55, h = 22;
-        const m = new T.Mesh(new T.CylinderGeometry(2.4, 2.8, h, 10), ZB.toon(0xd8dbe8));
-        m.position.set(x, h / 2, z);
-        addProp(m, x, z, 2.8, 0, h, 0xd8dbe8);
-      }
-      ring(16, 90, 210, (x, z, i) => {
-        const s = rand(2, 5), y = rand(10, 45), m = new T.Mesh(new T.OctahedronGeometry(s, 0), ZB.toon(i % 2 ? 0xe8f1ff : 0x9db4ff));
-        m.position.set(x, y, z);
-        addProp(m, x, z, s, y - s, y + s, 0xe8f1ff);
-      });
-    }
-    return props;
   }
 
   // ------------------------------------------------------------------ AI
@@ -463,17 +418,32 @@
       this.scene = new T.Scene();
       this.cam = new T.PerspectiveCamera(62, 16 / 9, 0.1, 2000);
       this.stage = ZB.stageById(opts.stage);
-      this.props = buildStage(this.scene, this.stage);
-      const hemi = new T.HemisphereLight(this.stage.sky[0], this.stage.ground, 0.85);
+      const built = ZB.buildStage(this.scene, this.stage, renderer);
+      this.props = built.props;
+      this.addCrater = built.addCrater;
+      this.sunDir = built.sunDir;
+      const night = this.stage.props === 'crystal' || this.stage.props === 'arena';
+      // cool sky fill so shadows read blue-grey like real daylight
+      const hemi = new T.HemisphereLight(night ? this.stage.sky[0] : 0xa9c1e8, this.stage.ground2, night ? 1.1 : 0.75);
+      this.exposure = built.exposure;
       this.scene.add(hemi);
-      this.sun = new T.DirectionalLight(this.stage.sun, 0.95);
+      this.sun = new T.DirectionalLight(this.stage.sun, this.stage.props === 'crystal' || this.stage.props === 'arena' ? 2.2 : 3.0);
       this.sun.castShadow = true;
-      this.sun.shadow.mapSize.set(1024, 1024);
+      this.sun.shadow.mapSize.set(2048, 2048);
+      this.sun.shadow.bias = -0.0004;
+      this.sun.shadow.normalBias = 0.03;
       const sc = this.sun.shadow.camera;
-      sc.left = sc.bottom = -30;
-      sc.right = sc.top = 30;
+      sc.left = sc.bottom = -36;
+      sc.right = sc.top = 36;
       sc.near = 1;
-      sc.far = 200;
+      sc.far = 260;
+      this.beamLights = [0, 1].map(() => {
+        const l = new T.PointLight(0xffffff, 0, 40, 2);
+        this.scene.add(l);
+        return l;
+      });
+      this.post = ZB.quality === 'low' ? null : ZB.post || (ZB.post = new ZB.Post(renderer));
+      this.frameDt = 0.016;
       this.scene.add(this.sun, this.sun.target);
       this.fx = new FX(this.scene);
       this.time = 0;
@@ -545,6 +515,7 @@
     update(dt, inp) {
       if (this.paused) return this.render();
       dt = Math.min(dt, 1 / 30);
+      this.frameDt = dt;
       if (this.slowT > 0) {
         this.slowT -= dt;
         if (this.slowT <= 0) this.slow = 1;
@@ -612,7 +583,14 @@
         this.cam.aspect = wdt / hgt;
         this.cam.updateProjectionMatrix();
       }
-      this.r.render(this.scene, this.cam);
+      if (this.post) {
+        this.post.comp.uniforms.exposure.value = this.exposure;
+        this.post.render(this.scene, this.cam, this.frameDt);
+      } else {
+        this.r.toneMappingExposure = this.exposure;
+        this.r.render(this.scene, this.cam);
+        this.r.toneMappingExposure = 1;
+      }
     }
 
     // ---------------- fighter logic
@@ -809,7 +787,8 @@
             f.vel.x *= 0.6;
             f.vel.z *= 0.6;
             this.fx.dust(f.pos, 8, this.stage.ground);
-            this.fx.rubble(f.pos, this.stage.ground2, 3, 8);
+            this.fx.rubble(f.pos, this.stage.ground2, 4, 9);
+            if (f.vel.y > 7) this.addCrater(f.pos.x, f.pos.z, 1.4 + f.vel.y * 0.05);
             this.shakeIt(0.4);
             ZB.audio.play('heavy');
           }
@@ -985,7 +964,11 @@
           f.pos.addScaledVector(f.vel, dt);
           f.spin += dt * 6;
           if (f.pos.y <= 0 && f.vel.y < 0) {
-            if (f.vel.y < -5) this.fx.dust(f.pos, 10, this.stage.ground);
+            if (f.vel.y < -5) {
+              this.fx.dust(f.pos, 10, this.stage.ground);
+              if (!f.craterDone) this.addCrater(f.pos.x, f.pos.z, 2.2);
+              f.craterDone = true;
+            }
             f.vel.y *= -0.25;
             f.vel.x *= 0.5;
             f.vel.z *= 0.5;
@@ -1098,6 +1081,7 @@
       this.banner(f, s.name, ult ? 'ult' : 'super');
       if (ult) {
         this.slowmo(0.3, 0.9);
+        if (this.post) this.post.flash = 0.25;
         this.ui.letterbox && this.ui.letterbox(1.6);
       }
       this.cine = { who: f, t: 0, dur: ult ? 1.0 : 0.55, mode: 'front' };
@@ -1163,7 +1147,10 @@
       }
       if (!h.noFx) {
         this.fx.sparks(t.c, a.model.form.aura, h.heavy ? 18 : 9, h.heavy ? 20 : 12, h.heavy ? 1.4 : 0.9);
-        if (h.heavy) this.fx.ring(t.c, 0.6, 0xffffff, h.dir, 22);
+        if (h.heavy) {
+          this.fx.ring(t.c, 0.6, 0xffffff, h.dir, 22);
+          this.fx.light(t.c, a.model.form.aura, 6, 14, 0.2);
+        }
         ZB.audio.play(h.heavy ? 'heavy' : 'hit');
         this.freeze = Math.max(this.freeze, h.heavy ? 0.09 : 0.045);
         this.shakeIt(h.heavy ? 0.5 : 0.18);
@@ -1219,6 +1206,7 @@
       const sup = !!(h && h.super);
       if (sup && a === this.p1) this.stats.superFinish = true;
       this.banner(null, sup ? 'SUPER FINISH!' : 'K.O.!', 'ko');
+      if (this.post) this.post.flash = 0.6;
       this.cine = { who: t, t: 0, dur: 2.2, mode: 'ko' };
       this.finish(t !== this.p1, sup ? 'super' : 'ko');
     }
@@ -1370,6 +1358,7 @@
       this.shakeIt(0.5);
     }
     updateBeams(dt, i1, i2) {
+      for (const l of this.beamLights) l.intensity = 0;
       if (this.clash) this.updateClash(dt, i1, i2);
       for (let i = this.beams.length - 1; i >= 0; i--) {
         const b = this.beams[i], tg = b.owner.opp;
@@ -1405,6 +1394,8 @@
               b.fade = 0.5;
               this.fx.burst(head, b.s.color, 2.5);
               this.fx.rubble(head, this.stage.ground2, 12, 20);
+              this.fx.dust(head, 12, this.stage.ground, 1.5);
+              this.addCrater(head.x, head.z, b.w * 3);
               ZB.audio.play('boom');
             }
             if (b.len > 170) b.fade = 0.5;
@@ -1432,6 +1423,10 @@
         b.head.scale.setScalar(b.w * 1.7 * k * wob);
         b.headCore.position.set(0, 0, b.len);
         b.headCore.scale.setScalar(b.w * 1.2 * k);
+        const bl = this.beamLights[i % 2];
+        bl.color.setHex(b.s.color);
+        bl.position.copy(b.origin).addScaledVector(b.dir, b.len);
+        bl.intensity = 10 * k * b.w;
         if (Math.random() < dt * 30) this.fx.spawn(t1.copy(b.origin).addScaledVector(b.dir, Math.random() * b.len), t2.set(rand(-4, 4), rand(-4, 4), rand(-4, 4)), b.s.color, b.w * 0.6, 0.3);
       }
     }
@@ -1527,7 +1522,11 @@
           const R = b.r * 2.4;
           this.fx.burst(b.pos, b.s.color, Math.min(R * 0.3, 3));
           this.fx.rubble(t1.copy(b.pos).setY(0.5), this.stage.ground2, 16, 24);
-          this.fx.dust(b.pos, 14, this.stage.ground);
+          if (b.pos.y - R < 3) {
+            this.fx.dust(b.pos, 16, this.stage.ground, 1.8);
+            this.addCrater(b.pos.x, b.pos.z, R * 0.55);
+          }
+          if (this.post) this.post.flash = Math.max(this.post.flash, 0.35);
           ZB.audio.play('bigboom');
           this.shakeIt(1.4);
           if (tg.state !== 'ko' && b.pos.distanceTo(tg.c) < R + 1) this.hit(b.owner, tg, { dmg: b.dmg, kb: 40, dir: t2.subVectors(tg.c, b.pos).normalize(), heavy: true, super: true, ki: true });
@@ -1550,7 +1549,11 @@
       this.scene.add(m);
       this.novas.push({ owner: f, m, r: 0.5, R, t: 0, dmg: f.cur.dmg, s, hit: false });
       this.fx.ring(f.c, 1, s.color, null, R * 3);
-      this.fx.dust(f.pos, 20, this.stage.ground);
+      if (f.pos.y < R * 0.5) {
+        this.fx.dust(f.pos, 20, this.stage.ground, 1.8);
+        this.addCrater(f.pos.x, f.pos.z, R * 0.6);
+      }
+      this.fx.light(f.c, s.color, 14, 50, 0.8);
       ZB.audio.play('bigboom');
       this.shakeIt(1.3);
     }
@@ -1612,6 +1615,8 @@
     // ---------------- animation + camera
     animate(f, dt) {
       const m = f.model;
+      const dmg = Math.max(0, Math.min(1, 1 - f.hp / f.maxHp));
+      if (dmg - m.damage > 0.03) m.setDamage(dmg);
       m.root.position.copy(f.pos);
       m.root.rotation.y = f.yaw;
       let pose = 'idle', aura = f.form > 0 ? 0.28 : 0;
@@ -1731,10 +1736,18 @@
       this.r = renderer;
       this.scene = new T.Scene();
       this.cam = new T.PerspectiveCamera(40, 1, 0.1, 500);
-      this.scene.add(new T.HemisphereLight(0xcfe3ff, 0x30263a, 1));
-      const d = new T.DirectionalLight(0xffffff, 0.8);
+      this.scene.add(new T.HemisphereLight(0xcfe3ff, 0x30263a, 0.4));
+      const d = new T.DirectionalLight(0xfff1e0, 2.6);
       d.position.set(4, 8, 6);
-      this.scene.add(d);
+      const rim = new T.DirectionalLight(0x8fb8ff, 2.2);
+      rim.position.set(-5, 4, -6);
+      this.scene.add(d, rim);
+      // studio environment for reflections
+      const env = new T.Scene();
+      env.add(new T.Mesh(new T.SphereGeometry(10, 24, 12), new T.ShaderMaterial({ side: T.BackSide, vertexShader: 'varying vec3 p; void main(){ p = position; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }', fragmentShader: 'varying vec3 p; void main(){ float y = normalize(p).y; gl_FragColor = vec4(mix(vec3(0.08,0.05,0.15), vec3(0.9,0.85,1.0), smoothstep(-0.3, 1.0, y)), 1.0); }' })));
+      const pm = new T.PMREMGenerator(renderer);
+      this.scene.environment = pm.fromScene(env, 0.04).texture;
+      pm.dispose();
       const floor = new T.Mesh(new T.CircleGeometry(3.2, 40), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.08 }));
       floor.rotation.x = -Math.PI / 2;
       this.scene.add(floor);
