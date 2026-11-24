@@ -247,11 +247,27 @@
       }
       bones.push(...shs, ...els, ...fists, ...hips, ...kns);
       this.root.updateMatrixWorld(true);
+      // extra bones from Blender-built models (fingers, thumbs), placed at their rest positions
+      const md = ZB.models.get(def.id);
+      this.fingers = [];
+      for (const e of md.extras || []) {
+        const parent = bones[e.parent] || this.chest, b = new T.Bone();
+        parent.add(b);
+        b.position.copy(parent.worldToLocal(new T.Vector3(e.pos[0], e.pos[1], e.pos[2])));
+        b.updateMatrixWorld(true);
+        bones.push(b);
+        const m = /^(index|middle|ring|pinky|thumb)([12])([RL])$/.exec(e.name);
+        if (m) this.fingers.push({ b, thumb: m[1] === 'thumb', seg: +m[2], s: m[3] === 'R' ? -1 : 1 });
+      }
       this.skeleton = new T.Skeleton(bones);
       // ---- sculpted skin + clothing ----
       this.clothMats = [];
       this.meshes = [];
-      for (const p of ZB.models.get(def.id)) {
+      this.morphMeshes = [];
+      M.mouth = std(0x3a1416, 0.6);
+      M.teeth = std(0xf2efe6, 0.3);
+      for (const p of md.parts) {
+        if (p.fromGLB && p.name === 'head') p.lips = [0, J.head[1] - 0.092, J.head[2] + 0.165];
         const g = new T.BufferGeometry();
         g.setAttribute('position', new T.BufferAttribute(p.pos, 3));
         g.setAttribute('normal', new T.BufferAttribute(p.nrm, 3));
@@ -274,7 +290,11 @@
           }
           g.setAttribute('color', new T.BufferAttribute(col, 3));
         }
-        let mat = M[p.mat];
+        if (p.morphs && p.morphs.length) {
+          g.morphAttributes.position = p.morphs.map((m) => new T.BufferAttribute(m.delta, 3));
+          g.morphTargetsRelative = true;
+        }
+        let mat = M[p.mat] || M.skin;
         if (p.tear) {
           mat = tearable(mat.clone());
           this.clothMats.push({ mat, key: p.mat, tear: p.tear });
@@ -284,6 +304,12 @@
         mesh.frustumCulled = false;
         this.root.add(mesh);
         mesh.bind(this.skeleton, mesh.matrixWorld);
+        if (p.morphs && p.morphs.length) {
+          mesh.morphTargetDictionary = {};
+          p.morphs.forEach((m, i) => (mesh.morphTargetDictionary[m.name] = i));
+          mesh.morphTargetInfluences = p.morphs.map(() => 0);
+          this.morphMeshes.push(mesh);
+        }
         this.meshes.push(mesh);
       }
       // ---- eyes and brows (rigid on the head bone) ----
@@ -305,7 +331,8 @@
         brow.castShadow = false;
       }
       this.hairStyle = def.hair;
-      this.hair = buildHair(def.hair, this.head, M.hair, def, M);
+      // Blender-built models carry their own sculpted hair
+      this.hair = md.glb ? grp(0, 0, 0, this.head) : buildHair(def.hair, this.head, M.hair, def, M);
       // ---- aura ----
       this.auraU = { uColor: { value: new T.Color(0xffffff) }, uTime: { value: 0 }, uPower: { value: 0 } };
       const auraMat = new T.ShaderMaterial({ uniforms: this.auraU, vertexShader: AURA_VS, fragmentShader: AURA_FS, transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide });
@@ -380,6 +407,19 @@
       lR.kn.rotation.x = P.kR;
       lL.hip.rotation.set(P.lLx - breath * 0.05 * P.bob, 0, P.lLs * lL.s);
       lL.kn.rotation.x = P.kL;
+      // fingers: 0 = open hand, 1 = clenched fist
+      for (const f of this.fingers) {
+        const c = P.hand;
+        if (f.thumb) f.b.rotation.set(-0.3 * c, 0, -f.s * (f.seg === 1 ? 0.5 : 0.7) * c);
+        else f.b.rotation.set(0, 0, -f.s * (f.seg === 1 ? 1.45 : 1.65) * c);
+      }
+      // facial expression shape keys
+      for (const mm of this.morphMeshes) {
+        const d = mm.morphTargetDictionary, inf = mm.morphTargetInfluences;
+        if (d.open != null) inf[d.open] = P.open;
+        if (d.angry != null) inf[d.angry] = P.angry;
+        if (d.pain != null) inf[d.pain] = P.pain;
+      }
       // hair sways with motion and aura
       this.hair.rotation.x = Math.sin(this.t * 7) * 0.02 * (0.3 + this.auraPower);
       this.auraPower += (aura - this.auraPower) * (1 - Math.exp(-dt * 8));
@@ -396,28 +436,28 @@
     }
   }
   function defaultPose() {
-    return { chest: 0.05, twist: 0, head: 0, aRx: -0.5, aRs: 0.25, eR: -1.7, aLx: -0.5, aLs: 0.25, eL: -1.7, lRx: 0.1, lRs: 0.08, kR: 0.35, lLx: -0.35, lLs: 0.08, kL: 0.7, bob: 1 };
+    return { chest: 0.05, twist: 0, head: 0, aRx: -0.5, aRs: 0.25, eR: -1.7, aLx: -0.5, aLs: 0.25, eL: -1.7, lRx: 0.1, lRs: 0.08, kR: 0.35, lLx: -0.35, lLs: 0.08, kL: 0.7, bob: 1, hand: 0.95, open: 0, angry: 0.2, pain: 0 };
   }
   const POSES = {
     idle: {},
-    fly: { chest: 0.15, aRx: 0.5, aRs: 0.25, eR: -0.3, aLx: 0.5, aLs: 0.25, eL: -0.3, lRx: 0.35, kR: 0.6, lLx: 0.45, kL: 0.4, bob: 0.3 },
-    punchR: { twist: 0.45, chest: 0.2, aRx: -1.6, aRs: 0.02, eR: -0.05, aLx: -0.6, aLs: 0.35, eL: -1.9, bob: 0 },
-    punchL: { twist: -0.45, chest: 0.2, aLx: -1.6, aLs: 0.02, eL: -0.05, aRx: -0.6, aRs: 0.35, eR: -1.9, bob: 0 },
-    kick: { twist: 0.3, chest: -0.25, lRx: -1.6, lRs: 0.1, kR: 0.05, lLx: 0.3, kL: 0.5, aRx: -0.3, aRs: 0.6, eR: -1.2, aLx: -0.6, eL: -1.8, bob: 0 },
-    smashWind: { twist: -0.7, chest: -0.05, aRx: 0.9, aRs: 0.45, eR: -1.4, aLx: -0.9, aLs: 0.1, eL: -1.2, bob: 0 },
-    smash: { twist: 0.6, chest: 0.35, aRx: -1.75, aRs: 0.0, eR: 0, aLx: 0.4, aLs: 0.3, eL: -0.8, lLx: -0.7, kL: 0.9, lRx: 0.5, kR: 0.3, bob: 0 },
-    blast: { twist: 0.25, aRx: -1.55, aRs: 0.1, eR: 0, aLx: -0.4, aLs: 0.3, eL: -1.6 },
-    blast2: { twist: -0.25, aLx: -1.55, aLs: 0.1, eL: 0, aRx: -0.4, aRs: 0.3, eR: -1.6 },
-    beamWind: { twist: -0.6, chest: -0.05, aRx: 0.6, aRs: -0.15, eR: -1.9, aLx: 0.6, aLs: 0.35, eL: -1.9, lLx: -0.5, kL: 0.6, bob: 0 },
-    beam: { twist: 0, chest: 0.12, aRx: -1.55, aRs: -0.12, eR: 0, aLx: -1.55, aLs: -0.12, eL: 0, lLx: -0.5, kL: 0.5, lRx: 0.4, kR: 0.4, bob: 0 },
-    charge: { chest: -0.15, head: -0.3, aRx: 0.15, aRs: 0.55, eR: -0.6, aLx: 0.15, aLs: 0.55, eL: -0.6, lRx: 0, lRs: 0.28, kR: 0.3, lLx: 0, lLs: 0.28, kL: 0.3, bob: 0.2 },
-    transform: { chest: -0.35, head: -0.5, aRx: 0.35, aRs: 0.85, eR: -0.5, aLx: 0.35, aLs: 0.85, eL: -0.5, lRx: 0, lRs: 0.35, kR: 0.2, lLx: 0, lLs: 0.35, kL: 0.2, bob: 0 },
-    guard: { chest: 0.3, head: 0.25, aRx: -1.3, aRs: -0.55, eR: -1.5, aLx: -1.3, aLs: -0.55, eL: -1.5, lRx: -0.4, kR: 1.0, lLx: -0.6, kL: 1.1, bob: 0.4 },
-    hurt: { chest: -0.5, head: -0.45, aRx: 0.6, aRs: 0.7, eR: -0.3, aLx: 0.5, aLs: 0.6, eL: -0.2, lRx: 0.4, kR: 0.7, lLx: 0.1, kL: 0.4, bob: 0 },
-    raise: { chest: -0.25, head: -0.45, aRx: -2.95, aRs: 0.25, eR: -0.1, aLx: -2.95, aLs: 0.25, eL: -0.1, bob: 0 },
-    throw: { chest: 0.45, head: 0.1, aRx: -1.8, aRs: 0.1, eR: 0, aLx: -1.8, aLs: 0.1, eL: 0, bob: 0 },
-    victory: { chest: -0.05, aRx: -2.9, aRs: 0.15, eR: -0.1, aLx: 0.1, aLs: 0.15, eL: -0.3, lRx: 0, kR: 0.1, lLx: 0, kL: 0.1 },
-    ko: { chest: -0.8, head: -0.6, aRx: 0.3, aRs: 1.1, eR: -0.2, aLx: 0.3, aLs: 1.1, eL: -0.2, lRx: 0.2, kR: 0.2, lLx: -0.2, kL: 0.4, bob: 0 },
+    fly: { hand: 0.5,  chest: 0.15, aRx: 0.5, aRs: 0.25, eR: -0.3, aLx: 0.5, aLs: 0.25, eL: -0.3, lRx: 0.35, kR: 0.6, lLx: 0.45, kL: 0.4, bob: 0.3 },
+    punchR: { angry: 0.9, open: 0.25, hand: 1,  twist: 0.45, chest: 0.2, aRx: -1.6, aRs: 0.02, eR: -0.05, aLx: -0.6, aLs: 0.35, eL: -1.9, bob: 0 },
+    punchL: { angry: 0.9, open: 0.25, hand: 1,  twist: -0.45, chest: 0.2, aLx: -1.6, aLs: 0.02, eL: -0.05, aRx: -0.6, aRs: 0.35, eR: -1.9, bob: 0 },
+    kick: { angry: 0.9, open: 0.35,  twist: 0.3, chest: -0.25, lRx: -1.6, lRs: 0.1, kR: 0.05, lLx: 0.3, kL: 0.5, aRx: -0.3, aRs: 0.6, eR: -1.2, aLx: -0.6, eL: -1.8, bob: 0 },
+    smashWind: { angry: 1,  twist: -0.7, chest: -0.05, aRx: 0.9, aRs: 0.45, eR: -1.4, aLx: -0.9, aLs: 0.1, eL: -1.2, bob: 0 },
+    smash: { angry: 1, open: 0.7,  twist: 0.6, chest: 0.35, aRx: -1.75, aRs: 0.0, eR: 0, aLx: 0.4, aLs: 0.3, eL: -0.8, lLx: -0.7, kL: 0.9, lRx: 0.5, kR: 0.3, bob: 0 },
+    blast: { hand: 0.08, angry: 0.6,  twist: 0.25, aRx: -1.55, aRs: 0.1, eR: 0, aLx: -0.4, aLs: 0.3, eL: -1.6 },
+    blast2: { hand: 0.08, angry: 0.6,  twist: -0.25, aLx: -1.55, aLs: 0.1, eL: 0, aRx: -0.4, aRs: 0.3, eR: -1.6 },
+    beamWind: { hand: 0.25, angry: 1, open: 0.3,  twist: -0.6, chest: -0.05, aRx: 0.6, aRs: -0.15, eR: -1.9, aLx: 0.6, aLs: 0.35, eL: -1.9, lLx: -0.5, kL: 0.6, bob: 0 },
+    beam: { hand: 0.05, angry: 0.8, open: 1,  twist: 0, chest: 0.12, aRx: -1.55, aRs: -0.12, eR: 0, aLx: -1.55, aLs: -0.12, eL: 0, lLx: -0.5, kL: 0.5, lRx: 0.4, kR: 0.4, bob: 0 },
+    charge: { hand: 1, angry: 0.9, open: 0.85,  chest: -0.15, head: -0.2, aRx: 0.15, aRs: 0.55, eR: -0.6, aLx: 0.15, aLs: 0.55, eL: -0.6, lRx: 0, lRs: 0.28, kR: 0.3, lLx: 0, lLs: 0.28, kL: 0.3, bob: 0.2 },
+    transform: { hand: 0.85, angry: 1, open: 1,  chest: -0.35, head: -0.32, aRx: 0.35, aRs: 0.85, eR: -0.5, aLx: 0.35, aLs: 0.85, eL: -0.5, lRx: 0, lRs: 0.35, kR: 0.2, lLx: 0, lLs: 0.35, kL: 0.2, bob: 0 },
+    guard: { hand: 1, angry: 0.5,  chest: 0.3, head: 0.25, aRx: -1.3, aRs: -0.55, eR: -1.5, aLx: -1.3, aLs: -0.55, eL: -1.5, lRx: -0.4, kR: 1.0, lLx: -0.6, kL: 1.1, bob: 0.4 },
+    hurt: { hand: 0.4, pain: 1, open: 0.45, angry: 0,  chest: -0.5, head: -0.45, aRx: 0.6, aRs: 0.7, eR: -0.3, aLx: 0.5, aLs: 0.6, eL: -0.2, lRx: 0.4, kR: 0.7, lLx: 0.1, kL: 0.4, bob: 0 },
+    raise: { hand: 0.05, angry: 0.8, open: 0.6,  chest: -0.25, head: -0.45, aRx: -2.95, aRs: 0.25, eR: -0.1, aLx: -2.95, aLs: 0.25, eL: -0.1, bob: 0 },
+    throw: { hand: 0.05, angry: 1, open: 0.9,  chest: 0.45, head: 0.1, aRx: -1.8, aRs: 0.1, eR: 0, aLx: -1.8, aLs: 0.1, eL: 0, bob: 0 },
+    victory: { hand: 1, open: 0.35, angry: 0,  chest: -0.05, aRx: -2.9, aRs: 0.15, eR: -0.1, aLx: 0.1, aLs: 0.15, eL: -0.3, lRx: 0, kR: 0.1, lLx: 0, kL: 0.1 },
+    ko: { hand: 0.3, pain: 0.7, open: 0.25, angry: 0,  chest: -0.8, head: -0.6, aRx: 0.3, aRs: 1.1, eR: -0.2, aLx: 0.3, aLs: 1.1, eL: -0.2, lRx: 0.2, kR: 0.2, lLx: -0.2, kL: 0.4, bob: 0 },
   };
   ZB.Model = Model;
   ZB.std = std;
