@@ -1,7 +1,7 @@
 'use strict';
 // Loads sculpted fighter meshes: memory cache -> IndexedDB cache -> background Web Worker -> main-thread fallback.
 (function () {
-  const VERSION = 6;
+  const VERSION = 7;
   const mem = {};
   const pending = {};
   let worker = null, reqN = 0;

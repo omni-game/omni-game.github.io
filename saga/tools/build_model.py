@@ -5,8 +5,8 @@ Run with Blender's Python module (pip install bpy numpy scikit-image):
     python saga/tools/build_model.py /tmp/kairo.json saga/models/kairo.glb [preview.png]
 
 Pipeline: high-resolution signed-distance anatomy (numpy) -> marching cubes -> Blender meshes (decimated, smooth),
-hands with fingers from the Skin modifier, anime hair locks fused by voxel remeshing, mouth cavity + teeth,
-facial expression shape keys, clothing as offset shells with wrinkles, an armature whose joints match the game's
+hands with fingers from the Skin modifier, anime hair locks fused by voxel remeshing, an anime head (the game draws the face on),
+clothing as offset shells with wrinkles, an armature whose joints match the game's
 rig, automatic (heat) weights, and GLB export. Coordinates are built in game space (x, y up, z forward) and
 converted to Blender space (x, -z, y), which the glTF exporter maps back.
 """
@@ -135,29 +135,16 @@ for side, s in (('R', -1), ('L', 1)):
     ]
 hy, hz = HY, HZ
 NECK_LO = HY - 0.2
+# anime head (must match the head in sculpt.js: the game lays drawn eyes/mouth onto this surface)
 head = [
-    E((0, hy + 0.04, hz - 0.015), (0.165, 0.19, 0.185)),
-    E((0, hy - 0.06, hz + 0.04), (0.115 if fem else 0.125, 0.12, 0.13), 0.06),
-    E((0, hy - 0.135, hz + 0.1), (0.038 if fem else 0.046, 0.035, 0.04), 0.04),
-    E((0.085, hy - 0.005, hz + 0.11), (0.05, 0.035, 0.045), 0.04), E((-0.085, hy - 0.005, hz + 0.11), (0.05, 0.035, 0.045), 0.04),
-    E((0, hy + 0.06, hz + 0.13), (0.12, 0.022 if fem else 0.028, 0.05), 0.035),
-    # nose: bridge, tip, wings
-    C((0, hy + 0.035, hz + 0.165), (0, hy - 0.03, hz + 0.2), 0.011, 0.017, 0.02),
-    E((0, hy - 0.038, hz + 0.197), (0.018, 0.016, 0.016), 0.012),
-    E((0.017, hy - 0.045, hz + 0.183), (0.012, 0.011, 0.012), 0.01), E((-0.017, hy - 0.045, hz + 0.183), (0.012, 0.011, 0.012), 0.01),
-    # lips (cupid's bow) and philtrum
-    E((0, hy - 0.083, hz + 0.168), (0.038, 0.011, 0.016), 0.012),
-    E((0.012, hy - 0.08, hz + 0.17), (0.014, 0.008, 0.012), 0.006), E((-0.012, hy - 0.08, hz + 0.17), (0.014, 0.008, 0.012), 0.006),
-    E((0, hy - 0.101, hz + 0.163), (0.034, 0.012, 0.017), 0.012),
-    # jaw angle and temples
-    E((0.095, hy - 0.1, hz + 0.0), (0.035, 0.05, 0.06), 0.05), E((-0.095, hy - 0.1, hz + 0.0), (0.035, 0.05, 0.06), 0.05),
+    E((0, hy + 0.045, hz - 0.02), (0.172, 0.19, 0.182)),
+    E((0, hy - 0.055, hz + 0.03), (0.112 if fem else 0.12, 0.11, 0.122), 0.07),
+    E((0, hy - 0.142, hz + 0.08), (0.028 if fem else 0.033, 0.03, 0.034), 0.05),
+    C((0.1, hy - 0.03, hz + 0.0), (0.028, hy - 0.135, hz + 0.075), 0.03, 0.02, 0.05), C((-0.1, hy - 0.03, hz + 0.0), (-0.028, hy - 0.135, hz + 0.075), 0.03, 0.02, 0.05),
+    E((0.075, hy - 0.035, hz + 0.095), (0.055, 0.045, 0.05), 0.05), E((-0.075, hy - 0.035, hz + 0.095), (0.055, 0.045, 0.05), 0.05),
+    E((0, hy - 0.04, hz + 0.168), (0.008, 0.015, 0.011), 0.016),
     C((0, NECK_LO, -0.005), (0, hy - 0.05, hz), 0.052, 0.068, 0.05),  # tapers inside the body neck so head turns never show a seam
-    E((0.163, hy, hz - 0.01), (0.018, 0.05, 0.035), 0.02), E((-0.163, hy, hz - 0.01), (0.018, 0.05, 0.035), 0.02),
-    # eye sockets (same centres as the game's eyeballs), nostrils, mouth slit and cavity
-    ('sub', E((0.068, hy + 0.015, hz + 0.178), (0.042, 0.028, 0.033), 0.02)), ('sub', E((-0.068, hy + 0.015, hz + 0.178), (0.042, 0.028, 0.033), 0.02)),
-    ('sub', E((0.011, hy - 0.05, hz + 0.192), (0.005, 0.004, 0.006), 0.004)), ('sub', E((-0.011, hy - 0.05, hz + 0.192), (0.005, 0.004, 0.006), 0.004)),
-    ('sub', E((0, hy - 0.092, hz + 0.17), (0.032, 0.0028, 0.03), 0.003)),
-    ('sub', E((0, hy - 0.094, hz + 0.125), (0.036, 0.022, 0.04), 0.008)),
+    E((0.168, hy - 0.005, hz - 0.015), (0.018, 0.048, 0.033), 0.02), E((-0.168, hy - 0.005, hz - 0.015), (0.018, 0.048, 0.033), 0.02),
 ]
 MOUTH_CAV = ((0, hy - 0.094, hz + 0.125), (0.036, 0.022, 0.04))
 
@@ -289,53 +276,7 @@ decimate(ob_body, 36000)
 print('meshing head...')
 v, f = mesh_sdf(lambda P: np.maximum(fH(P), NECK - 0.11 - P[1]), (-0.24, NECK - 0.15, HZ - 0.26), (0.24, HY + 0.26, HZ + 0.28), 0.0025)
 ob_head = new_obj('head', v, f, M['skin'])
-ob_head.data.materials.append(M['mouth'])
-# faces inside the mouth cavity get the dark mouth material
-cav_c, cav_r = np.array(MOUTH_CAV[0]), np.array(MOUTH_CAV[1])
-for p in ob_head.data.polygons:
-    cg = np.array(p.center)
-    g = np.array([cg[0], cg[2], -cg[1]])
-    if np.sum(((g - cav_c) / (cav_r + 0.004)) ** 2) < 1.0 and g[2] < HZ + 0.172:
-        p.material_index = 1
 decimate(ob_head, 26000)
-
-# ---- facial expression shape keys on the head
-ob_head.shape_key_add(name='Basis')
-base = np.array([vv.co[:] for vv in ob_head.data.vertices])  # blender coords
-G = np.stack([base[:, 0], base[:, 2], -base[:, 1]], axis=1)  # game coords
-
-
-def add_key(name, delta_game):
-    k = ob_head.shape_key_add(name=name)
-    d = g2b(delta_game)
-    for i, vv in enumerate(k.data):
-        vv.co = (base[i] + d[i]).tolist()
-
-
-# jaw open: rotate the lower face about a pivot under the ears
-piv = np.array([0, HY - 0.035, HZ - 0.06])
-ang = 0.2
-rel = G - piv
-wj = (np.clip((HY - 0.088 - G[:, 1]) / 0.012, 0, 1) * np.clip((G[:, 2] - (HZ - 0.06)) / 0.08, 0, 1)
-      * np.clip(1 - (np.abs(G[:, 0]) - 0.1) / 0.05, 0, 1) * np.clip((G[:, 1] - (HY - 0.21)) / 0.03, 0, 1))
-ry = rel[:, 1] * math.cos(ang) - rel[:, 2] * math.sin(ang)
-rz = rel[:, 1] * math.sin(ang) + rel[:, 2] * math.cos(ang)
-add_key('open', np.stack([np.zeros_like(wj), (ry - rel[:, 1]) * wj, (rz - rel[:, 2]) * wj], 1))
-# angry brows: inner brows pulled down and in
-wb = np.clip(1 - np.abs(G[:, 1] - (HY + 0.06)) / 0.035, 0, 1) * (G[:, 2] > HZ + 0.08) * np.clip(1 - np.abs(G[:, 0]) / 0.12, 0, 1)
-add_key('angry', np.stack([-np.sign(G[:, 0]) * wb * 0.004, -wb * 0.009, -wb * 0.004], 1))
-# pain: inner brows up, cheeks raised
-wp = wb * np.clip(1 - np.abs(G[:, 0]) / 0.07, 0, 1)
-wc = np.clip(1 - np.hypot(np.abs(G[:, 0]) - 0.07, G[:, 1] - (HY - 0.03)) / 0.04, 0, 1) * (G[:, 2] > HZ + 0.1)
-add_key('pain', np.stack([np.zeros_like(wp), wp * 0.01 + wc * 0.006, wc * 0.002], 1))
-
-# ---- teeth (upper row, visible when the mouth opens)
-bpy.ops.mesh.primitive_cylinder_add(vertices=24, radius=0.03, depth=0.012, location=tuple(g2b([0, HY - 0.087, HZ + 0.135])))
-teeth = bpy.context.active_object
-teeth.name = 'teeth'
-teeth.scale = (1.0, 0.95, 1.0)
-teeth.data.materials.append(M['teeth'])
-bpy.ops.object.transform_apply(scale=True)
 
 # ---- hands with fingers (Skin modifier), in each arm's local frame
 print('hands...')
@@ -579,7 +520,7 @@ for side in ('R', 'L'):
 bpy.ops.object.mode_set(mode='OBJECT')
 
 # skin everything with Blender's automatic (bone heat) weights
-skinned = [ob_body, ob_head, teeth, ob_hair] + hand_objs + cloth_objs
+skinned = [ob_body, ob_head, ob_hair] + hand_objs + cloth_objs
 for ob in skinned:
     select_only([ob, arm], arm)
     try:
@@ -603,8 +544,8 @@ for ob in cloth_objs:
     bpy.ops.object.datalayout_transfer(modifier=dt.name)
     bpy.ops.object.modifier_move_to_index(modifier=dt.name, index=0)
     bpy.ops.object.modifier_apply(modifier=dt.name)
-# head, teeth and hair follow only the head bone
-for ob in (ob_head, teeth, ob_hair):
+# head and hair follow only the head bone
+for ob in (ob_head, ob_hair):
     for g in list(ob.vertex_groups):
         ob.vertex_groups.remove(g)
     g = ob.vertex_groups.new(name='head')

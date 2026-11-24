@@ -147,22 +147,19 @@
         C(an, to, 0.038, 0.028, 0.03), E(add(an, 0, -0.03, -0.02), [0.035, 0.035, 0.045], 0.03),
       );
     }
-    // ---- head ----
+    // ---- head: anime proportions (round skull, V-shaped jaw, small pointed chin, just a hint of a nose).
+    // Eyes, brows and mouth are drawn on as decals in fighter.js, so the face surface stays smooth.
+    // Keep in sync with ANIME_HEAD in tools/build_model.py.
     head.push(
-      E([0, hy + 0.04, hz - 0.015], [0.165, 0.19, 0.185]),
-      E([0, hy - 0.06, hz + 0.04], [fem ? 0.115 : 0.125, 0.12, 0.13], 0.06),
-      E([0, hy - 0.135, hz + 0.1], [fem ? 0.038 : 0.046, 0.035, 0.04], 0.04),
-      E([0.085, hy - 0.005, hz + 0.11], [0.05, 0.035, 0.045], 0.04), E([-0.085, hy - 0.005, hz + 0.11], [0.05, 0.035, 0.045], 0.04),
-      E([0, hy + 0.06, hz + 0.13], [0.12, fem ? 0.022 : 0.028, 0.05], 0.035),
-      C([0, hy + 0.02, hz + 0.17], [0, hy - 0.035, hz + 0.205], 0.012, fem ? 0.016 : 0.02, 0.025),
-      E([0, hy - 0.045, hz + 0.188], [0.03, 0.014, 0.016], 0.015),
-      E([0, hy - 0.084, hz + 0.166], [0.04, 0.012, 0.018], 0.012), E([0, hy - 0.1, hz + 0.161], [0.036, 0.013, 0.018], 0.012),
+      E([0, hy + 0.045, hz - 0.02], [0.172, 0.19, 0.182]),
+      E([0, hy - 0.055, hz + 0.03], [fem ? 0.112 : 0.12, 0.11, 0.122], 0.07),
+      E([0, hy - 0.142, hz + 0.08], [fem ? 0.028 : 0.033, 0.03, 0.034], 0.05),
+      C([0.1, hy - 0.03, hz + 0.0], [0.028, hy - 0.135, hz + 0.075], 0.03, 0.02, 0.05), C([-0.1, hy - 0.03, hz + 0.0], [-0.028, hy - 0.135, hz + 0.075], 0.03, 0.02, 0.05),
+      E([0.075, hy - 0.035, hz + 0.095], [0.055, 0.045, 0.05], 0.05), E([-0.075, hy - 0.035, hz + 0.095], [0.055, 0.045, 0.05], 0.05),
+      E([0, hy - 0.04, hz + 0.168], [0.008, 0.015, 0.011], 0.016),
       C([0, 1.72, -0.005], [0, hy - 0.05, hz], 0.074, 0.068, 0.05),
     );
-    if (def.hair !== 'god') head.push(E([0.163, hy, hz - 0.01], [0.018, 0.05, 0.035], 0.02), E([-0.163, hy, hz - 0.01], [0.018, 0.05, 0.035], 0.02));
-    // eye sockets and mouth line
-    head.push({ t: 'e', c: [0.068, hy + 0.015, hz + 0.178], r: [0.042, 0.028, 0.033], k: 0.02, sub: true });
-    head.push({ t: 'e', c: [-0.068, hy + 0.015, hz + 0.178], r: [0.042, 0.028, 0.033], k: 0.02, sub: true });
+    if (def.hair !== 'god') head.push(E([0.168, hy - 0.005, hz - 0.015], [0.018, 0.048, 0.033], 0.02), E([-0.168, hy - 0.005, hz - 0.015], [0.018, 0.048, 0.033], 0.02));
     return { torso, arms, legs, head };
   }
 
@@ -389,5 +386,24 @@
     return out;
   }
 
-  ZB.sculpt = { build, joints, noise3 };
+  // Depth of the face surface at (x, y) relative to the head joint: used to lay drawn eyes/mouth onto the skin.
+  const faceCache = {};
+  function faceZ(def, x, y) {
+    let f = faceCache[def.id];
+    if (!f) {
+      const J = joints(def);
+      f = faceCache[def.id] = { J, sdf: compile(anatomy(def, J).head) };
+    }
+    const hx = f.J.head[0], hy = f.J.head[1], hz = f.J.head[2];
+    let z = 0.35;
+    while (z > -0.1 && f.sdf(hx + x, hy + y, hz + z) > 0) z -= 0.002;
+    let lo = z, hi = z + 0.002;
+    for (let i = 0; i < 12; i++) {
+      const m = (lo + hi) / 2;
+      if (f.sdf(hx + x, hy + y, hz + m) > 0) hi = m;
+      else lo = m;
+    }
+    return lo;
+  }
+  ZB.sculpt = { build, joints, noise3, faceZ };
 })(typeof window !== 'undefined' ? window : globalThis);

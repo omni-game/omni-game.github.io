@@ -8,6 +8,35 @@
   const lerp = (a, b, t) => a + (b - a) * t;
 
   const std = (color, rough, metal, extra) => new T.MeshStandardMaterial(Object.assign({ color, roughness: rough == null ? 0.7 : rough, metalness: metal || 0 }, extra || {}));
+  // ---- anime cel shading: three hard light bands, plus ink outlines ----
+  let ramp = null;
+  function toonRamp() {
+    if (ramp) return ramp;
+    const d = new Uint8Array([78, 76, 92, 255, 136, 134, 148, 255, 186, 186, 186, 255, 186, 186, 186, 255]);
+    ramp = new T.DataTexture(d, 4, 1, T.RGBAFormat);
+    ramp.minFilter = ramp.magFilter = T.NearestFilter;
+    ramp.needsUpdate = true;
+    return ramp;
+  }
+  const toonMat = (color, extra) => new T.MeshToonMaterial(Object.assign({ color, gradientMap: toonRamp() }, extra || {}));
+  // Inverted-hull outline for skinned meshes: pushed out along the skinned normal, back faces only.
+  function outlineMat(thick, tearU) {
+    const m = new T.MeshBasicMaterial({ color: 0x120d18, side: T.BackSide });
+    m.onBeforeCompile = (sh) => {
+      sh.uniforms.uThick = { value: thick };
+      if (tearU) sh.uniforms.uTear = tearU;
+      sh.vertexShader = 'uniform float uThick;\n' + (tearU ? 'varying vec3 vBindPos;\n' : '') + sh.vertexShader.replace(
+        '#include <skinning_vertex>',
+        '#include <skinning_vertex>\n transformed += normalize(objectNormal) * uThick;' + (tearU ? '\n vBindPos = position;' : ''),
+      );
+      if (tearU) {
+        sh.fragmentShader = TEAR_GLSL + '\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+          if (uTear > 0.0) { float n = tn(vBindPos * 6.5) * 0.6 + tn(vBindPos * 17.0) * 0.3 + tn(vBindPos * 45.0) * 0.1; if (n < uTear) discard; }`);
+      }
+    };
+    m.customProgramCacheKey = () => 'outline' + (tearU ? 't' : '');
+    return m;
+  }
   function mk(geo, mat, x, y, z, parent) {
     const m = new T.Mesh(geo, mat);
     m.position.set(x || 0, y || 0, z || 0);
@@ -210,15 +239,15 @@
       const c = def.colors, armored = !!ARMORED[def.id], robot = def.hair === 'visor';
       this.root = new T.Group();
       const M = (this.mats = {
-        skin: robot ? std(c.skin, 0.3, 0.8) : std(c.skin, 0.5, 0, { vertexColors: true }),
-        gi: std(c.gi, 0.9),
-        gi2: armored ? std(c.gi2, 0.3, 0.45) : std(c.gi2, 0.85),
-        belt: std(c.belt, armored ? 0.35 : 0.8, armored ? 0.5 : 0),
-        boots: std(c.boots, armored ? 0.3 : 0.55, armored ? 0.35 : 0.05),
-        hair: std(0x222222, 0.42, 0.05),
-        metal: std(0xb9c2cf, 0.25, 0.85),
-        horn: std(0xece6da, 0.4),
-        gold: std(0xd9b45a, 0.28, 0.9),
+        skin: toonMat(c.skin, { vertexColors: !robot }),
+        gi: toonMat(c.gi),
+        gi2: toonMat(c.gi2),
+        belt: toonMat(c.belt),
+        boots: toonMat(c.boots),
+        hair: toonMat(0x222222),
+        metal: toonMat(0xb9c2cf),
+        horn: toonMat(0xece6da),
+        gold: toonMat(0xd9b45a, { emissive: 0x2a1c00 }),
         white: std(0xf7f7f7, 0.12),
         dark: std(0x080808, 0.2),
       });
@@ -267,7 +296,6 @@
       M.mouth = std(0x3a1416, 0.6);
       M.teeth = std(0xf2efe6, 0.3);
       for (const p of md.parts) {
-        if (p.fromGLB && p.name === 'head') p.lips = [0, J.head[1] - 0.092, J.head[2] + 0.165];
         const g = new T.BufferGeometry();
         g.setAttribute('position', new T.BufferAttribute(p.pos, 3));
         g.setAttribute('normal', new T.BufferAttribute(p.nrm, 3));
@@ -275,18 +303,14 @@
         g.setAttribute('skinWeight', new T.BufferAttribute(p.sw, 4));
         g.setIndex(new T.BufferAttribute(p.idx, 1));
         if (p.mat === 'skin') {
-          // vertex colour tint: lips and a little warmth on the cheeks
+          // vertex colour: a soft anime blush on the cheeks
           const n = p.pos.length / 3, col = new Float32Array(n * 3).fill(1);
-          if (p.lips) {
-            for (let v = 0; v < n; v++) {
-              const dx = (p.pos[v * 3] - p.lips[0]) / 0.045, dy = (p.pos[v * 3 + 1] - p.lips[1]) / 0.022, dz = (p.pos[v * 3 + 2] - p.lips[2]) / 0.03;
-              const lip = Math.max(0, 1 - Math.sqrt(dx * dx + dy * dy + dz * dz));
-              const cx = (Math.abs(p.pos[v * 3]) - 0.085) / 0.05, cy = (p.pos[v * 3 + 1] - (p.lips[1] + 0.08)) / 0.04;
-              const blush = Math.max(0, 1 - Math.sqrt(cx * cx + cy * cy)) * 0.12;
-              col[v * 3] = 1 - lip * 0.15;
-              col[v * 3 + 1] = 1 - lip * 0.45 - blush * 0.6;
-              col[v * 3 + 2] = 1 - lip * 0.45 - blush * 0.5;
-            }
+          const hy = J.head[1], hzz = J.head[2];
+          for (let v = 0; v < n; v++) {
+            const cx = (Math.abs(p.pos[v * 3]) - 0.078) / 0.035, cy = (p.pos[v * 3 + 1] - (hy - 0.04)) / 0.022, front = p.pos[v * 3 + 2] > hzz + 0.08;
+            const blush = front ? Math.max(0, 1 - Math.sqrt(cx * cx + cy * cy)) * 0.14 : 0;
+            col[v * 3 + 1] = 1 - blush * 0.7;
+            col[v * 3 + 2] = 1 - blush * 0.55;
           }
           g.setAttribute('color', new T.BufferAttribute(col, 3));
         }
@@ -304,6 +328,11 @@
         mesh.frustumCulled = false;
         this.root.add(mesh);
         mesh.bind(this.skeleton, mesh.matrixWorld);
+        // ink outline (thinner on hands so fingers stay readable)
+        const ol = new T.SkinnedMesh(g, outlineMat(/^hand/.test(p.name) ? 0.0022 : p.name === 'head' ? 0.0035 : 0.005, p.tear ? mat.userData.uTear : null));
+        ol.frustumCulled = false;
+        this.root.add(ol);
+        ol.bind(this.skeleton, ol.matrixWorld);
         if (p.morphs && p.morphs.length) {
           mesh.morphTargetDictionary = {};
           p.morphs.forEach((m, i) => (mesh.morphTargetDictionary[m.name] = i));
@@ -312,27 +341,44 @@
         }
         this.meshes.push(mesh);
       }
-      // ---- eyes and brows (rigid on the head bone) ----
-      const hz = 0;
-      this.irises = [];
+      // ---- drawn anime face: eyes, brows and mouth laid onto the head surface ----
+      this.face = { eyes: [], brows: [], mouth: null, eyeKind: '', mouthKind: '', blink: 0, nextBlink: 2 + Math.random() * 3 };
+      const decal = (cx, cy, w, h, map, flip, color) => {
+        const g = new T.PlaneGeometry(w, h, 12, 6), pa = g.attributes.position, uv = g.attributes.uv;
+        for (let i = 0; i < pa.count; i++) {
+          const x = pa.getX(i), y = pa.getY(i);
+          pa.setZ(i, ZB.sculpt.faceZ(def, cx + x, cy + y) + 0.0035);
+          if (flip) uv.setX(i, 1 - uv.getX(i));
+        }
+        g.computeVertexNormals();
+        const m = new T.MeshBasicMaterial({ map, color: color || 0xffffff, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 });
+        const mesh = new T.Mesh(g, m);
+        const pivot = grp(cx, cy, 0, this.head);
+        pivot.add(mesh);
+        mesh.renderOrder = 3;
+        return { pivot, mesh, m };
+      };
       for (const s of [-1, 1]) {
-        const eye = grp(s * 0.068, 0.015, hz + 0.152, this.head);
-        const scl = mk(sph(0.028, 18, 14), M.white, 0, 0, -0.004, eye);
-        scl.scale.set(1.12, 0.72, 0.62);
-        mk(new T.CircleGeometry(0.0128, 24), this.eyeMat, 0, -0.001, 0.0137, eye);
-        mk(new T.CircleGeometry(0.0062, 18), M.dark, 0, -0.001, 0.0139, eye);
-        mk(new T.CircleGeometry(0.0028, 8), M.white, 0.004, 0.003, 0.0141, eye);
-        eye.rotation.y = s * 0.16;
-        // upper eyelid line
-        const lid = mk(new T.TorusGeometry(0.03, 0.004, 6, 16, Math.PI), M.dark, 0, 0.002, 0.004, eye);
-        lid.scale.set(1.08, 0.62, 1);
-        const brow = mk(limb(0.008, 0.005, 0.07, 0, 6), M.hair, s * 0.032, 0.058, hz + 0.18, this.head);
-        brow.rotation.z = s * (Math.PI / 2 + 0.22);
-        brow.castShadow = false;
+        // viewer's right eye is the character's left (s = 1); the texture is drawn for that side
+        const e = decal(s * 0.064, 0.008, 0.09, 0.0675, ZB.face.eye('open', c.eyes), s < 0);
+        e.s = s;
+        this.face.eyes.push(e);
+        const b = decal(s * 0.066, 0.068, 0.082, 0.0205, ZB.face.brow(), s < 0, 0x222222);
+        b.s = s;
+        this.face.brows.push(b);
       }
+      this.face.mouth = decal(0, -0.094, 0.05, 0.0375, ZB.face.mouth('neutral'));
       this.hairStyle = def.hair;
       // Blender-built models carry their own sculpted hair
       this.hair = md.glb ? grp(0, 0, 0, this.head) : buildHair(def.hair, this.head, M.hair, def, M);
+      // ink outlines on rigid hair pieces
+      const hairMeshes = [];
+      this.hair.traverse((o) => o.isMesh && o.material !== M.dark && hairMeshes.push(o));
+      for (const o of hairMeshes) {
+        const ol = new T.Mesh(o.geometry, new T.MeshBasicMaterial({ color: 0x120d18, side: T.BackSide }));
+        ol.scale.setScalar(1.07);
+        o.add(ol);
+      }
       // ---- aura ----
       this.auraU = { uColor: { value: new T.Color(0xffffff) }, uTime: { value: 0 }, uPower: { value: 0 } };
       const auraMat = new T.ShaderMaterial({ uniforms: this.auraU, vertexShader: AURA_VS, fragmentShader: AURA_FS, transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide });
@@ -360,6 +406,11 @@
       M.hair.emissiveIntensity = glow ? 0.35 : 0;
       this.base.skin.setHex(f.skin || this.def.colors.skin);
       this.eyeMat.color.setHex(f.eyes || this.def.colors.eyes);
+      this.eyeColor = f.eyes || this.def.colors.eyes;
+      if (this.face) {
+        this.face.eyeKind = '';
+        for (const b of this.face.brows) b.m.color.setHex(f.hair);
+      }
       this.eyeMat.emissive.setHex(i > 0 ? f.eyes || this.def.colors.eyes : 0x000000);
       this.eyeMat.emissiveIntensity = i > 0 ? 0.8 : 0;
       this.hair.scale.setScalar(f.hairScale || 1);
@@ -412,6 +463,28 @@
         const c = P.hand;
         if (f.thumb) f.b.rotation.set(-0.3 * c, 0, -f.s * (f.seg === 1 ? 0.5 : 0.7) * c);
         else f.b.rotation.set(0, 0, -f.s * (f.seg === 1 ? 1.45 : 1.65) * c);
+      }
+      // drawn expressions: eyes, brows and mouth follow the pose's mood
+      const F = this.face;
+      F.nextBlink -= dt;
+      if (F.nextBlink <= 0) {
+        F.blink = 0.12;
+        F.nextBlink = 2.5 + Math.random() * 3;
+      }
+      F.blink -= dt;
+      const eyeKind = P.pain > 0.55 ? 'squeeze' : F.blink > 0 ? 'closed' : P.angry > 0.55 ? 'angry' : 'open';
+      if (eyeKind !== F.eyeKind) {
+        F.eyeKind = eyeKind;
+        for (const e of F.eyes) e.m.map = ZB.face.eye(eyeKind, this.eyeColor);
+      }
+      const mouthKind = P.open > 0.55 ? 'shout' : P.pain > 0.5 ? 'pain' : P.angry > 0.8 ? 'grit' : P.open > 0.2 && P.angry < 0.1 ? 'smile' : 'neutral';
+      if (mouthKind !== F.mouthKind) {
+        F.mouthKind = mouthKind;
+        F.mouth.m.map = ZB.face.mouth(mouthKind);
+      }
+      for (const b of F.brows) {
+        b.pivot.rotation.z = b.s * (P.angry * 0.32 - P.pain * 0.35);
+        b.pivot.position.y = 0.068 - P.angry * 0.006 + P.pain * 0.006;
       }
       // facial expression shape keys
       for (const mm of this.morphMeshes) {

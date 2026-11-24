@@ -1737,9 +1737,9 @@
       this.scene = new T.Scene();
       this.cam = new T.PerspectiveCamera(40, 1, 0.1, 500);
       this.scene.add(new T.HemisphereLight(0xcfe3ff, 0x30263a, 0.4));
-      const d = new T.DirectionalLight(0xfff1e0, 2.6);
+      const d = new T.DirectionalLight(0xfff1e0, 2.1);
       d.position.set(4, 8, 6);
-      const rim = new T.DirectionalLight(0x8fb8ff, 2.2);
+      const rim = new T.DirectionalLight(0x8fb8ff, 1.4);
       rim.position.set(-5, 4, -6);
       this.scene.add(d, rim);
       // studio environment for reflections
