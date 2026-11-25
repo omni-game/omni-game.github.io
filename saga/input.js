@@ -5,7 +5,7 @@
   const KEYMAP = {
     up: ['KeyW', 'ArrowUp'], down: ['KeyS', 'ArrowDown'], left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'],
     rise: ['Space'], sink: ['KeyC', 'ControlLeft'], dash: ['ShiftLeft', 'ShiftRight'],
-    rush: ['KeyJ'], smash: ['KeyK'], blast: ['KeyL'], charge: ['KeyI'], guard: ['KeyO'], mod: ['KeyU'], transform: ['KeyT'], pause: ['Escape', 'KeyP'],
+    rush: ['KeyJ'], smash: ['KeyK'], blast: ['KeyL'], charge: ['KeyI'], guard: ['KeyO'], mod: ['KeyU'], transform: ['KeyT', 'KeyH'], pause: ['Escape', 'KeyP'],
   };
   const touch = { mx: 0, mz: 0 };
   const touchBtn = {};

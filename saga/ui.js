@@ -31,12 +31,14 @@
     if (f.mastery && ((save.wins || {})[id] || 0) < f.mastery) return `Win ${f.mastery} battles with ${ZB.byId(id).name}`;
     return null;
   };
-  const maxFormFor = (id) => {
+  // Story mode keeps its own form progression; every other mode can use every form.
+  const storyMaxFor = (id) => {
     const def = ZB.byId(id);
     let m = 0;
     for (let i = 1; i < def.forms.length && !formLock(id, i); i++) m = i;
     return m;
   };
+  const maxFormFor = (id) => ZB.byId(id).forms.length - 1;
   const REQ = { e2: ['e1'], e3: ['e2'], e4: ['e3'], e5: ['e4'], w1: ['e4'], e6: ['e5', 'w1'], e7: ['e6'], e8: ['e7'], e9: ['e8'], e10: ['e9'], e11: ['e10'], e12: ['e11'] };
   const NEXT = { e1: 'e2', e2: 'e3', e3: 'e4', e5: 'e6', w1: 'e6', e6: 'e7', e7: 'e8', e8: 'e9', e9: 'e10', e10: 'e11', e11: 'e12' };
   const available = (id) => !REQ[id] || REQ[id].some((r) => save.cleared[r]);
@@ -215,7 +217,7 @@
     const bonus = save.diff ? 0.15 : 0;
     return {
       mode: 'story', ep: ep.id, stage: ep.stage, goal: ep.goal, time: ep.time, events: ep.events, lockEnemyForms: true,
-      p1: { id: ep.player, form: ep.pForm || 0, maxForm: Math.max(ep.pForm || 0, maxFormFor(ep.player)), costume: save.costume[ep.player] },
+      p1: { id: ep.player, form: ep.pForm || 0, maxForm: Math.max(ep.pForm || 0, storyMaxFor(ep.player)), costume: save.costume[ep.player] },
       p2: { id: ep.enemy, form: ep.eForm || 0, maxForm: ep.eForm || 0, ai: clamp(ep.ai + bonus, 0, 1) },
     };
   }
@@ -240,7 +242,16 @@
   const owns = (k) => !!(save.owned || {})[k];
   const costumeOwned = (id, c) => c.price === 0 || owns(id + ':' + c.id);
   const stageOwned = (st) => !st.price || owns('stage:' + st.id);
+  const startForm = () => +$('#optForm').value || 0;
+  function fillForms() {
+    const sel = $('#optForm'), keep = sel.dataset.id === selP ? sel.value : '0';
+    sel.innerHTML = '';
+    ZB.byId(selP).forms.forEach((f, i) => sel.add(new Option(f.name, i)));
+    sel.dataset.id = selP;
+    sel.value = keep;
+  }
   function fillCostumes() {
+    fillForms();
     const sel = $('#optCostume');
     sel.innerHTML = '';
     for (const c of ZB.COSTUMES) if (costumeOwned(selP, c)) sel.add(new Option(c.name, c.id));
@@ -277,13 +288,13 @@
   }
   $('#selectStart').addEventListener('click', () => {
     ZB.audio.play('ui');
-    if (selMode === 'tournament') return startTournament(selP);
-    if (selMode === 'survival') return startSurvival(selP, +$('#optDiff').value);
+    if (selMode === 'tournament') return startTournament(selP, startForm());
+    if (selMode === 'survival') return startSurvival(selP, +$('#optDiff').value, startForm());
     const training = selMode === 'training', dummy = $('#optDummy').value;
     const ai = training ? (dummy === 'dummy' ? null : +dummy) : +$('#optDiff').value;
     launch({
       mode: training ? 'training' : 'versus', stage: $('#optStage').value, goal: 'win', diff: ai,
-      p1: { id: selP, form: 0, maxForm: maxFormFor(selP), infiniteKi: training, costume: save.costume[selP] },
+      p1: { id: selP, form: startForm(), maxForm: maxFormFor(selP), infiniteKi: training, costume: save.costume[selP] },
       p2: { id: selE, form: 0, maxForm: ZB.byId(selE).forms.length - 1, ai, dummy: training && dummy === 'dummy' },
     });
   });
@@ -310,7 +321,7 @@
     ['champ', 'Champion', 'Win the Throne Cup', (st) => st.tournaments >= 1],
     ['survivor', 'Unbreakable', 'Reach wave 10 in Survival', (st) => st.bestSurvival >= 10],
     ['veteran', 'Veteran', 'Win 25 battles', (st) => st.wins >= 25],
-    ['master', 'Mastery', 'Unlock a mastery form', () => Object.values(save.wins || {}).some((w) => w >= 3)],
+    ['master', 'Specialist', 'Win 3 battles with the same fighter', () => Object.values(save.wins || {}).some((w) => w >= 3)],
     ['fashion', 'Fashion Fighter', 'Own 5 costumes', () => Object.keys(save.owned || {}).filter((k) => !k.startsWith('stage:')).length >= 5],
     ['rich', 'Crystal Hoarder', 'Earn 5000 crystals in total', (st) => st.crystalsEarned >= 5000],
   ];
@@ -342,10 +353,10 @@
     const d = ZB.byId(id);
     return d.hp * d.pow * (1 + 0.15 * (d.forms.length - 1));
   }
-  function startTournament(pid) {
+  function startTournament(pid, form) {
     const others = ZB.ROSTER.map((r) => r.id).filter((id) => id !== pid).sort(() => Math.random() - 0.5).slice(0, 7);
     const entrants = [pid, ...others].sort(() => Math.random() - 0.5);
-    tour = { pid, rounds: [entrants], round: 0, out: false };
+    tour = { pid, form, rounds: [entrants], round: 0, out: false };
     showBracket();
   }
   function pairs(list) {
@@ -394,7 +405,7 @@
     const od = ZB.byId(opp);
     launch({
       mode: 'tournament', stage: 'arena', goal: 'win', ringOut: true,
-      p1: { id: tour.pid, form: 0, maxForm: maxFormFor(tour.pid), costume: save.costume[tour.pid] },
+      p1: { id: tour.pid, form: tour.form || 0, maxForm: maxFormFor(tour.pid), costume: save.costume[tour.pid] },
       p2: { id: opp, form: 0, maxForm: Math.min(od.forms.length - 1, 1 + tour.round), ai: [0.45, 0.6, 0.78][tour.round] },
     });
   });
@@ -417,8 +428,8 @@
 
   // ---------------- survival
   let surv = null;
-  function startSurvival(pid, diff) {
-    surv = { pid, diff, wave: 1, hp: 1 };
+  function startSurvival(pid, diff, form) {
+    surv = { pid, diff, form, wave: 1, hp: 1 };
     nextWave();
   }
   function nextWave() {
@@ -427,7 +438,7 @@
     const stages = ZB.STAGES.filter(stageOwned);
     launch({
       mode: 'survival', wave: surv.wave, stage: stages[surv.wave % stages.length].id, goal: 'win',
-      p1: { id: surv.pid, form: 0, maxForm: maxFormFor(surv.pid), costume: save.costume[surv.pid], hp: surv.hp },
+      p1: { id: surv.pid, form: surv.form || 0, maxForm: maxFormFor(surv.pid), costume: save.costume[surv.pid], hp: surv.hp },
       p2: { id: opp, form: Math.min(od.forms.length - 1, Math.floor((surv.wave - 1) / 3)), maxForm: od.forms.length - 1, ai: Math.min(0.95, surv.diff + surv.wave * 0.03) },
     });
   }
@@ -515,7 +526,7 @@
       <p>${esc(def.bio)}</p>
       <div><span class="stat">HP <b>${def.hp}</b></span><span class="stat">Speed <b>${Math.round(def.spd * 100)}</b></span><span class="stat">Power <b>${Math.round(def.pow * 100)}</b></span>${def.kiRegen ? '<span class="stat"><b>Trait:</b> self-recharging ki</span>' : ''}</div>
       <div class="forms">${def.forms.map((f, i) => `<button data-f="${i}" class="${i === selFForm ? 'on' : ''}" ${i > mf ? `disabled title="${esc(formLock(selF, i) || 'Unlock earlier forms first')}"` : ''}>${esc(f.name)}${i > mf ? ' \u{1F512}' : ''}</button>`).join('')}</div>
-      ${def.forms.some((f) => f.mastery) ? `<div class="muted">Mastery: ${(save.wins || {})[selF] || 0} Battle wins \u00b7 ${def.forms.filter((f) => f.mastery).map((f) => `${esc(f.name)} at ${f.mastery}`).join(', ')}</div>` : ''}
+
       <div class="forms anims"><span class="muted">Animations:</span>${ANIMS.map(([k, n]) => `<button data-a="${k}" class="${k === selAnim ? 'on' : ''}">${n}</button>`).join('')}</div>
       <div class="moves">${def.supers.map((s, i) => `<div><b>${esc(s.name)}</b><small>Super ${i + 1} · U+${i ? 'K' : 'J'} · ${TYPE[s.type]} · ${s.cost / 100} ki bars</small></div>`).join('')}
       <div><b>${esc(def.ultimate.name)}</b><small>Ultimate · U+L · ${TYPE[def.ultimate.type]} · needs Sparking</small></div></div>`;
@@ -833,14 +844,9 @@
       // mastery: Battle-mode wins unlock a fighter's top forms
       const unlocks = [];
       if (res.win && opts.mode === 'versus') {
-        const id = opts.p1.id, before = maxFormFor(id);
+        const id = opts.p1.id;
         save.wins = save.wins || {};
         save.wins[id] = (save.wins[id] || 0) + 1;
-        persist();
-        const after = maxFormFor(id);
-        for (let i = before + 1; i <= after; i++) unlocks.push(`New form: ${ZB.byId(id).name} \u2014 ${ZB.byId(id).forms[i].name}`);
-        const next = ZB.byId(id).forms.find((f, i) => i > after && f.mastery);
-        if (next) unlocks.push(`Mastery: ${save.wins[id]}/${next.mastery} wins for ${next.name}`);
         award(Math.round(60 + 120 * (opts.diff || 0.5)), unlocks, 'victory');
       }
       recordBattle(opts, res);

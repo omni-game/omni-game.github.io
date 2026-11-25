@@ -70,6 +70,7 @@
   <div class="options">
     <label id="optStageWrap">Stage <select id="optStage"></select></label>
     <label>Costume <select id="optCostume"></select></label>
+    <label>Start form <select id="optForm"></select></label>
     <label id="optDiffWrap">CPU <select id="optDiff"><option value="0.25">Easy</option><option value="0.5" selected>Normal</option><option value="0.75">Hard</option><option value="0.95">Legend</option></select></label>
     <label id="optDummyWrap">Dummy <select id="optDummy"><option value="dummy">Stand still</option><option value="0.15">Fight back (weak)</option><option value="0.5">Fight back (normal)</option></select></label>
     <button class="primary" id="selectStart">FIGHT!</button>
@@ -126,8 +127,8 @@
       <tr><td>Super 1 / Super 2</td><td>U + J / U + K</td><td>RT + X / RT + B</td></tr>
       <tr><td>Ultimate (only while Sparking)</td><td>U + L</td><td>RT + Y</td></tr>
       <tr><td>Burst out of combos (2 skill orbs)</td><td>U + O</td><td>RT + RB</td></tr>
-      <tr><td>Transform (costs skill orbs)</td><td>T</td><td>D-pad &#8596;</td></tr>
-      <tr><td>Jump to highest affordable form (+1 orb)</td><td>U + T</td><td>RT + D-pad &#8596;</td></tr>
+      <tr><td>Transform (costs skill orbs)</td><td>T or H</td><td>D-pad &#8596;</td></tr>
+      <tr><td>Jump to highest affordable form (+1 orb)</td><td>U + T / U + H</td><td>RT + D-pad &#8596;</td></tr>
       <tr><td>Chase a flying enemy (40 ki)</td><td>J right after a knockback</td><td>X</td></tr>
       <tr><td>Recover when knocked away</td><td>O or Shift</td><td>RB or A</td></tr>
       <tr><td>Beam clash</td><td colspan="2">Mash any attack button!</td></tr>
@@ -160,7 +161,7 @@
   <div id="goal"></div>
   <div id="mash" class="hidden"><b>MASH!</b><div><i id="mashBar"></i></div></div>
   <div id="superList" class="hidden"></div>
-  <div id="hint">J Rush · K Smash · L Blast · I Charge · O Guard · Shift Dash · U+J/K Super · U+L Ultimate · T Transform · Esc Pause</div>
+  <div id="hint">J Rush · K Smash · L Blast · I Charge · O Guard · Shift Dash · U+J/K Super · U+L Ultimate · H Transform · Esc Pause</div>
   <button id="pauseBtn">&#10074;&#10074;</button>
 </div>
 <div id="letterbox"><i></i><i></i></div>
@@ -172,14 +173,15 @@
   <div class="stick"><i></i></div>
   <div class="vert"><button data-btn="rise">&#9650;</button><button data-btn="sink">&#9660;</button></div>
   <div class="acts">
-    <button data-btn="rush" class="big">RUSH</button>
-    <button data-btn="smash">SMASH</button>
-    <button data-btn="blast">BLAST</button>
-    <button data-btn="guard">GUARD</button>
+    <button data-btn="mod" data-toggle class="mod">SUPER</button>
+    <button data-btn="transform" class="trans">TRANS</button>
     <button data-btn="charge">CHARGE</button>
+    <button data-btn="guard">GUARD</button>
+    <button data-btn="blast">BLAST</button>
     <button data-btn="dash">DASH</button>
+    <button data-btn="smash">SMASH</button>
+    <button data-btn="rush" class="big">RUSH</button>
   </div>
-  <div class="tops"><button data-btn="mod" data-toggle class="mod">SUPER</button><button data-btn="transform">TRANS</button></div>
 </div>
 
 <!-- DIALOGUE -->

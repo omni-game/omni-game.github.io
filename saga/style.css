@@ -184,22 +184,24 @@ select { background: #15152c; border: 1px solid var(--line); border-radius: 8px;
 #touch button.on { background: rgba(79, 195, 255, 0.55); border-color: #fff; }
 #touch .stick { pointer-events: auto; position: absolute; left: max(18px, env(safe-area-inset-left)); bottom: 26px; width: 136px; height: 136px; border-radius: 50%; background: rgba(255, 255, 255, 0.08); border: 2px solid rgba(255, 255, 255, 0.25); touch-action: none; }
 #touch .stick i { position: absolute; left: 38px; top: 38px; width: 56px; height: 56px; border-radius: 50%; background: rgba(255, 255, 255, 0.4); }
-#touch .vert { position: absolute; left: max(170px, calc(env(safe-area-inset-left) + 160px)); bottom: 30px; display: flex; flex-direction: column; gap: 10px; }
-#touch .vert button { width: 50px; height: 50px; font-size: 16px; }
-#touch .acts { position: absolute; right: max(14px, env(safe-area-inset-right)); bottom: 18px; width: 228px; height: 200px; }
-#touch .acts button { position: absolute; width: 62px; height: 62px; }
-#touch .acts .big { width: 84px; height: 84px; right: 10px; bottom: 10px; font-size: 15px; background: rgba(255, 140, 0, 0.45); }
-#touch [data-btn='smash'] { right: 104px; bottom: 6px; }
-#touch [data-btn='blast'] { right: 20px; bottom: 102px; }
-#touch [data-btn='guard'] { right: 100px; bottom: 80px; }
-#touch [data-btn='charge'] { right: 170px; bottom: 120px; width: 54px !important; height: 54px !important; }
-#touch [data-btn='dash'] { right: 176px; bottom: 44px; width: 54px !important; height: 54px !important; }
-#touch .tops { position: absolute; right: max(66px, calc(env(safe-area-inset-right) + 60px)); top: max(100px, calc(env(safe-area-inset-top) + 92px)); display: flex; gap: 8px; }
-#touch .tops button { width: 64px; height: 40px; border-radius: 12px; }
-#touch .tops .mod.on { background: rgba(255, 182, 39, 0.7); }
+#touch .vert { position: absolute; left: max(158px, calc(env(safe-area-inset-left) + 148px)); bottom: 34px; display: flex; flex-direction: column; gap: 6px; }
+#touch .vert button { width: 46px; height: 46px; font-size: 15px; }
+/* every action in one compact thumb grid: 5 columns x 2 rows, RUSH twice as tall in the corner */
+#touch .acts { position: absolute; right: max(12px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(5, 54px); grid-template-rows: 54px 54px; gap: 6px; }
+#touch .acts button { width: 54px; height: 54px; font-size: 11px; }
+#touch .acts .mod, #touch .acts .trans { border-radius: 14px; }
+#touch .acts .mod.on { background: rgba(255, 182, 39, 0.75); }
+#touch .acts .big { grid-column: 5; grid-row: 1 / span 2; width: 54px; height: 114px; border-radius: 27px; font-size: 13px; background: rgba(255, 140, 0, 0.5); }
+#touch [data-btn='mod'] { grid-column: 1; grid-row: 1; }
+#touch [data-btn='transform'] { grid-column: 2; grid-row: 1; }
+#touch [data-btn='charge'] { grid-column: 3; grid-row: 1; }
+#touch [data-btn='blast'] { grid-column: 4; grid-row: 1; }
+#touch [data-btn='dash'] { grid-column: 1 / span 2; grid-row: 2; width: 114px !important; border-radius: 27px; }
+#touch [data-btn='guard'] { grid-column: 3; grid-row: 2; }
+#touch [data-btn='smash'] { grid-column: 4; grid-row: 2; }
 body:not(.touch) #touch { display: none !important; }
 body.touch #hint { display: none; }
-body.touch #superList { bottom: 230px; }
+body.touch #superList { bottom: 150px; }
 
 /* ---------- dialogue + overlays ---------- */
 #dialog { position: fixed; inset: 0; z-index: 9; display: flex; align-items: flex-end; justify-content: center; padding: 16px 16px max(20px, env(safe-area-inset-bottom)); cursor: pointer; }
