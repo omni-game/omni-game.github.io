@@ -182,26 +182,26 @@ select { background: #15152c; border: 1px solid var(--line); border-radius: 8px;
 #touch { position: fixed; inset: 0; pointer-events: none; z-index: 7; }
 #touch button { pointer-events: auto; touch-action: none; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.35); background: rgba(10, 10, 30, 0.45); font-weight: 700; font-size: 12px; letter-spacing: 0.5px; color: #fff; }
 #touch button.on { background: rgba(79, 195, 255, 0.55); border-color: #fff; }
-#touch .stick { pointer-events: auto; position: absolute; left: max(18px, env(safe-area-inset-left)); bottom: 26px; width: 136px; height: 136px; border-radius: 50%; background: rgba(255, 255, 255, 0.08); border: 2px solid rgba(255, 255, 255, 0.25); touch-action: none; }
-#touch .stick i { position: absolute; left: 38px; top: 38px; width: 56px; height: 56px; border-radius: 50%; background: rgba(255, 255, 255, 0.4); }
-#touch .vert { position: absolute; left: max(158px, calc(env(safe-area-inset-left) + 148px)); bottom: 34px; display: flex; flex-direction: column; gap: 6px; }
-#touch .vert button { width: 46px; height: 46px; font-size: 15px; }
+#touch .stick { pointer-events: auto; position: absolute; left: max(14px, env(safe-area-inset-left)); bottom: 22px; width: 120px; height: 120px; border-radius: 50%; background: rgba(255, 255, 255, 0.08); border: 2px solid rgba(255, 255, 255, 0.25); touch-action: none; }
+#touch .stick i { position: absolute; left: 33px; top: 33px; width: 50px; height: 50px; border-radius: 50%; background: rgba(255, 255, 255, 0.4); }
+#touch .vert { position: absolute; left: max(142px, calc(env(safe-area-inset-left) + 132px)); bottom: 30px; display: flex; flex-direction: column; gap: 3px; }
+#touch .vert button { width: 42px; height: 42px; font-size: 14px; }
 /* every action in one compact thumb grid: 5 columns x 2 rows, RUSH twice as tall in the corner */
-#touch .acts { position: absolute; right: max(12px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(5, 54px); grid-template-rows: 54px 54px; gap: 6px; }
-#touch .acts button { width: 54px; height: 54px; font-size: 11px; }
+#touch .acts { position: absolute; right: max(12px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(5, 48px); grid-template-rows: 48px 48px; gap: 3px; }
+#touch .acts button { width: 48px; height: 48px; font-size: 10px; letter-spacing: 0; }
 #touch .acts .mod, #touch .acts .trans { border-radius: 14px; }
 #touch .acts .mod.on { background: rgba(255, 182, 39, 0.75); }
-#touch .acts .big { grid-column: 5; grid-row: 1 / span 2; width: 54px; height: 114px; border-radius: 27px; font-size: 13px; background: rgba(255, 140, 0, 0.5); }
+#touch .acts .big { grid-column: 5; grid-row: 1 / span 2; width: 48px; height: 99px; border-radius: 24px; font-size: 12px; background: rgba(255, 140, 0, 0.5); }
 #touch [data-btn='mod'] { grid-column: 1; grid-row: 1; }
 #touch [data-btn='transform'] { grid-column: 2; grid-row: 1; }
 #touch [data-btn='charge'] { grid-column: 3; grid-row: 1; }
 #touch [data-btn='blast'] { grid-column: 4; grid-row: 1; }
-#touch [data-btn='dash'] { grid-column: 1 / span 2; grid-row: 2; width: 114px !important; border-radius: 27px; }
+#touch [data-btn='dash'] { grid-column: 1 / span 2; grid-row: 2; width: 99px !important; border-radius: 24px; }
 #touch [data-btn='guard'] { grid-column: 3; grid-row: 2; }
 #touch [data-btn='smash'] { grid-column: 4; grid-row: 2; }
 body:not(.touch) #touch { display: none !important; }
 body.touch #hint { display: none; }
-body.touch #superList { bottom: 150px; }
+body.touch #superList { bottom: 130px; }
 
 /* ---------- dialogue + overlays ---------- */
 #dialog { position: fixed; inset: 0; z-index: 9; display: flex; align-items: flex-end; justify-content: center; padding: 16px 16px max(20px, env(safe-area-inset-bottom)); cursor: pointer; }

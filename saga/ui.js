@@ -719,7 +719,7 @@
     if (showList) {
       const s = p.def.supers, u = p.def.ultimate;
       const row = (k, name, ok, note) => `<div class="${ok ? '' : 'no'}"><b>${k}</b>${esc(name)} <small>${note}</small></div>`;
-      const html = row('J', s[0].name, p.ki >= s[0].cost, s[0].cost / 100 + ' bars') + row('K', s[1].name, p.ki >= s[1].cost, s[1].cost / 100 + ' bars') + row('L', u.name, p.spark > 0, 'Sparking only') + row('O', 'Burst', p.skill >= 2, '2 orbs');
+      const html = row('F', s[0].name, p.ki >= s[0].cost, s[0].cost / 100 + ' bars') + row('G', s[1].name, p.ki >= s[1].cost, s[1].cost / 100 + ' bars') + row('R', u.name, p.spark > 0, 'Sparking only') + row('Q', 'Burst', p.skill >= 2, '2 orbs');
       if (H.superList.innerHTML !== html) H.superList.innerHTML = html;
     }
     if (toastT > 0 && (toastT -= dt) <= 0) H.toast.classList.remove('show');
@@ -928,9 +928,9 @@
   $('#pMoves').addEventListener('click', () => {
     const d = battle.p1.def, el = $('#pMoveList');
     el.innerHTML = [
-      ['J', 'Rush combo (tap up to 5 times)'], ['K', 'Smash — hold to charge, breaks guard'], ['L', 'Ki blast'], ['I (hold)', 'Charge ki — keep holding at full for SPARKING'],
-      ['O', 'Guard — tap right before a hit to VANISH'], ['Shift', 'Step dodge / hold to boost'], ['J after knockback', 'Vanish chase (40 ki)'],
-      ['U+J', d.supers[0].name], ['U+K', d.supers[1].name], ['U+L', d.ultimate.name + ' (Sparking only)'], ['U+O', 'Burst — escape combos (2 orbs)'], ['T', 'Transform (skill orbs)'], ['U+T', 'Jump to your highest affordable form (+1 orb)'],
+      ['F / J', 'Rush combo (tap up to 5 times)'], ['G / K', 'Smash — hold to charge, breaks guard'], ['R / L', 'Ki blast'], ['E / I (hold)', 'Charge ki — keep holding at full for SPARKING'],
+      ['Q / O', 'Guard — tap right before a hit to VANISH'], ['Shift', 'Step dodge / hold to boost'], ['F / J after knockback', 'Vanish chase (40 ki)'],
+      ['X+F / U+J', d.supers[0].name], ['X+G / U+K', d.supers[1].name], ['X+R / U+L', d.ultimate.name + ' (Sparking only)'], ['X+Q / U+O', 'Burst — escape combos (2 orbs)'], ['Z / T', 'Transform (skill orbs)'], ['X+Z / U+T', 'Jump to your highest affordable form (+1 orb)'],
     ].map(([k, t]) => `<div><b>${esc(k)}</b> — ${esc(t)}</div>`).join('');
     el.classList.toggle('hidden');
   });

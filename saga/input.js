@@ -5,7 +5,8 @@
   const KEYMAP = {
     up: ['KeyW', 'ArrowUp'], down: ['KeyS', 'ArrowDown'], left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'],
     rise: ['Space'], sink: ['KeyC', 'ControlLeft'], dash: ['ShiftLeft', 'ShiftRight'],
-    rush: ['KeyJ'], smash: ['KeyK'], blast: ['KeyL'], charge: ['KeyI'], guard: ['KeyO'], mod: ['KeyU'], transform: ['KeyT', 'KeyH'], pause: ['Escape', 'KeyP'],
+    // every action also sits right around WASD so one hand can play: F rush, G smash, R blast, E charge, Q guard, X super, Z transform
+    rush: ['KeyF', 'KeyJ'], smash: ['KeyG', 'KeyK'], blast: ['KeyR', 'KeyL'], charge: ['KeyE', 'KeyI'], guard: ['KeyQ', 'KeyO'], mod: ['KeyX', 'KeyU'], transform: ['KeyZ', 'KeyT', 'KeyH'], pause: ['Escape', 'KeyP'],
   };
   const touch = { mx: 0, mz: 0 };
   const touchBtn = {};
