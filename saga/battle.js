@@ -464,7 +464,7 @@
       this.props = built.props;
       this.addCrater = built.addCrater;
       this.sunDir = built.sunDir;
-      const night = this.stage.props === 'crystal' || this.stage.props === 'arena';
+      const night = this.stage.props === 'crystal' || this.stage.props === 'arena' || this.stage.props === 'lava';
       // cool sky fill so shadows read blue-grey like real daylight
       const hemi = new T.HemisphereLight(night ? this.stage.sky[0] : 0xa9c1e8, this.stage.ground2, night ? 1.1 : 0.75);
       this.exposure = built.exposure;
@@ -518,11 +518,11 @@
       this.stats = { superFinish: false, time: 0 };
     }
     makeFighter(o, team, z) {
-      const def = ZB.byId(o.id), model = new ZB.Model(def, o.form || 0);
+      const def = ZB.byId(o.id), model = new ZB.Model(def, o.form || 0, o.costume);
       this.scene.add(model.root);
       const f = {
         def, model, team, pos: v3().set(team ? 2 : -2, 4, z), vel: v3(), c: v3(), yaw: team ? Math.PI : 0,
-        hp: def.hp, maxHp: def.hp, ki: 150, skill: 1, skillT: 0, form: o.form || 0, maxForm: o.maxForm == null ? o.form || 0 : o.maxForm,
+        hp: o.hp ? Math.min(def.hp, o.hp * def.hp) : def.hp, maxHp: def.hp, ki: 150, skill: 1, skillT: 0, form: o.form || 0, maxForm: o.maxForm == null ? o.form || 0 : o.maxForm,
         spark: 0, sparkCharge: 0, state: 'free', st: 0, dur: 0, combo: 0, queued: false, cd: 0, guardT: 9, invuln: 0,
         chain: 0, comboTaken: 0, comboHits: 0, knockId: 0, poseT: 0, poseName: null, hitDone: false, cur: null, step: v3(), spin: 0,
         infiniteKi: !!o.infiniteKi, dummy: !!o.dummy,
@@ -587,6 +587,8 @@
         this.updateBombs(w);
         this.updateNovas(w);
         this.checkEvents();
+        this.checkRingOut();
+        this.ambient(w);
         if (this.opts.goal === 'survive' && this.timer > 0) {
           this.timer -= w;
           if (this.timer <= 0) {
@@ -1274,6 +1276,7 @@
         w.spark = 0;
       }
       if (how === 'survived') this.banner(null, 'SURVIVED!', 'ko');
+      if (how === 'ringout') this.banner(null, 'RING OUT!', 'ko');
       this.result = { win, how, hpRatio: this.p1.hp / this.p1.maxHp, superFinish: this.stats.superFinish, time: this.time };
     }
 
@@ -1642,6 +1645,32 @@
         b.pos.add(d);
       }
     }
+    // tournament rule: touching the ground outside the platform loses the match
+    checkRingOut() {
+      if (!this.opts.ringOut || this.over) return;
+      for (const f of [this.p1, this.p2]) {
+        if (f.state !== 'ko' && f.pos.y < 0.35 && Math.hypot(f.pos.x, f.pos.z) > 52) {
+          this.set(f, 'ko');
+          f.vel.set(0, 2, 0);
+          this.fx.dust(f.pos, 12, this.stage.ground);
+          this.shakeIt(0.8);
+          ZB.audio.play('ko');
+          this.slowmo(0.3, 1);
+          this.cine = { who: f, t: 0, dur: 2.2, mode: 'ko' };
+          this.finish(f !== this.p1, 'ringout');
+          return;
+        }
+      }
+    }
+    // drifting embers / leaves around the camera on some stages
+    ambient(dt) {
+      const kind = this.stage.ambient;
+      if (!kind || Math.random() > dt * 18) return;
+      const p = t1.copy(this.camPos).add(t2.set(rand(-25, 25), rand(-6, 14), rand(-25, 25)));
+      if (p.y < 0.5) p.y = 0.5;
+      if (kind === 'embers') this.fx.spawn(p, t2.set(rand(-1, 1), rand(1.5, 4), rand(-1, 1)), Math.random() < 0.5 ? 0xff6a1a : 0xffb040, rand(0.08, 0.2), rand(2, 4), { drag: 0.3 });
+      else this.fx.smokeAt(p, t2.set(rand(1, 3), rand(-1.2, -0.3), rand(-1, 1)), new T.Color(Math.random() < 0.5 ? 0x5a9a34 : 0x8ab84a), rand(0.12, 0.22), rand(3, 5), 0);
+    }
     checkEvents() {
       for (const e of this.events) {
         if (e.fired) continue;
@@ -1843,7 +1872,7 @@
         m.model.dispose();
       }
       this.models = list.map((o) => {
-        const model = new ZB.Model(ZB.byId(o.id), o.form || 0);
+        const model = new ZB.Model(ZB.byId(o.id), o.form || 0, o.costume);
         model.root.position.set(o.x || 0, 0.2, 0);
         model.root.rotation.y = o.yaw || 0;
         model.setPose(o.pose || 'idle');

@@ -263,3 +263,28 @@ body.touch #superList { bottom: 230px; }
 #loading.show { display: flex; }
 #loading i { width: 16px; height: 16px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, 0.2); border-top-color: var(--gold); animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- tournament / shop / records ---------- */
+.crystals { margin-left: auto; font-weight: 700; color: #9ff3ff; font-size: 20px; }
+.bracket { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; max-width: 1100px; width: 100%; align-items: center; }
+.bracket .round { display: flex; flex-direction: column; gap: 10px; justify-content: space-around; height: 100%; }
+.bracket .round h5 { margin: 0; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; font-size: 13px; }
+.bracket .m { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; font-weight: 700; }
+.bracket .m div { padding: 2px 0; }
+.bracket .m .w { color: var(--gold2); }
+.bracket .m .l { color: var(--muted); text-decoration: line-through; }
+.bracket .m .you { color: var(--cyan); }
+.shop-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 1100px; width: 100%; }
+.shop-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.shop-item { display: flex; align-items: center; gap: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 10px; padding: 8px 10px; }
+.shop-item .sw { display: flex; gap: 3px; }
+.shop-item .sw i { width: 16px; height: 16px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.3); }
+.shop-item b { flex: 1; }
+.shop-item button { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.08); cursor: pointer; font-weight: 700; }
+.shop-item button.buy { background: linear-gradient(#5fe0ff, #2a8fd0); color: #021; border: none; }
+.shop-item button:disabled { opacity: 0.45; cursor: default; }
+.shop-item.done b::before { content: '\2605 '; color: var(--gold); }
+.shop-item.todo { opacity: 0.6; }
+.rec-stats { display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; margin-top: 10px; }
+.rec-stats b { color: var(--gold2); text-align: right; }
+@media (max-width: 700px) { .shop-cols, .bracket { grid-template-columns: 1fr; } }

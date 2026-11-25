@@ -119,11 +119,16 @@
     gg.setAttribute('color', new T.Float32BufferAttribute(cols, 3));
     gg.computeVertexNormals();
     const rep = size / 14;
-    for (const t of [tex.map, tex.normalMap]) t.repeat.set(rep, rep);
+    for (const t of [tex.map, tex.normalMap, tex.emissiveMap]) if (t) t.repeat.set(rep, rep);
     const groundMat = new T.MeshStandardMaterial({
       map: tex.map, normalMap: tex.normalMap, normalScale: new T.Vector2(1.4, 1.4), vertexColors: true,
       roughness: st.props === 'ice' ? 0.35 : st.props === 'city' ? 0.85 : 0.96, metalness: 0,
     });
+    if (tex.emissiveMap) {
+      groundMat.emissiveMap = tex.emissiveMap;
+      groundMat.emissive = new T.Color(0xffffff);
+      groundMat.emissiveIntensity = 1.6;
+    }
     const ground = new T.Mesh(gg, groundMat);
     ground.receiveShadow = true;
     scene.add(ground);
@@ -246,6 +251,66 @@
         m.position.set(x, s * 0.3, z);
         addProp(m, x, z, s, 0, s, 0x3b2a5e);
       });
+    } else if (st.props === 'lava') {
+      // basalt column clusters, glowing lava pools and scorched boulders
+      const basalt = new T.MeshStandardMaterial({ color: 0x4a403c, roughness: 0.85, normalMap: tex.normalMap, normalScale: new T.Vector2(1.5, 1.5) });
+      ring(26, 35, 210, (x, z, i) => {
+        const g = new T.Group(), n = 5 + (i % 5);
+        let top = 0, rr = 0;
+        for (let k = 0; k < n; k++) {
+          const h = rand(6, 26), r = rand(1.2, 2.2), a = (k / n) * Math.PI * 2, d = k ? rand(1.5, 3.5) : 0;
+          const m = new T.Mesh(new T.CylinderGeometry(r, r * 1.05, h, 6), basalt);
+          m.position.set(Math.cos(a) * d, h / 2 - 0.5, Math.sin(a) * d);
+          g.add(m);
+          top = Math.max(top, h);
+          rr = Math.max(rr, d + r);
+        }
+        g.position.set(x, 0, z);
+        addProp(g, x, z, rr, 0, top, 0x2a2424);
+      });
+      const lavaMat = new T.MeshStandardMaterial({ color: 0x220800, emissive: 0xff3a00, emissiveIntensity: 1.1, roughness: 0.4 });
+      ring(16, 30, 200, (x, z) => {
+        const r = rand(4, 11), m = new T.Mesh(displace(new T.CircleGeometry(r, 28).rotateX(-Math.PI / 2), r * 0.15, 0.3, x), lavaMat);
+        m.position.set(x, 0.06, z);
+        scene.add(m);
+      });
+      ring(24, 20, 200, (x, z, i) => {
+        const s = rand(1.5, 4), m = new T.Mesh(displace(new T.IcosahedronGeometry(s, 3), s * 0.45, 0.6 / s, i), stoneMat(0x2a2020));
+        m.position.set(x, s * 0.3, z);
+        addProp(m, x, z, s, 0, s, 0x2a2020);
+      });
+    } else if (st.props === 'grass') {
+      // trees, boulders and tufts of grass
+      const bark = new T.MeshStandardMaterial({ color: 0x5a3e28, roughness: 0.9 });
+      const leafCols = [0x3f7a2a, 0x4e8f32, 0x2f6a24];
+      ring(34, 30, 210, (x, z, i) => {
+        const g = new T.Group(), h = rand(7, 14);
+        const trunk = new T.Mesh(new T.CylinderGeometry(0.35, 0.6, h, 8), bark);
+        trunk.position.y = h / 2;
+        g.add(trunk);
+        const leaf = new T.MeshStandardMaterial({ color: leafCols[i % 3], roughness: 0.8 });
+        for (let k = 0; k < 4; k++) {
+          const r = rand(2.2, 3.6), b = new T.Mesh(displace(new T.IcosahedronGeometry(r, 2), r * 0.35, 0.5, i * 4 + k), leaf);
+          b.position.set(rand(-1.6, 1.6), h + rand(-1, 1.6), rand(-1.6, 1.6));
+          g.add(b);
+        }
+        g.position.set(x, 0, z);
+        addProp(g, x, z, 3.2, 0, h + 3, leafCols[i % 3]);
+      });
+      ring(18, 20, 200, (x, z, i) => {
+        const s = rand(1.5, 4), m = new T.Mesh(displace(new T.IcosahedronGeometry(s, 3), s * 0.4, 0.5 / s, i), stoneMat(0x8a8a80));
+        m.position.set(x, s * 0.3, z);
+        addProp(m, x, z, s, 0, s, 0x8a8a80);
+      });
+      const tuft = new T.InstancedMesh(new T.ConeGeometry(0.12, 0.7, 4), new T.MeshStandardMaterial({ color: 0x5a9a34, roughness: 0.9 }), 1600);
+      for (let i = 0; i < 1600; i++) {
+        const a = rand(0, Math.PI * 2), r = Math.sqrt(Math.random()) * 200;
+        q.setFromEuler(e.set(rand(-0.3, 0.3), rand(0, 3), rand(-0.3, 0.3)));
+        m4.compose(pv.set(Math.cos(a) * r, 0.3, Math.sin(a) * r), q, sc.set(1, rand(0.6, 1.4), 1));
+        tuft.setMatrixAt(i, m4);
+      }
+      tuft.receiveShadow = true;
+      scene.add(tuft);
     } else if (st.props === 'arena') {
       // raised tiled platform
       const plat = new T.Mesh(new T.CylinderGeometry(52, 53, 2.6, 96), stoneMat(0x9a9fb3, 0.75));
@@ -310,7 +375,7 @@
       scene.add(g);
       craters.push(g);
     }
-    return { props, addCrater, sunDir, ground, exposure: { glacier: 0.6, city: 0.95, wasteland: 0.9, realm: 1.7, arena: 1.25 }[st.id] || 1 };
+    return { props, addCrater, sunDir, ground, exposure: { glacier: 0.6, city: 0.95, wasteland: 0.9, realm: 1.7, arena: 1.25, volcano: 1.25, highlands: 0.72 }[st.id] || 1 };
   }
   ZB.buildStage = buildStage;
 })();

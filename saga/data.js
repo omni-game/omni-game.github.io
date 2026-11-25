@@ -180,7 +180,22 @@ ZB.STAGES = [
   { id: 'glacier', name: 'Frozen Expanse', sky: [0xbfe6ff, 0x4f8fd1], ground: 0xe6f2fb, ground2: 0xb9d6ee, fog: 0xc8e2f6, props: 'ice', sun: 0xffffff },
   { id: 'realm', name: 'Celestial Realm', sky: [0x3a1d6e, 0x0d0624], ground: 0x2a1650, ground2: 0x1a0d36, fog: 0x2a1650, props: 'crystal', sun: 0xd8c8ff },
   { id: 'arena', name: 'Arena of the Throne', sky: [0x1a2a5a, 0x05081a], ground: 0x8a8fa3, ground2: 0x6b7085, fog: 0x1a2a5a, props: 'arena', sun: 0xe8f1ff },
+  { id: 'volcano', name: 'Magma Rift', sky: [0x8a2a14, 0x1a0606], ground: 0x2e2626, ground2: 0x1a1414, fog: 0x4a1a10, props: 'lava', sun: 0xffb070, price: 1500, ambient: 'embers' },
+  { id: 'highlands', name: 'Verdant Highlands', sky: [0xbfe3ff, 0x3f86d8], ground: 0x4f8f26, ground2: 0x356b1c, fog: 0xa9cbe8, props: 'grass', sun: 0xfff6e0, price: 1500, ambient: 'leaves' },
 ];
+// Costumes recolour a fighter's outfit (bought in the Shop). 'gi'/'gi2'/'belt'/'boots' replace the default colours.
+ZB.COSTUMES = [
+  { id: 'default', name: 'Original', price: 0 },
+  { id: 'shadow', name: 'Shadow', price: 500, gi: 0x1c1c26, gi2: 0x6b2a3a, belt: 0xb02a3a, boots: 0x101014 },
+  { id: 'champion', name: 'Champion', price: 500, gi: 0xf2eee4, gi2: 0xd9a83a, belt: 0xd9a83a, boots: 0x3a2a1a },
+  { id: 'ocean', name: 'Tidal', price: 500, gi: 0x1f5fae, gi2: 0x8fe0ff, belt: 0x0d2a4a, boots: 0x0d2a4a },
+  { id: 'ember', name: 'Ember', price: 500, gi: 0xd2481e, gi2: 0x2a1a14, belt: 0x2a1a14, boots: 0x2a1a14 },
+];
+ZB.costumeColors = (def, costumeId) => {
+  const c = ZB.COSTUMES.find((x) => x.id === costumeId);
+  if (!c || c.id === 'default') return def.colors;
+  return Object.assign({}, def.colors, { gi: c.gi, gi2: c.gi2, belt: c.belt, boots: c.boots });
+};
 ZB.stageById = (id) => ZB.STAGES.find((s) => s.id === id) || ZB.STAGES[0];
 
 // Story campaign.

@@ -8,7 +8,7 @@
 
   // ---------------- save data
   const SAVE_KEY = 'zenith-burst-save-v1';
-  const DEFAULT = () => ({ cleared: {}, chars: ['kairo', 'rhen', 'mira'], forms: {}, wins: {}, diff: 0, vol: { sfx: 0.7, music: 0.35 }, quality: 'high' });
+  const DEFAULT = () => ({ cleared: {}, chars: ['kairo', 'rhen', 'mira'], forms: {}, wins: {}, crystals: 0, stats: {}, costume: {}, owned: {}, diff: 0, vol: { sfx: 0.7, music: 0.35 }, quality: 'high' });
   let save = load();
   function load() {
     try {
@@ -76,8 +76,10 @@
     b.addEventListener('click', () => {
       const to = b.dataset.go;
       ZB.audio.play(b.classList.contains('back') ? 'uiBack' : 'ui');
-      if (to === 'training') return openSelect(true);
-      if (to === 'select') return openSelect(false);
+      if (to === 'training') return openSelect('training');
+      if (to === 'select') return openSelect('versus');
+      if (to === 'tournament') return openSelect('tournament');
+      if (to === 'survival') return openSelect('survival');
       go(to);
     }),
   );
@@ -89,10 +91,10 @@
   const ENTER = {
     menu() {
       const h = heroFor();
-      showcase.show([{ id: h.id, form: h.form, x: 0, yaw: -0.4, pose: 'charge', aura: 0.9 }]);
+      showcase.show([{ id: h.id, form: h.form, x: 0, yaw: -0.4, pose: 'charge', aura: 0.9, costume: save.costume[h.id] }]);
       const eps = ZB.allEpisodes(), done = eps.filter((e) => save.cleared[e.id]).length;
       const stars = Object.values(save.cleared).reduce((a, b) => a + b, 0);
-      $('#menuProgress').textContent = `Story ${done}/${eps.length} episodes · ${stars}★ · Fighters ${save.chars.length}/${ZB.ROSTER.length}`;
+      $('#menuProgress').textContent = `Story ${done}/${eps.length} episodes · ${stars}★ · Fighters ${save.chars.length}/${ZB.ROSTER.length} \u00b7 \u{1F48E} ${save.crystals || 0}`;
       ZB.audio.music(2);
       // sculpt the unlocked fighters in the background so battles start instantly
       setTimeout(() => ZB.models.prefetch(save.chars), 1500);
@@ -213,13 +215,13 @@
     const bonus = save.diff ? 0.15 : 0;
     return {
       mode: 'story', ep: ep.id, stage: ep.stage, goal: ep.goal, time: ep.time, events: ep.events, lockEnemyForms: true,
-      p1: { id: ep.player, form: ep.pForm || 0, maxForm: Math.max(ep.pForm || 0, maxFormFor(ep.player)) },
+      p1: { id: ep.player, form: ep.pForm || 0, maxForm: Math.max(ep.pForm || 0, maxFormFor(ep.player)), costume: save.costume[ep.player] },
       p2: { id: ep.enemy, form: ep.eForm || 0, maxForm: ep.eForm || 0, ai: clamp(ep.ai + bonus, 0, 1) },
     };
   }
 
   // ---------------- battle setup (versus / training)
-  let selP = 'kairo', selE = 'rhen', selTraining = false;
+  let selP = 'kairo', selE = 'rhen', selMode = 'versus';
   function card(def, sel, locked, onClick) {
     const b = document.createElement('button');
     b.className = 'card' + (sel ? ' sel' : '') + (locked ? ' locked' : '');
@@ -235,34 +237,264 @@
       el.appendChild(card(def, sel === def.id, locked, () => { ZB.audio.play('ui'); onPick(def.id); }));
     }
   }
-  function openSelect(training) {
-    selTraining = training;
+  const owns = (k) => !!(save.owned || {})[k];
+  const costumeOwned = (id, c) => c.price === 0 || owns(id + ':' + c.id);
+  const stageOwned = (st) => !st.price || owns('stage:' + st.id);
+  function fillCostumes() {
+    const sel = $('#optCostume');
+    sel.innerHTML = '';
+    for (const c of ZB.COSTUMES) if (costumeOwned(selP, c)) sel.add(new Option(c.name, c.id));
+    sel.value = save.costume[selP] || 'default';
+  }
+  $('#optCostume').addEventListener('change', (e) => {
+    save.costume[selP] = e.target.value;
+    persist();
+  });
+  function openSelect(mode) {
+    selMode = mode;
+    const training = mode === 'training', solo = mode === 'survival' || mode === 'tournament';
     if (!save.chars.includes(selP)) selP = 'kairo';
     if (!save.chars.includes(selE)) selE = 'rhen';
-    $('#selectTitle').textContent = training ? 'Training' : 'Battle';
+    $('#selectTitle').textContent = { training: 'Training', versus: 'Battle', survival: 'Survival', tournament: 'Tournament' }[mode];
     $('#oppLabel').textContent = training ? 'Training partner' : 'CPU opponent';
-    $('#optDiffWrap').classList.toggle('hidden', training);
+    $('#rosterE').parentElement.classList.toggle('hidden', solo);
+    $('#optDiffWrap').classList.toggle('hidden', training || mode === 'tournament');
     $('#optDummyWrap').classList.toggle('hidden', !training);
-    const st = $('#optStage');
-    if (!st.options.length) for (const s of ZB.STAGES) st.add(new Option(s.name, s.id));
+    $('#optStageWrap').classList.toggle('hidden', mode === 'tournament');
+    $('#selectStart').textContent = mode === 'survival' ? 'START SURVIVAL' : mode === 'tournament' ? 'ENTER TOURNAMENT' : 'FIGHT!';
+    const st = $('#optStage'), keep = st.value;
+    st.innerHTML = '';
+    for (const x of ZB.STAGES) if (stageOwned(x)) st.add(new Option(x.name, x.id));
+    if (keep && [...st.options].some((o) => o.value === keep)) st.value = keep;
     const draw = () => {
-      renderRoster($('#rosterP'), selP, (id) => { selP = id; draw(); });
+      renderRoster($('#rosterP'), selP, (id) => { selP = id; fillCostumes(); draw(); });
       renderRoster($('#rosterE'), selE, (id) => { selE = id; draw(); });
     };
+    fillCostumes();
     draw();
     showcase.show([]);
     go('select');
   }
   $('#selectStart').addEventListener('click', () => {
     ZB.audio.play('ui');
-    const dummy = $('#optDummy').value;
-    const ai = selTraining ? (dummy === 'dummy' ? null : +dummy) : +$('#optDiff').value;
+    if (selMode === 'tournament') return startTournament(selP);
+    if (selMode === 'survival') return startSurvival(selP, +$('#optDiff').value);
+    const training = selMode === 'training', dummy = $('#optDummy').value;
+    const ai = training ? (dummy === 'dummy' ? null : +dummy) : +$('#optDiff').value;
     launch({
-      mode: selTraining ? 'training' : 'versus', stage: $('#optStage').value, goal: 'win',
-      p1: { id: selP, form: 0, maxForm: maxFormFor(selP), infiniteKi: selTraining },
-      p2: { id: selE, form: 0, maxForm: ZB.byId(selE).forms.length - 1, ai, dummy: selTraining && dummy === 'dummy' },
+      mode: training ? 'training' : 'versus', stage: $('#optStage').value, goal: 'win', diff: ai,
+      p1: { id: selP, form: 0, maxForm: maxFormFor(selP), infiniteKi: training, costume: save.costume[selP] },
+      p2: { id: selE, form: 0, maxForm: ZB.byId(selE).forms.length - 1, ai, dummy: training && dummy === 'dummy' },
     });
   });
+
+  // ---------------- crystals, stats and achievements
+  function award(n, list, why) {
+    if (n <= 0) return;
+    save.crystals = (save.crystals || 0) + n;
+    const st = (save.stats = save.stats || {});
+    st.crystalsEarned = (st.crystalsEarned || 0) + n;
+    if (list) list.push(`+${n} \u{1F48E} ${why || ''}`.trim());
+  }
+  const stat = (k, d) => {
+    const st = (save.stats = save.stats || {});
+    st[k] = (st[k] || 0) + (d == null ? 1 : d);
+    return st[k];
+  };
+  const ACH = [
+    ['firstWin', 'First Blood', 'Win a battle', (st) => st.wins >= 1],
+    ['arrival', 'Rising Star', 'Clear the Arrival Saga', () => save.cleared.e5 || save.cleared.w1],
+    ['trueEnd', 'Beyond the Throne', 'Clear the secret episode', () => save.cleared.e12],
+    ['superFin', 'Showstopper', 'Finish a fight with a Super or Ultimate', (st) => st.superFinishes >= 1],
+    ['ringOut', 'Out of Bounds', 'Win by ring out', (st) => st.ringOutWins >= 1],
+    ['champ', 'Champion', 'Win the Throne Cup', (st) => st.tournaments >= 1],
+    ['survivor', 'Unbreakable', 'Reach wave 10 in Survival', (st) => st.bestSurvival >= 10],
+    ['veteran', 'Veteran', 'Win 25 battles', (st) => st.wins >= 25],
+    ['master', 'Mastery', 'Unlock a mastery form', () => Object.values(save.wins || {}).some((w) => w >= 3)],
+    ['fashion', 'Fashion Fighter', 'Own 5 costumes', () => Object.keys(save.owned || {}).filter((k) => !k.startsWith('stage:')).length >= 5],
+    ['rich', 'Crystal Hoarder', 'Earn 5000 crystals in total', (st) => st.crystalsEarned >= 5000],
+  ];
+  function checkAchievements(list) {
+    save.ach = save.ach || {};
+    for (const [id, name, , test] of ACH) {
+      if (!save.ach[id] && test(save.stats || {})) {
+        save.ach[id] = true;
+        list.push(`Achievement: ${name}`);
+        award(200, list, 'achievement bonus');
+      }
+    }
+  }
+  // shared bookkeeping after every battle
+  function recordBattle(opts, res, list) {
+    if (opts.mode === 'training') return;
+    stat('battles');
+    if (res.win) {
+      stat('wins');
+      if (res.superFinish) stat('superFinishes');
+      if (res.how === 'ringout') stat('ringOutWins');
+    } else stat('losses');
+  }
+
+  // ---------------- tournament
+  let tour = null;
+  const ROUND_NAMES = ['Quarter-final', 'Semi-final', 'Final'];
+  function strength(id) {
+    const d = ZB.byId(id);
+    return d.hp * d.pow * (1 + 0.15 * (d.forms.length - 1));
+  }
+  function startTournament(pid) {
+    const others = ZB.ROSTER.map((r) => r.id).filter((id) => id !== pid).sort(() => Math.random() - 0.5).slice(0, 7);
+    const entrants = [pid, ...others].sort(() => Math.random() - 0.5);
+    tour = { pid, rounds: [entrants], round: 0, out: false };
+    showBracket();
+  }
+  function pairs(list) {
+    const out = [];
+    for (let i = 0; i < list.length; i += 2) out.push([list[i], list[i + 1]]);
+    return out;
+  }
+  function showBracket() {
+    const v = $('#bracketView');
+    v.innerHTML = '';
+    for (let r = 0; r < 4; r++) {
+      const col = document.createElement('div');
+      col.className = 'round';
+      const list = tour.rounds[r];
+      col.innerHTML = `<h5>${r < 3 ? ROUND_NAMES[r] : 'Champion'}</h5>`;
+      if (list) {
+        const next = tour.rounds[r + 1] || [];
+        const groups = r < 3 ? pairs(list) : [[list[0]]];
+        for (const g of groups) {
+          const m = document.createElement('div');
+          m.className = 'm';
+          m.innerHTML = g.map((id) => {
+            const decided = r < 3 && tour.rounds[r + 1];
+            const cls = (id === tour.pid ? 'you ' : '') + (decided ? (next.includes(id) ? 'w' : 'l') : '');
+            return `<div class="${cls}">${esc(ZB.byId(id).name)}${id === tour.pid ? ' (you)' : ''}</div>`;
+          }).join('');
+          col.appendChild(m);
+        }
+      }
+      v.appendChild(col);
+    }
+    const done = tour.out || tour.rounds[3];
+    $('#bracketNote').textContent = tour.out
+      ? `Eliminated in the ${ROUND_NAMES[tour.round]}.`
+      : tour.rounds[3]
+        ? (tour.rounds[3][0] === tour.pid ? 'You are the Throne Cup champion!' : '')
+        : `Next: ${ROUND_NAMES[tour.round]} vs ${ZB.byId(pairs(tour.rounds[tour.round]).find((g) => g.includes(tour.pid)).find((id) => id !== tour.pid)).name}. Ring outs count!`;
+    $('#bracketGo').textContent = done ? 'Back to menu' : 'Fight next match';
+    showcase.show([]);
+    go('bracket');
+  }
+  $('#bracketGo').addEventListener('click', () => {
+    ZB.audio.play('ui');
+    if (!tour || tour.out || tour.rounds[3]) return go('menu');
+    const g = pairs(tour.rounds[tour.round]).find((x) => x.includes(tour.pid)), opp = g.find((id) => id !== tour.pid);
+    const od = ZB.byId(opp);
+    launch({
+      mode: 'tournament', stage: 'arena', goal: 'win', ringOut: true,
+      p1: { id: tour.pid, form: 0, maxForm: maxFormFor(tour.pid), costume: save.costume[tour.pid] },
+      p2: { id: opp, form: 0, maxForm: Math.min(od.forms.length - 1, 1 + tour.round), ai: [0.45, 0.6, 0.78][tour.round] },
+    });
+  });
+  function advanceTournament(playerWon) {
+    const winners = pairs(tour.rounds[tour.round]).map((g) => {
+      if (g.includes(tour.pid)) return playerWon ? tour.pid : g.find((id) => id !== tour.pid);
+      const [a, b] = g, pa = strength(a) / (strength(a) + strength(b));
+      return Math.random() < pa ? a : b;
+    });
+    tour.rounds[tour.round + 1] = winners;
+    if (!playerWon) tour.out = true;
+    else tour.round++;
+    if (!playerWon) {
+      // simulate the rest of the bracket for the record
+      for (let r = tour.round + 1; r < 3; r++) {
+        tour.rounds[r + 1] = pairs(tour.rounds[r]).map(([a, b]) => (Math.random() < strength(a) / (strength(a) + strength(b)) ? a : b));
+      }
+    }
+  }
+
+  // ---------------- survival
+  let surv = null;
+  function startSurvival(pid, diff) {
+    surv = { pid, diff, wave: 1, hp: 1 };
+    nextWave();
+  }
+  function nextWave() {
+    const pool = ZB.ROSTER.map((r) => r.id).filter((id) => id !== surv.pid);
+    const opp = pool[Math.floor(Math.random() * pool.length)], od = ZB.byId(opp);
+    const stages = ZB.STAGES.filter(stageOwned);
+    launch({
+      mode: 'survival', wave: surv.wave, stage: stages[surv.wave % stages.length].id, goal: 'win',
+      p1: { id: surv.pid, form: 0, maxForm: maxFormFor(surv.pid), costume: save.costume[surv.pid], hp: surv.hp },
+      p2: { id: opp, form: Math.min(od.forms.length - 1, Math.floor((surv.wave - 1) / 3)), maxForm: od.forms.length - 1, ai: Math.min(0.95, surv.diff + surv.wave * 0.03) },
+    });
+  }
+
+  // ---------------- shop
+  function renderShop() {
+    $('#shopCrystals').textContent = `\u{1F48E} ${save.crystals || 0}`;
+    const fs = $('#shopFighter');
+    if (!fs.options.length) for (const d of ZB.ROSTER) fs.add(new Option(d.name, d.id));
+    const id = fs.value || 'kairo', def = ZB.byId(id);
+    const sw = (c) => {
+      const col = ZB.costumeColors(def, c.id);
+      return `<span class="sw">${['gi', 'gi2', 'belt', 'boots'].map((k) => `<i style="background:${hex(col[k])}"></i>`).join('')}</span>`;
+    };
+    $('#shopCostumes').innerHTML = ZB.COSTUMES.map((c) => {
+      const have = costumeOwned(id, c), on = (save.costume[id] || 'default') === c.id;
+      const btn = have ? `<button data-eq="${c.id}" ${on ? 'disabled' : ''}>${on ? 'Equipped' : 'Equip'}</button>` : `<button class="buy" data-buy="${c.id}" ${save.crystals < c.price ? 'disabled' : ''}>${c.price} \u{1F48E}</button>`;
+      return `<div class="shop-item">${sw(c)}<b>${esc(c.name)}</b>${btn}</div>`;
+    }).join('');
+    $('#shopStages').innerHTML = ZB.STAGES.filter((x) => x.price).map((x) => {
+      const have = stageOwned(x);
+      return `<div class="shop-item"><b>${esc(x.name)}</b>${have ? '<button disabled>Owned</button>' : `<button class="buy" data-stage="${x.id}" ${save.crystals < x.price ? 'disabled' : ''}>${x.price} \u{1F48E}</button>`}</div>`;
+    }).join('');
+    $('#shopCostumes').querySelectorAll('[data-buy]').forEach((b) => b.addEventListener('click', () => {
+      const c = ZB.COSTUMES.find((x) => x.id === b.dataset.buy);
+      if (save.crystals < c.price) return;
+      save.crystals -= c.price;
+      save.owned[id + ':' + c.id] = true;
+      save.costume[id] = c.id;
+      checkAchievements([]);
+      persist();
+      ZB.audio.play('spark');
+      renderShop();
+    }));
+    $('#shopCostumes').querySelectorAll('[data-eq]').forEach((b) => b.addEventListener('click', () => {
+      save.costume[id] = b.dataset.eq;
+      persist();
+      ZB.audio.play('ui');
+      renderShop();
+    }));
+    $('#shopStages').querySelectorAll('[data-stage]').forEach((b) => b.addEventListener('click', () => {
+      const x = ZB.stageById(b.dataset.stage);
+      if (save.crystals < x.price) return;
+      save.crystals -= x.price;
+      save.owned['stage:' + x.id] = true;
+      persist();
+      ZB.audio.play('spark');
+      renderShop();
+    }));
+    showcase.show([{ id, form: 0, x: 0, yaw: 0, spin: true, costume: save.costume[id] }]);
+  }
+  $('#shopFighter').addEventListener('change', renderShop);
+  ENTER.shop = renderShop;
+
+  // ---------------- records
+  ENTER.records = () => {
+    showcase.show([]);
+    const st = save.stats || {};
+    const rows = [
+      ['Battles fought', st.battles || 0], ['Wins', st.wins || 0], ['Losses', st.losses || 0], ['Super finishes', st.superFinishes || 0],
+      ['Ring-out wins', st.ringOutWins || 0], ['Tournaments won', st.tournaments || 0], ['Best survival wave', st.bestSurvival || 0],
+      ['Crystals earned', st.crystalsEarned || 0], ['Story stars', Object.values(save.cleared).reduce((a, b) => a + b, 0)],
+    ];
+    $('#recStats').innerHTML = rows.map(([k, v]) => `<span>${esc(k)}</span><b>${v}</b>`).join('');
+    save.ach = save.ach || {};
+    $('#recAch').innerHTML = ACH.map(([id, name, desc]) => `<div class="shop-item ${save.ach[id] ? 'done' : 'todo'}"><b>${esc(name)}</b><span class="muted">${esc(desc)}</span></div>`).join('');
+  };
 
   // ---------------- fighters
   let selF = 'kairo', selFForm = 0;
@@ -312,7 +544,7 @@
     );
     if (!showcase.list || !showcase.list[0] || showcase.list[0].id !== selF) {
       selAnim = 'idle';
-      showcase.show([{ id: selF, form: selFForm, x: 0, yaw: 0, spin: true }]);
+      showcase.show([{ id: selF, form: selFForm, x: 0, yaw: 0, spin: true, costume: save.costume[selF] }]);
     }
   }
 
@@ -438,7 +670,7 @@
       H[`h${n}port`].style.setProperty('--a', hex(f.def.colors.gi));
       H[`h${n}hpd`].style.width = '100%';
     }
-    H.goal.textContent = b.opts.mode === 'story' ? goalText(ZB.episodeById(b.opts.ep)) : b.opts.mode === 'training' ? 'TRAINING — infinite ki, press Esc for the move list' : '';
+    H.goal.textContent = b.opts.mode === 'story' ? goalText(ZB.episodeById(b.opts.ep)) : b.opts.mode === 'training' ? 'TRAINING — infinite ki, press Esc for the move list' : b.opts.mode === 'tournament' ? 'THRONE CUP \u2014 touch the ground outside the ring and you lose' : b.opts.mode === 'survival' ? `SURVIVAL \u2014 wave ${b.opts.wave}` : '';
     H.combo1.classList.remove('show');
     H.combo2.classList.remove('show');
     H.mash.classList.add('hidden');
@@ -545,6 +777,9 @@
       }
       const first = !save.cleared[ep.id];
       save.cleared[ep.id] = Math.max(save.cleared[ep.id] || 0, n);
+      recordBattle(opts, res);
+      award((100 + n * 50) * (first ? 2 : 1), unlocks, first ? 'first clear' : 'clear');
+      checkAchievements(unlocks);
       persist();
       const list = [
         ['Clear the episode', true],
@@ -553,7 +788,47 @@
       ];
       dialogue(ep.outro || [], () => showResults(true, n, list, unlocks, ep, first));
     } else if (opts.mode === 'story') {
+      recordBattle(opts, res);
+      persist();
       showResults(false, 0, [], [], ZB.episodeById(opts.ep));
+    } else if (opts.mode === 'tournament') {
+      const unlocks = [];
+      recordBattle(opts, res);
+      const round = tour.round;
+      advanceTournament(res.win);
+      let title = null;
+      if (res.win) {
+        award(150 * (round + 1), unlocks, ROUND_NAMES[round] + ' won');
+        if (tour.rounds[3]) {
+          stat('tournaments');
+          award(800, unlocks, 'Throne Cup champion');
+          title = 'CHAMPION';
+        }
+      }
+      checkAchievements(unlocks);
+      persist();
+      showResults(res.win, null, [[res.how === 'ringout' ? 'Ring out!' : `Time: ${Math.round(res.time)}s`, true]], unlocks, null, null, () => {
+        endBattle();
+        showBracket();
+      }, title);
+    } else if (opts.mode === 'survival') {
+      const unlocks = [];
+      recordBattle(opts, res);
+      if (res.win) {
+        award(40 + surv.wave * 10, unlocks, `wave ${surv.wave}`);
+        surv.hp = Math.min(1, res.hpRatio + 0.25);
+        surv.wave++;
+      }
+      const reached = res.win ? surv.wave - 1 : surv.wave - 1;
+      const st = (save.stats = save.stats || {});
+      if (reached > (st.bestSurvival || 0)) {
+        st.bestSurvival = reached;
+        unlocks.push(`New best: wave ${reached}`);
+      }
+      checkAchievements(unlocks);
+      persist();
+      showResults(res.win, null, [[`Waves cleared: ${reached}`, true], [res.win ? `HP for next wave: ${Math.round(surv.hp * 100)}%` : 'Run over', res.win]], unlocks,
+        null, null, res.win ? () => { endBattle(); nextWave(); } : null, res.win ? `WAVE ${reached} CLEAR` : 'RUN OVER');
     } else {
       // mastery: Battle-mode wins unlock a fighter's top forms
       const unlocks = [];
@@ -566,22 +841,29 @@
         for (let i = before + 1; i <= after; i++) unlocks.push(`New form: ${ZB.byId(id).name} \u2014 ${ZB.byId(id).forms[i].name}`);
         const next = ZB.byId(id).forms.find((f, i) => i > after && f.mastery);
         if (next) unlocks.push(`Mastery: ${save.wins[id]}/${next.mastery} wins for ${next.name}`);
+        award(Math.round(60 + 120 * (opts.diff || 0.5)), unlocks, 'victory');
       }
+      recordBattle(opts, res);
+      checkAchievements(unlocks);
+      persist();
       showResults(res.win, null, [[`Time: ${Math.round(res.time)}s`, true], [`HP left: ${Math.round(res.hpRatio * 100)}%`, res.win]], unlocks);
     }
   }
-  function showResults(win, nStars, list, unlocks, ep, first) {
+  function showResults(win, nStars, list, unlocks, ep, first, nextFn, title) {
     const r = $('#results');
     r.classList.remove('hidden');
-    $('#resTitle').textContent = win ? 'VICTORY' : 'DEFEAT';
+    $('#resTitle').textContent = title || (win ? 'VICTORY' : 'DEFEAT');
     $('#resTitle').className = win ? 'win' : 'lose';
     $('#resStars').innerHTML = nStars == null ? '' : stars(nStars);
     $('#resList').innerHTML = list.map(([t, ok]) => `<li class="${ok ? 'ok' : 'no'}">${esc(t)}</li>`).join('');
     $('#resUnlocks').innerHTML = unlocks.map((u) => `<div>${esc(u)}</div>`).join('');
     const next = $('#resNext');
-    next.classList.toggle('hidden', !(ep && win));
+    next.classList.toggle('hidden', !(nextFn || (ep && win)));
+    // tournament and survival runs can't be retried mid-run
+    $('#resRetry').classList.toggle('hidden', !!(lastLaunch && (lastLaunch.mode === 'tournament' || lastLaunch.mode === 'survival')));
     next.onclick = () => {
       ZB.audio.play('ui');
+      if (nextFn) return nextFn();
       endBattle();
       if (ep.choice) return openChoice(ep.choice);
       const n = NEXT[ep.id];

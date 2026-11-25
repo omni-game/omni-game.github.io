@@ -235,9 +235,9 @@
   const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 
   class Model {
-    constructor(def, formIdx) {
+    constructor(def, formIdx, costume) {
       this.def = def;
-      const c = def.colors, armored = !!ARMORED[def.id], robot = def.hair === 'visor';
+      const c = ZB.costumeColors(def, costume), armored = !!ARMORED[def.id], robot = def.hair === 'visor';
       this.root = new T.Group();
       const M = (this.mats = {
         skin: toonMat(c.skin, { vertexColors: !robot }),

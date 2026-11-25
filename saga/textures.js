@@ -59,10 +59,10 @@
       }
     // cracks for desert / arena / realm
     const crack = new Float32Array(N * N);
-    if (style === 'mesa' || style === 'arena' || style === 'crystal') {
+    if (style === 'mesa' || style === 'arena' || style === 'crystal' || style === 'lava') {
       let seed = 11;
       const r = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-      for (let k = 0; k < 70; k++) {
+      for (let k = 0; k < (style === 'lava' ? 160 : 70); k++) {
         let x = r() * N, y = r() * N, a = r() * Math.PI * 2;
         const len = 40 + r() * 160;
         for (let i = 0; i < len; i++) {
@@ -84,11 +84,20 @@
         const t = Math.min(1, Math.max(0, (e - 0.3) * 2.2));
         const speck = n2((x / N) * 64, (y / N) * 64, 64);
         let shade = 0.85 + speck * 0.3;
+        if (style === 'grass') {
+          // blades and the odd wildflower
+          const blade = n2((x / N) * 180, (y / N) * 40, 180);
+          shade *= 0.8 + blade * 0.4;
+          if (speck > 0.93) {
+            img.data[i * 4] = 240; img.data[i * 4 + 1] = speck > 0.965 ? 220 : 240; img.data[i * 4 + 2] = speck > 0.965 ? 90 : 245; img.data[i * 4 + 3] = 255;
+          }
+        }
         if (crack[i]) shade *= 0.45;
         if (tileLines && (x % 128 < 2 || y % 128 < 2)) shade *= 0.55;
         // slightly desaturated so lit/shadowed ground reads naturally
         const cr = (A[0] + (B[0] - A[0]) * t) * shade, cg = (A[1] + (B[1] - A[1]) * t) * shade, cb = (A[2] + (B[2] - A[2]) * t) * shade;
         const lum = cr * 0.3 + cg * 0.59 + cb * 0.11, ds = 0.3;
+        if (style === 'grass' && speck > 0.93) continue;
         img.data[i * 4] = Math.min(255, cr + (lum - cr) * ds);
         img.data[i * 4 + 1] = Math.min(255, cg + (lum - cg) * ds);
         img.data[i * 4 + 2] = Math.min(255, cb + (lum - cb) * ds);
@@ -107,13 +116,32 @@
       }
     g.putImageData(img, 0, 0);
     gn.putImageData(imn, 0, 0);
+    let emissiveMap = null;
+    if (style === 'lava') {
+      // molten light in the cracks, blurred into a glow
+      const ce = canvas(N), ge = ce.getContext('2d'), ime = ge.createImageData(N, N);
+      for (let i = 0; i < N * N; i++) {
+        const k = crack[i];
+        ime.data[i * 4] = 255 * k;
+        ime.data[i * 4 + 1] = 110 * k;
+        ime.data[i * 4 + 2] = 20 * k;
+        ime.data[i * 4 + 3] = 255;
+      }
+      ge.putImageData(ime, 0, 0);
+      ge.filter = 'blur(2px)';
+      ge.globalCompositeOperation = 'lighter';
+      ge.drawImage(ce, 0, 0);
+      emissiveMap = new T.CanvasTexture(ce);
+      emissiveMap.encoding = T.sRGBEncoding;
+      emissiveMap.wrapS = emissiveMap.wrapT = T.RepeatWrapping;
+    }
     const map = new T.CanvasTexture(c), normalMap = new T.CanvasTexture(cn);
     map.encoding = T.sRGBEncoding;
     for (const t of [map, normalMap]) {
       t.wrapS = t.wrapT = T.RepeatWrapping;
       t.anisotropy = 8;
     }
-    return (cache[st.id] = { map, normalMap });
+    return (cache[st.id] = { map, normalMap, emissiveMap });
   }
 
   let smoke = null;

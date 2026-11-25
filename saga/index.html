@@ -27,6 +27,10 @@
     <button data-go="story">Story Campaign<small>Episodes, choices and What-If battles</small></button>
     <button data-go="select">Battle<small>Fight the CPU with any unlocked fighter</small></button>
     <button data-go="training">Training<small>Practise combos on a dummy with infinite ki</small></button>
+    <button data-go="tournament">Tournament<small>8-fighter bracket in the Arena of the Throne — ring outs count</small></button>
+    <button data-go="survival">Survival<small>Endless opponents, your health carries over</small></button>
+    <button data-go="shop">Shop<small>Spend crystals on costumes and stages</small></button>
+    <button data-go="records">Records<small>Stats and achievements</small></button>
     <button data-go="fighters">Fighters<small>Roster, forms and move lists</small></button>
     <button data-go="controls">Controls</button>
     <button data-go="settings">Settings</button>
@@ -64,10 +68,37 @@
     <div class="pick"><h4 id="oppLabel">Opponent</h4><div class="roster" id="rosterE"></div></div>
   </div>
   <div class="options">
-    <label>Stage <select id="optStage"></select></label>
+    <label id="optStageWrap">Stage <select id="optStage"></select></label>
+    <label>Costume <select id="optCostume"></select></label>
     <label id="optDiffWrap">CPU <select id="optDiff"><option value="0.25">Easy</option><option value="0.5" selected>Normal</option><option value="0.75">Hard</option><option value="0.95">Legend</option></select></label>
     <label id="optDummyWrap">Dummy <select id="optDummy"><option value="dummy">Stand still</option><option value="0.15">Fight back (weak)</option><option value="0.5">Fight back (normal)</option></select></label>
     <button class="primary" id="selectStart">FIGHT!</button>
+  </div>
+</section>
+
+<!-- TOURNAMENT BRACKET -->
+<section id="bracket" class="screen">
+  <header><button class="back" data-go="menu">&#9664;</button><h2>Throne Cup</h2></header>
+  <div class="bracket" id="bracketView"></div>
+  <p class="muted" id="bracketNote"></p>
+  <div class="options"><button class="primary" id="bracketGo">Fight next match</button></div>
+</section>
+
+<!-- SHOP -->
+<section id="shop" class="screen">
+  <header><button class="back" data-go="menu">&#9664;</button><h2>Shop</h2><span class="crystals" id="shopCrystals"></span></header>
+  <div class="shop-cols">
+    <div class="pick"><h4>Costumes</h4><label class="muted">Fighter <select id="shopFighter"></select></label><div id="shopCostumes" class="shop-list"></div></div>
+    <div class="pick"><h4>Stages</h4><div id="shopStages" class="shop-list"></div></div>
+  </div>
+</section>
+
+<!-- RECORDS -->
+<section id="records" class="screen">
+  <header><button class="back" data-go="menu">&#9664;</button><h2>Records</h2></header>
+  <div class="shop-cols">
+    <div class="pick"><h4>Stats</h4><div id="recStats" class="rec-stats"></div></div>
+    <div class="pick"><h4>Achievements</h4><div id="recAch" class="shop-list"></div></div>
   </div>
 </section>
 
