@@ -1752,7 +1752,26 @@
       else if (s === 'chaseHit') { clip = 'knee'; ct = prog(0.32); }
       else if (s === 'hitstun' || s === 'stagger') { clip = f.hitVar ? 'hurtGut' : 'hurtHead'; ct = prog(f.dur); }
       else if (s === 'transform') { clip = 'powerup'; ct = prog(f.dur); }
-      else if (s === 'win') { clip = ['winPump', 'winCross', 'winFlex'][idx % 3]; ct = f.st * 0.6; }
+      else if (s === 'win') { clip = ['winPump', 'winCross', 'winFlex', 'Dance_Loop'][idx % 4]; ct = clip === 'Dance_Loop' ? f.st / 1.0 : f.st * 0.6; }
+      // motion-captured clips where they fit: real punches, hit reactions, running on the ground, ki blasts, death
+      const MC = ZB.CLIPS;
+      if (MC.Punch_Jab) {
+        const grounded = f.pos.y < 0.3;
+        if (s === 'attack' && f.combo < 2) { clip = f.combo ? 'Punch_Cross' : 'Punch_Jab'; ct = 0.12 + prog(f.dur) * 0.7; }
+        else if (s === 'hitstun') { clip = f.hitVar ? 'Hit_Chest' : 'Hit_Head'; ct = prog(f.dur); }
+        else if (s === 'ko' && grounded) {
+          f.koGround = (f.koGround || 0) + (dt || 0);
+          clip = 'Death01';
+          ct = Math.min(1, f.koGround / 1.6);
+          m.tilt.rotation.x *= 0.8;
+        } else if (s === 'free' && f.poseT > 0 && (f.poseName === 'blast' || f.poseName === 'blast2')) { clip = 'Spell_Simple_Shoot'; ct = 0.35 + (1 - f.poseT / 0.18) * 0.4; }
+        else if (s === 'free' && grounded && this.intro <= 0) {
+          const fw = t1.set(Math.sin(f.yaw), 0, Math.cos(f.yaw)), run = f.vel.dot(fw);
+          if (run > 14) { clip = 'Sprint_Loop'; ct = this.time / MC.Sprint_Loop.dur; }
+          else if (run > 3) { clip = 'Jog_Fwd_Loop'; ct = this.time / MC.Jog_Fwd_Loop.dur; }
+          if (clip) m.tilt.rotation.x *= 0.7;
+        }
+      }
       if (clip) m.setClip(clip, ct);
       else m.setPose(pose);
       // forms with lightning crackle with electric arcs

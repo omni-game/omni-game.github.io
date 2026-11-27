@@ -489,7 +489,7 @@
       const k = 1 - Math.exp(-dt * (this.snap || 16)), P = this.pose, Tg = this.target;
       for (const key in Tg) P[key] += (Tg[key] - P[key]) * k;
       const breath = Math.sin(this.t * 2.4);
-      this.tilt.position.y = this.J.tilt[1] + breath * 0.04 * P.bob;
+      this.tilt.position.y = this.J.tilt[1] + breath * 0.04 * P.bob + P.drop;
       this.chest.rotation.x = P.chest;
       this.chest.rotation.y = P.twist;
       this.chest.scale.set(1, 1 + breath * 0.008, 1 + breath * 0.012);
@@ -561,7 +561,7 @@
     }
   }
   function defaultPose() {
-    return { chest: 0.05, twist: 0, head: 0, aRx: -0.5, aRs: 0.25, eR: -1.7, aLx: -0.5, aLs: 0.25, eL: -1.7, lRx: 0.1, lRs: 0.08, kR: 0.35, lLx: -0.35, lLs: 0.08, kL: 0.7, bob: 1, hand: 0.95, open: 0, angry: 0.2, pain: 0 };
+    return { chest: 0.05, twist: 0, head: 0, aRx: -0.5, aRs: 0.25, eR: -1.7, aLx: -0.5, aLs: 0.25, eL: -1.7, lRx: 0.1, lRs: 0.08, kR: 0.35, lLx: -0.35, lLs: 0.08, kL: 0.7, bob: 1, hand: 0.95, open: 0, angry: 0.2, pain: 0, drop: 0 };
   }
   const POSES = {
     idle: {},
@@ -652,6 +652,17 @@
       [0.5, { aRx: -0.3, aRs: 1.5, eR: -2.3, aLx: -0.3, aLs: 1.5, eL: -2.3, chest: -0.2, open: 0.8, angry: 0.4, hand: 1, lRx: 0, kR: 0.1, lLx: 0, kL: 0.1 }],
       [1, { aRx: -0.2, aRs: 1.45, eR: -2.1, aLx: -0.2, aLs: 1.45, eL: -2.1, chest: -0.1, open: 0.35, angry: 0, hand: 1, lRx: 0, kR: 0.1, lLx: 0, kL: 0.1 }]] },
   };
+  // motion-captured clips (Quaternius Universal Animation Library, retargeted by tools/retarget_ual.py)
+  const MOCAP_FACE = {
+    Punch_Jab: { angry: 0.9, open: 0.2 }, Punch_Cross: { angry: 0.9, open: 0.35 }, Sword_Attack: { angry: 1, open: 0.6 },
+    Hit_Chest: { pain: 1, open: 0.5, angry: 0 }, Hit_Head: { pain: 1, open: 0.4, angry: 0 }, Death01: { pain: 0.7, angry: 0 },
+    Dance_Loop: { open: 0.45, angry: 0 }, Sprint_Loop: { angry: 0.6 }, Jog_Fwd_Loop: { angry: 0.4 }, Spell_Simple_Shoot: { angry: 0.7, open: 0.3 },
+    Roll: { angry: 0.5 }, Jump_Start: { angry: 0.5 }, Idle_Talking_Loop: { open: 0.3, angry: 0 },
+  };
+  for (const [name, c] of Object.entries(ZB.MOCAP || {})) {
+    const face = MOCAP_FACE[name] || {};
+    CLIPS[name] = { loop: c.loop, dur: c.dur, snap: 34, mocap: true, keys: c.keys.map(([t, p]) => [t, Object.assign({}, p, face)]) };
+  }
   ZB.CLIPS = CLIPS;
   ZB.Model = Model;
   ZB.std = std;

@@ -512,7 +512,12 @@
   // ---------------- fighters
   let selF = 'kairo', selFForm = 0;
   let selAnim = 'idle';
-  const ANIMS = [['idle', 'Stance'], ['jab', 'Jab'], ['cross', 'Cross'], ['roundhouse', 'Kick'], ['uppercut', 'Uppercut'], ['hammer', 'Hammer'], ['smashHit', 'Smash'], ['knee', 'Flying knee'], ['powerup', 'Power up'], ['introCrack', 'Intro 1'], ['introPoint', 'Intro 2'], ['introStance', 'Intro 3'], ['winPump', 'Victory 1'], ['winCross', 'Victory 2'], ['winFlex', 'Victory 3'], ['hurtGut', 'Hit']];
+  const ANIMS = [['idle', 'Stance'], ['jab', 'Jab'], ['cross', 'Cross'], ['roundhouse', 'Kick'], ['uppercut', 'Uppercut'], ['hammer', 'Hammer'], ['smashHit', 'Smash'], ['knee', 'Flying knee'], ['powerup', 'Power up'], ['introCrack', 'Intro 1'], ['introPoint', 'Intro 2'], ['introStance', 'Intro 3'], ['winPump', 'Victory 1'], ['winCross', 'Victory 2'], ['winFlex', 'Victory 3'], ['hurtGut', 'Hit'],
+    // motion capture (Quaternius Universal Animation Library)
+    ['Punch_Jab', 'Mocap jab'], ['Punch_Cross', 'Mocap cross'], ['Hit_Chest', 'Mocap body hit'], ['Hit_Head', 'Mocap head hit'], ['Sprint_Loop', 'Sprint'], ['Jog_Fwd_Loop', 'Jog'],
+    ['Walk_Loop', 'Walk'], ['Spell_Simple_Shoot', 'Ki shot'], ['Roll', 'Roll'], ['Jump_Start', 'Jump'], ['Death01', 'Knockout'],
+    ['Dance_Loop', 'Victory dance'], ['Crouch_Idle_Loop', 'Crouch'], ['Idle_Talking_Loop', 'Taunt']];
+  const mocapDur = (k) => (ZB.MOCAP && ZB.MOCAP[k] ? ZB.MOCAP[k].dur : 0);
   const ANIM_DUR = { jab: 0.45, cross: 0.45, roundhouse: 0.6, uppercut: 0.6, hammer: 0.7, smashHit: 0.6, knee: 0.5, powerup: 1.6, introCrack: 2, introPoint: 2, introStance: 2, winPump: 1.6, winCross: 2.4, winFlex: 2, hurtGut: 0.6 };
   const TYPE = { beam: 'Energy beam', rush: 'Rush combo', volley: 'Ki barrage', bomb: 'Giant sphere', disk: 'Homing disk', nova: 'Area explosion' };
   function renderFighters() {
@@ -540,7 +545,7 @@
         if (m) {
           m.o.clip = selAnim === 'idle' ? null : selAnim;
           m.o.clipT = 0;
-          m.o.clipDur = ANIM_DUR[selAnim] || 1;
+          m.o.clipDur = ANIM_DUR[selAnim] || mocapDur(selAnim) || 1;
           m.o.spin = selAnim === 'idle';
           if (!m.o.spin) m.model.root.rotation.y = 0.35;
         }
