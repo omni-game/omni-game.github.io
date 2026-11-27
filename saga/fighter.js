@@ -226,6 +226,15 @@
     mat.customProgramCacheKey = () => 'tear';
     return mat;
   }
+  // Rig joints read from a model that carries its own skeleton (already posed into the game's A-pose).
+  function jointsFromModel(def, jt) {
+    const base = ZB.sculpt.joints(def), dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+    const side = (k) => (s) => jt[k + (s < 0 ? 'r' : 'l')];
+    return Object.assign({}, base, {
+      tilt: [0, jt.pelvis[1], 0], head: jt.head, sh: side('upperarm'), el: side('lowerarm'), wr: side('hand'), hip: side('thigh'), kn: side('calf'), ank: side('foot'),
+      loc: { el: [0, -dist(jt.upperarmr, jt.lowerarmr), 0], fist: [0, -(dist(jt.lowerarmr, jt.handr) + 0.07), 0], kn: [0, -dist(jt.thighr, jt.calfr), 0] },
+    });
+  }
   const bone = (p, parent) => {
     const b = new T.Bone();
     b.position.set(p[0], p[1], p[2]);
@@ -255,7 +264,8 @@
       this.eyeMat = new T.MeshStandardMaterial({ color: c.eyes, roughness: 0.1, emissive: 0x000000 });
       this.base = { gi: M.gi.color.clone(), gi2: M.gi2.color.clone(), belt: M.belt.color.clone(), boots: M.boots.color.clone(), gold: M.gold.color.clone(), skin: M.skin.color.clone() };
       // ---- skeleton (bone order matches sculpt.js skin weights) ----
-      const J = ZB.sculpt.joints(def);
+      const md = ZB.models.get(def.id);
+      const J = md.joints ? jointsFromModel(def, md.joints) : ZB.sculpt.joints(def);
       this.J = J;
       this.tilt = bone(J.tilt, this.root);
       this.chest = bone([0, 0, 0], this.tilt);
@@ -278,7 +288,6 @@
       bones.push(...shs, ...els, ...fists, ...hips, ...kns);
       this.root.updateMatrixWorld(true);
       // extra bones from Blender-built models (fingers, thumbs), placed at their rest positions
-      const md = ZB.models.get(def.id);
       this.fingers = [];
       for (const e of md.extras || []) {
         const parent = bones[e.parent] || this.chest, b = new T.Bone();
@@ -286,12 +295,13 @@
         b.position.copy(parent.worldToLocal(new T.Vector3(e.pos[0], e.pos[1], e.pos[2])));
         b.updateMatrixWorld(true);
         bones.push(b);
-        const m = /^(index|middle|ring|pinky|thumb)([12])([RL])$/.exec(e.name);
-        if (m) this.fingers.push({ b, thumb: m[1] === 'thumb', seg: +m[2], s: m[3] === 'R' ? -1 : 1 });
+        const m = /^(index|middle|ring|pinky|thumb)0?([1-3])([rl])$/i.exec(e.name);
+        if (m) this.fingers.push({ b, thumb: m[1].toLowerCase() === 'thumb', seg: Math.min(2, +m[2]), s: m[3].toLowerCase() === 'r' ? -1 : 1 });
       }
       this.skeleton = new T.Skeleton(bones);
       // ---- sculpted skin + clothing ----
       this.clothMats = [];
+      this.texMats = [];
       this.meshes = [];
       this.morphMeshes = [];
       M.mouth = std(0x3a1416, 0.6);
@@ -319,7 +329,13 @@
           g.morphAttributes.position = p.morphs.map((m) => new T.BufferAttribute(m.delta, 3));
           g.morphTargetsRelative = true;
         }
+        if (p.uv) g.setAttribute('uv', new T.BufferAttribute(p.uv, 2));
         let mat = M[p.mat] || M.skin;
+        if (p.map) {
+          // the model's own painted texture, cel-shaded (darkens with battle damage)
+          mat = toonMat(0xffffff, { map: p.map });
+          this.texMats.push(mat);
+        }
         if (p.tear) {
           mat = tearable(mat.clone());
           this.clothMats.push({ mat, key: p.mat, tear: p.tear });
@@ -359,7 +375,7 @@
         mesh.renderOrder = 3;
         return { pivot, mesh, m };
       };
-      for (const s of [-1, 1]) {
+      for (const s of md.noFace ? [] : [-1, 1]) {
         // viewer's right eye is the character's left (s = 1); the texture is drawn for that side
         const e = decal(s * 0.064, 0.008, 0.09, 0.0675, ZB.face.eye('open', c.eyes), s < 0);
         e.s = s;
@@ -368,7 +384,7 @@
         b.s = s;
         this.face.brows.push(b);
       }
-      this.face.mouth = decal(0, -0.094, 0.05, 0.0375, ZB.face.mouth('neutral'));
+      if (!md.noFace) this.face.mouth = decal(0, -0.094, 0.05, 0.0375, ZB.face.mouth('neutral'));
       this.hairStyle = def.hair;
       // Blender-built models carry their own sculpted hair
       this.hair = md.glb ? grp(0, 0, 0, this.head) : buildHair(def.hair, this.head, M.hair, def, M);
@@ -437,6 +453,7 @@
       for (const k of ['gi', 'gi2', 'belt', 'boots']) M[k].color.copy(this.base[k]).lerp(dirt, d * 0.3);
       M.skin.color.copy(this.base.skin).lerp(new T.Color(0x8a5a4c), d * 0.15);
       const rip = Math.max(0, (d - 0.2) / 0.8);
+      for (const tm of this.texMats || []) tm.color.setRGB(1, 1, 1).lerp(dirt, d * 0.3);
       for (const cm of this.clothMats) {
         cm.mat.color.copy(M[cm.key].color);
         cm.mat.userData.uTear.value = rip > 0 ? 0.18 + rip * 0.3 * cm.tear : 0;
@@ -512,7 +529,7 @@
         }
       }
       const mouthKind = P.open > 0.55 ? 'shout' : P.pain > 0.5 ? 'pain' : P.angry > 0.8 ? 'grit' : P.open > 0.2 && P.angry < 0.1 ? 'smile' : 'neutral';
-      if (mouthKind !== F.mouthKind) {
+      if (F.mouth && mouthKind !== F.mouthKind) {
         F.mouthKind = mouthKind;
         F.mouth.m.map = ZB.face.mouth(mouthKind);
       }

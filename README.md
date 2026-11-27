@@ -23,3 +23,8 @@ python saga/tools/build_model.py /tmp/kairo.json saga/models/kairo.glb
 
 The script sculpts high-resolution anatomy, adds hands with finger bones, fused anime hair, a mouth with teeth,
 facial shape keys (`open`, `angry`, `pain`), fitted clothing, an armature matching the game rig and automatic weights.
+
+### Imported models
+
+Brax and Nyx use Quaternius "Universal Base Characters" (CC0, see `saga/models/CREDITS.txt`), converted with
+`saga/tools/import_quaternius.py` (re-posed to the game's A-pose, dressed with tailored clothes, scaled, textures downsized).

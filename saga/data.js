@@ -171,6 +171,41 @@ ZB.ROSTER = [
     ],
     ultimate: { name: 'Absolute Silence', type: 'nova', dmg: 5000, color: 0xffffff, size: 1.7 },
   },
+  // Brax and Nyx use Quaternius "Universal Base Characters" models (CC0), imported with tools/import_quaternius.py
+  {
+    id: 'brax', name: 'Brax', title: 'Thunder Vanguard', body: 'normal', hair: 'spiky',
+    bio: 'A city guardian who trained his body until lightning answered him. He fights clean, hits hard and never leaves a civilian behind.',
+    colors: { skin: 0xe0b090, gi: 0x2a4a8a, gi2: 0xd8e4ff, belt: 0x16213a, boots: 0x16213a, eyes: 0x4fc3ff },
+    hp: 12500, spd: 1.02, pow: 1.03,
+    forms: [
+      { name: 'Base', hair: 0x4a3222, aura: 0xbfe6ff, mult: 1.0 },
+      { name: 'Overcharge', hair: 0xffe066, aura: 0x7fd8ff, mult: 1.22, lightning: 0x9fe8ff, cost: 2 },
+      { name: 'Storm Titan', hair: 0xd8f0ff, aura: 0x4fc3ff, aura2: 0xffffff, mult: 1.45, spark: true, lightning: 0xd8f0ff, particles: 'sparks', cost: 3 },
+      { name: 'Godspark', hair: 0xffffff, aura: 0x9fe8ff, aura2: 0x0a2a4a, mult: 1.68, spark: true, lightning: 0xffffff, particles: 'sparks', halo: 0x9fe8ff, scale: 1.05, cost: 4 },
+    ],
+    supers: [
+      { name: 'Thunder Spear', type: 'beam', dmg: 1950, cost: 200, color: 0x7fd8ff },
+      { name: 'Bolt Rush', type: 'rush', dmg: 1550, cost: 150, color: 0xd8f0ff },
+    ],
+    ultimate: { name: 'Skybreaker', type: 'nova', dmg: 4300, color: 0x9fe8ff, size: 1.5 },
+  },
+  {
+    id: 'nyx', name: 'Nyx', title: 'Starlight Striker', body: 'slim', hair: 'pony',
+    bio: 'A pilot who crashed into a nebula and walked out glowing. She turns starlight into blades and never stops smiling mid-fight.',
+    colors: { skin: 0xf0c8a8, gi: 0x6a2a8a, gi2: 0xffd6f0, belt: 0x2a1036, boots: 0x2a1036, eyes: 0xff8ad8 },
+    hp: 11000, spd: 1.12, pow: 0.98,
+    forms: [
+      { name: 'Base', hair: 0x2a1a3a, aura: 0xf0c8ff, mult: 1.0 },
+      { name: 'Nova', hair: 0xffb7f0, aura: 0xff8ad8, mult: 1.22, particles: 'stars', cost: 2 },
+      { name: 'Supernova', hair: 0xfff0ff, aura: 0xffffff, aura2: 0xff8ad8, mult: 1.45, spark: true, particles: 'stars', halo: 0xffd6f0, cost: 3 },
+      { name: 'Event Horizon', hair: 0x14081e, aura: 0xb08aff, aura2: 0x0a0018, mult: 1.66, spark: true, particles: 'void', lightning: 0xd0b8ff, cost: 4 },
+    ],
+    supers: [
+      { name: 'Starfall Volley', type: 'volley', dmg: 1500, cost: 150, color: 0xff8ad8 },
+      { name: 'Comet Lance', type: 'beam', dmg: 1900, cost: 200, color: 0xffb7f0 },
+    ],
+    ultimate: { name: 'Big Bloom', type: 'bomb', dmg: 4200, color: 0xff8ad8, size: 1.3 },
+  },
 ];
 ZB.byId = (id) => ZB.ROSTER.find((r) => r.id === id);
 

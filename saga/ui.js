@@ -8,8 +8,10 @@
 
   // ---------------- save data
   const SAVE_KEY = 'zenith-burst-save-v1';
-  const DEFAULT = () => ({ cleared: {}, chars: ['kairo', 'rhen', 'mira'], forms: {}, wins: {}, crystals: 0, stats: {}, costume: {}, owned: {}, diff: 0, vol: { sfx: 0.7, music: 0.35 }, quality: 'high' });
+  const DEFAULT = () => ({ cleared: {}, chars: ['kairo', 'rhen', 'mira', 'brax', 'nyx'], forms: {}, wins: {}, crystals: 0, stats: {}, costume: {}, owned: {}, diff: 0, vol: { sfx: 0.7, music: 0.35 }, quality: 'high' });
   let save = load();
+  // fighters added after a save was made start unlocked
+  for (const id of ['brax', 'nyx']) if (!save.chars.includes(id)) save.chars.push(id);
   function load() {
     try {
       const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');

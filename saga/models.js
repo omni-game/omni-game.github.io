@@ -58,11 +58,19 @@
 
   // ---- Blender-built models (.glb): converted to the same part format as sculpted meshes
   // Fighters listed here load their hand-built model; everyone else is sculpted procedurally.
-  ZB.GLB = { kairo: 'models/kairo.glb' };
-  const CORE = { tilt: 0, chest: 1, head: 2, shR: 3, shL: 4, elR: 5, elL: 6, fistR: 7, fistL: 8, hipR: 9, hipL: 10, knR: 11, knL: 12 };
-  const MERGE = { neck: 'chest', clavR: 'chest', clavL: 'chest', footR: 'knR', footL: 'knL' };
+  ZB.GLB = { kairo: 'models/kairo.glb', brax: 'models/brax.glb', nyx: 'models/nyx.glb' };
+  // bone names are compared lower-cased with punctuation removed ('sh.R' -> 'shr', 'upperarm_r' -> 'upperarmr')
+  const CORE = { tilt: 0, chest: 1, head: 2, shr: 3, shl: 4, elr: 5, ell: 6, fistr: 7, fistl: 8, hipr: 9, hipl: 10, knr: 11, knl: 12 };
+  const MERGE = {
+    neck: 'chest', clavr: 'chest', clavl: 'chest', footr: 'knr', footl: 'knl',
+    // Unreal/Quaternius-style skeletons (Universal Base Characters)
+    root: 'tilt', pelvis: 'tilt', spine01: 'tilt', spine02: 'chest', spine03: 'chest', neck01: 'chest',
+    clavicler: 'chest', claviclel: 'chest', upperarmr: 'shr', upperarml: 'shl', lowerarmr: 'elr', lowerarml: 'ell', handr: 'fistr', handl: 'fistl',
+    thighr: 'hipr', thighl: 'hipl', calfr: 'knr', calfl: 'knl', ballr: 'knr', balll: 'knl', ballleafr: 'knr', ballleafl: 'knl',
+  };
   const TEAR = { top: 1, under: 0.85, pants: 0.6, belt: 0.2, knot: 0.2, wrist: 0.15, boots: 0.3, plate: 0.35, robe: 0.8, vest: 0.9 };
   const norm = (n) => String(n).replace(/[^a-zA-Z0-9]/g, '');
+  const bkey = (n) => norm(n).toLowerCase();
   function loadGLB(url) {
     return new Promise((resolve, reject) => new THREE.GLTFLoader().load(url, resolve, undefined, reject));
   }
@@ -71,7 +79,7 @@
     gltf.scene.updateMatrixWorld(true);
     const parts = [], extras = [], extraIdx = {};
     const boneIndex = (b) => {
-      let n = norm(b.name);
+      let n = bkey(b.name);
       if (MERGE[n]) n = MERGE[n];
       if (CORE[n] != null) return CORE[n];
       if (extraIdx[n] == null) {
@@ -104,13 +112,22 @@
         });
       }
       const name = norm(o.name).replace(/[0-9]+$/, '') || 'part';
-      const matName = norm(o.material.name) || 'skin';
+      const matName = norm(o.material.name).replace(/[0-9]{3}$/, '') || 'skin'; // Blender may suffix duplicates (hair.001 -> hair)
+      const uv = g.attributes.uv ? new Float32Array(g.attributes.uv.array) : null;
       parts.push({
         name, mat: matName, pos: new Float32Array(pos.array), nrm: new Float32Array(nrm.array), idx: g.index.array,
-        si, sw: new Float32Array(sw.array), tear: TEAR[name] || 0, morphs, fromGLB: true,
+        si, sw: new Float32Array(sw.array), tear: TEAR[name] || 0, morphs, fromGLB: true, uv, map: o.material.map || null,
       });
     });
-    return { parts, extras, glb: true };
+    // models with their own full skeleton (e.g. Quaternius) also bring their joint positions and their own face
+    const joints = {};
+    gltf.scene.traverse((b) => {
+      if (!b.isBone) return;
+      const k = bkey(b.name);
+      if (/^(pelvis|head|upperarm[rl]|lowerarm[rl]|hand[rl]|thigh[rl]|calf[rl]|foot[rl])$/.test(k)) joints[k] = b.getWorldPosition(new THREE.Vector3()).toArray();
+    });
+    const own = !!joints.upperarmr;
+    return { parts, extras, glb: true, joints: own ? joints : null, noFace: own };
   }
 
   const key = (id, q) => `${id}:${q}:v${VERSION}`;
